@@ -4,6 +4,7 @@
 --   30:hold:X,Y,N       hold a finger for N frames
 --   30:key:z            love.keypressed / keyreleased
 --   30:drag:X1,Y1,X2,Y2,N  a finger from X1,Y1 to X2,Y2 over N frames
+--   30:pick:/path.png   hand the cover sticker editor a picture
 --   60:shot:/tmp/a.png  screenshot
 --   200:quit
 local D = {}
@@ -56,6 +57,9 @@ function D.start(script, M)
             local f = io.open(path, "wb")
             if f then f:write(img:encode("png"):getString()) f:close() end
           end)
+        elseif a.act == "pick" then
+          -- stands in for the platform picker in the sticker editor
+          print("pick", require("fold3ds.sticker").useFile(a.arg))
         elseif a.act == "drop" then
           local f = love.filesystem.newFile(a.arg)
           love.filedropped(f)

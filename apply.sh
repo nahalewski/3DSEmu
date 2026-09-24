@@ -12,8 +12,10 @@ fi
 cd "$HERE/build/gen1recomp"
 git fetch -q origin "$UPSTREAM_COMMIT" 2>/dev/null || true
 git checkout -q "$UPSTREAM_COMMIT"
-git checkout -q -- main.lua scripts/build_android.sh src/import/LauncherView.lua
-# the launcher's compact bottom-screen layout (active only under LauncherView.fold)
+git checkout -q -- main.lua scripts/build_android.sh src/import/LauncherView.lua \
+  mobile/android/love/src/jni/love/src/modules/system/System.cpp
+# the launcher's compact bottom-screen layout (active only under LauncherView.fold),
+# and the Android picker's "image" kind (the cover sticker)
 for p in "$HERE"/patches/*.patch; do git apply "$p"; done
 # the layer
 rm -rf fold3ds && cp -r "$HERE/fold3ds" fold3ds

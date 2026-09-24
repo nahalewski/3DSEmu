@@ -39,6 +39,7 @@ local real = {
   touchGetTouches = lt.getTouches, touchGetPosition = lt.getPosition,
 }
 local orig = {}   -- the engine's event handlers, wrapped by install()
+local Sticker = require("fold3ds.sticker")
 
 local DIR = "fold3ds/"
 -- shell art (full size); cut = the screen opening in the art's pixels
@@ -361,6 +362,7 @@ local function selectOpensMods(game)
 end
 
 local function press(btn, src)
+  if Sticker.editing() and state.kind ~= "game" then Sticker.button(btn) return end
   if btn == "cstick" then cycleScreen() return end
   if state.kind == "game" then
     if btn == "select" and selectOpensMods(state.subject) then return end
@@ -389,6 +391,7 @@ end
 
 local function release(btn, src)
   if btn == "cstick" then return end
+  if Sticker.editing() and state.kind ~= "game" then return end
   if src == "pad" and (btn == "up" or btn == "down") then state.padScroll = nil end
   if state.kind == "game" then
     local Input = gameInput()
@@ -466,6 +469,10 @@ end
 ---------------------------------------------------------------- events
 
 local topScreenTap   -- defined with the drawing (the launcher's top screen)
+-- the cover sticker editor owns both screens while it is open (launcher only)
+local function editingSticker()
+  return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Sticker.editing()
+end
 local function toVirtual(x, y)
   local r = state.vwin
   if not r then return x, y, false end
@@ -481,6 +488,7 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
   local b = buttonAt(x, y)
   if M.debug then print("fold3ds buttonAt -> " .. tostring(b and b.name)) end
   if b then holdStart(id, b, x, y) return end
+  if editingSticker() then Sticker.pressed(id, x, y, state.L.botCut, state.L.topCut) return end
   local dir = arrowAt(x, y)
   if dir then arrowStart(id, dir) return end
   if topScreenTap(x, y) then return end
@@ -502,6 +510,7 @@ local function onTouchMoved(id, x, y, dx, dy, pr)
     return orig.touchmoved and orig.touchmoved(id, x, y, dx, dy, pr)
   end
   if state.held[id] then holdMove(id, x, y) return end
+  if editingSticker() then Sticker.moved(id, x, y) return end
   if state.vtouch[id] then
     local lx, ly = toVirtual(x, y)
     state.vtouch[id] = { lx, ly }
@@ -515,6 +524,7 @@ local function onTouchReleased(id, x, y, dx, dy, pr)
     return orig.touchreleased and orig.touchreleased(id, x, y, dx, dy, pr)
   end
   if state.held[id] then holdEnd(id) return end
+  if editingSticker() then Sticker.released(id) return end
   if state.arrowHeld and state.arrowHeld.id == id then arrowEnd(id) return end
   if state.vtouch[id] then
     state.vtouch[id] = nil
@@ -533,6 +543,7 @@ local function onMousePressed(x, y, button, istouch, presses)
   if not istouch and button == 1 then
     local b = buttonAt(x, y)
     if b then holdStart("mouse", b, x, y) return end
+    if editingSticker() then Sticker.pressed("mouse", x, y, state.L.botCut, state.L.topCut) return end
     local dir = arrowAt(x, y)
     if dir then arrowStart("mouse", dir) return end
     if topScreenTap(x, y) then return end
@@ -547,6 +558,7 @@ local function onMouseMoved(x, y, dx, dy, istouch)
     return orig.mousemoved and orig.mousemoved(x, y, dx, dy, istouch)
   end
   if state.held.mouse then holdMove("mouse", x, y) return end
+  if editingSticker() then if not istouch then Sticker.moved("mouse", x, y) end return end
   local lx, ly = toVirtual(x, y)
   if orig.mousemoved then return orig.mousemoved(lx, ly, dx, dy, istouch) end
 end
@@ -557,6 +569,7 @@ local function onMouseReleased(x, y, button, istouch, presses)
     return orig.mousereleased and orig.mousereleased(x, y, button, istouch, presses)
   end
   if state.held.mouse and not istouch then holdEnd("mouse") return end
+  if editingSticker() then if not istouch then Sticker.released("mouse") end return end
   if not istouch and state.arrowHeld and state.arrowHeld.id == "mouse" then arrowEnd("mouse") return end
   local lx, ly = toVirtual(x, y)
   if orig.mousereleased then return orig.mousereleased(lx, ly, button, istouch, presses) end
@@ -778,27 +791,35 @@ local function drawToast(r)
   lg.printf(t.text, x, y + (th - f:getHeight()) / 2, tw, "center")
 end
 
-local function drawLid(W, H)
+-- The closed lid, as large as a rect holds (turned on its side when
+-- `portrait`), with the player's sticker on it.
+local function drawLidIn(x, y, W, H, portrait)
   local lid = image(LID)
-  lg.setColor(0.16, 0.16, 0.17, 1)
-  lg.rectangle("fill", 0, 0, W, H)
   if not lid then return end
-  -- only the shell itself (the art's opaque box), as big as the screen
-  -- holds with a thin margin
-  local cx, cy, cw, ch = LID_BOX[1], LID_BOX[2], LID_BOX[3], LID_BOX[4]
-  state.lidQuad = state.lidQuad or lg.newQuad(cx, cy, cw, ch, lid:getDimensions())
-  local portrait = H > W * 1.1
+  -- only the shell itself (the art's opaque box), as big as the rect holds
+  -- with a thin margin
+  local cw, ch = LID_BOX[3], LID_BOX[4]
+  state.lidQuad = state.lidQuad or lg.newQuad(LID_BOX[1], LID_BOX[2], cw, ch, lid:getDimensions())
   local aw, ah = W, H
   if portrait then aw, ah = H, W end
   local s = math.min(aw / cw, ah / ch) * 0.98
+  local ox, oy = math.floor((aw - cw * s) / 2), math.floor((ah - ch * s) / 2)
   lg.push()
+  lg.translate(x, y)
   if portrait then
     lg.translate(W, 0)
     lg.rotate(math.pi / 2)
   end
   lg.setColor(1, 1, 1, 1)
-  lg.draw(lid, state.lidQuad, math.floor((aw - cw * s) / 2), math.floor((ah - ch * s) / 2), 0, s, s)
+  lg.draw(lid, state.lidQuad, ox, oy, 0, s, s)
+  Sticker.drawOnLid(ox, oy, s, cw, ch)
   lg.pop()
+end
+
+local function drawLid(W, H)
+  lg.setColor(0.16, 0.16, 0.17, 1)
+  lg.rectangle("fill", 0, 0, W, H)
+  drawLidIn(0, 0, W, H, H > W * 1.1)
 end
 
 local function drawFrame()
@@ -834,6 +855,10 @@ local function drawFrame()
     else
       drawIdle(L.botCut)
     end
+  elseif Sticker.editing() then
+    -- the cover sticker editor: the cover on top, the tools below
+    Sticker.drawPreview(L.topCut, drawLidIn)
+    Sticker.drawEditor(L.botCut)
   else
     drawTopIdle(L.topCut)
     lg.setColor(1, 1, 1, 1)
@@ -880,8 +905,14 @@ function backend:update(dt)
   -- the launcher's compact bottom-screen layout
   do
     local ok, LV = pcall(require, "src.import.LauncherView")
-    if ok and type(LV) == "table" then LV.fold = state.mode == "ds" or nil end
+    if ok and type(LV) == "table" then
+      LV.fold = state.mode == "ds" or nil
+      LV.foldSticker = LV.foldSticker or {
+        has = Sticker.has, open = Sticker.open, remove = Sticker.remove,
+      }
+    end
   end
+  Sticker.update()
   -- held scroll arrow / d-pad: repeat
   local now = state.time
   for i = 1, 2 do
@@ -1108,6 +1139,7 @@ function M.install()
   if M.installed then return end
   M.installed = true
   loadSettings()
+  Sticker.init({ setCanvas = real.setCanvas, font = font })
   seedModIndex()
   wrapSettings()
   -- the virtual window: size, mode, safe area, pointer queries
