@@ -48,7 +48,11 @@ upstream's own Android build script.
   size and order are remembered.  Tap to select, tap again or A to open;
   Manual opens a game's manage page.  An opened icon shows its page
   (light theme: white panels, HOME-menu blue selection) under a back bar;
-  back, B or HOME returns to the menu.  Tile icons come from
+  back, B or HOME returns to the menu.  The top screen is the 3DS's
+  too: the status bar (signal, Internet, the play coins, date and time,
+  battery), the tiled wallpaper with the selected game's 3D cartridge on
+  it (the launcher's own, with its skin), and the game's name; tapping it
+  plays a ready game.  Tile icons come from
   `fold3ds/icons3ds/<id>.png`, with stand-ins until they exist.  And a *COVER STICKER* card puts
   a picture of your own on the closed lid: pick it from the phone, crop it
   (drag the frame or its corners), round its corners, size it, keep or drop

@@ -1,5 +1,5 @@
 diff --git a/src/import/LauncherView.lua b/src/import/LauncherView.lua
-index 8ef7511d..b31acc92 100644
+index 8ef7511d..a9210999 100644
 --- a/src/import/LauncherView.lua
 +++ b/src/import/LauncherView.lua
 @@ -156,6 +156,8 @@ local function armMouse(imp, x, y)
@@ -456,3 +456,38 @@ index 8ef7511d..b31acc92 100644
    -- One column stacks the ROM card and the slot card in a single pile, so it
    -- needs more room than the side-by-side layout; two columns only have to
    -- fit the taller of the two.  Both numbers came DOWN sharply when the
+@@ -6869,6 +7128,34 @@ function LauncherView.draw(imp)
+     imp:_commitOnlineField()
+   end
+   imp._onlineFieldHit = nil
++  -- FOLD, 3DS theme: the selected game's cartridge, drawn into the canvas
++  -- the foldable layer shows on the top screen.  Inert: no clicks, no
++  -- focus, the pointer parked at its centre so it only idles.
++  local topCart = LauncherView.foldTopCart
++  if topCart and topCart.canvas and topCart.version then
++    local cw, ch = topCart.canvas:getDimensions()
++    local block, mx, my = Kit.blockClicks, Kit.mouseX, Kit.mouseY
++    Kit.blockClicks = true
++    Kit.mouseX, Kit.mouseY = cw / 2, ch / 2
++    love.graphics.push("all")
++    love.graphics.setCanvas({ topCart.canvas, stencil = true })
++    love.graphics.origin()
++    love.graphics.setScissor()
++    love.graphics.clear(0, 0, 0, 0)
++    local version = topCart.version
++    local skin = cartSkin(imp, version)
++    local h = math.floor(ch * 0.9)
++    local w = math.floor(h * 0.88)
++    if skin.shape == "gba" then
++      w = math.floor(cw * 0.8)
++      h = math.floor(math.min(ch * 0.8, w / CartShape.GBA_ASPECT))
++      w = math.floor(h * CartShape.GBA_ASPECT)
++    end
++    pcall(cartridgeButton, imp, math.floor((cw - w) / 2), math.floor((ch - h) / 2), w, h,
++      "topcart-" .. version, skin, function() end, version)
++    love.graphics.pop()
++    Kit.blockClicks, Kit.mouseX, Kit.mouseY = block, mx, my
++  end
+   Kit.endFrame()
+   drawPadCursor(imp)
+ 

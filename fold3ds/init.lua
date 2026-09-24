@@ -743,13 +743,130 @@ local function drawTopIdle(r)
     r.x, r.y + r.h - cf:getHeight() * 2.1, r.w, "center")
 end
 
+-- The 3DS theme's top screen, as the 3DS draws its own: the status bar
+-- (signal, Internet, the play coins, date and time, battery), the tiled
+-- wallpaper with the selected game's cartridge on it (the launcher's own
+-- 3D cartridge, drawn into state.canvases.topcart), and the game's name.
+local function col3(c, a) lg.setColor(c[1] / 255, c[2] / 255, c[3] / 255, a or 1) end
+
+local function topPanel(r)
+  local sh = math.floor(r.h * 0.13)
+  local pad = math.floor(r.w * 0.02)
+  local nh = math.floor(r.h * 0.12)
+  return { x = r.x + pad, y = r.y + sh + pad, w = r.w - 2 * pad, h = r.h - sh - nh - 2 * pad }, sh, nh, pad
+end
+
+local function drawTop3DS(r)
+  lg.push("all")
+  lg.setScissor(r.x, r.y, r.w, r.h)
+  col3({ 250, 251, 252 })
+  lg.rectangle("fill", r.x, r.y, r.w, r.h)
+  local P, sh, nh, pad = topPanel(r)
+  -- status bar
+  local cy = r.y + pad * 0.6 + sh / 2
+  local bh = sh * 0.7
+  local x = r.x + pad
+  for i = 1, 4 do
+    col3({ 20, 150, 210 })
+    local h = bh * (0.35 + 0.65 * i / 4)
+    lg.rectangle("fill", x + (i - 1) * bh * 0.2, cy + bh / 2 - h, bh * 0.14, h)
+  end
+  x = x + bh * 0.95
+  local iw = r.w * 0.22
+  col3({ 40, 150, 230 })
+  lg.rectangle("fill", x, cy - bh / 2, iw, bh, bh * 0.25, bh * 0.25)
+  col3({ 120, 200, 250 }, 0.6)
+  lg.rectangle("fill", x + bh * 0.1, cy - bh * 0.42, iw - bh * 0.2, bh * 0.35, bh * 0.15, bh * 0.15)
+  local f = font(bh * 0.72)
+  lg.setFont(f)
+  lg.setColor(1, 1, 1, 1)
+  lg.printf("Internet", x, cy - f:getHeight() / 2, iw, "center")
+  x = x + iw + bh * 0.5
+  local count = Home.coins()
+  col3({ 214, 160, 10 })
+  lg.circle("fill", x + bh / 2, cy, bh / 2)
+  col3({ 250, 206, 40 })
+  lg.circle("fill", x + bh / 2, cy, bh * 0.42)
+  col3({ 70, 72, 78 })
+  lg.print(tostring(count), x + bh * 1.2, cy - f:getHeight() / 2)
+  -- battery, then the date and time left of it
+  local batW = bh * 1.5
+  local bx = r.x + r.w - pad - batW
+  local pct = 1
+  if love.system.getPowerInfo then
+    local _, pc = love.system.getPowerInfo()
+    if pc then pct = pc / 100 end
+  end
+  col3({ 60, 62, 68 })
+  lg.rectangle("fill", bx, cy - bh * 0.38, batW, bh * 0.76, bh * 0.15, bh * 0.15)
+  lg.rectangle("fill", bx - bh * 0.12, cy - bh * 0.18, bh * 0.14, bh * 0.36)
+  lg.setColor(1, 1, 1, 1)
+  lg.rectangle("fill", bx + bh * 0.08, cy - bh * 0.3, batW - bh * 0.16, bh * 0.6, bh * 0.1, bh * 0.1)
+  col3({ 30, 150, 230 })
+  local fw = (batW - bh * 0.26) * math.max(0.05, math.min(1, pct))
+  lg.rectangle("fill", bx + batW - bh * 0.13 - fw, cy - bh * 0.25, fw, bh * 0.5, bh * 0.08, bh * 0.08)
+  local t = os.date("*t")
+  local days = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" }
+  local stamp = ("%d/%d (%s) %d:%02d"):format(t.month, t.day, days[t.wday], t.hour, t.min)
+  local dw = f:getWidth(stamp) + bh
+  local dx = bx - bh * 0.4 - dw
+  col3({ 244, 245, 247 })
+  lg.rectangle("fill", dx, cy - bh / 2, dw, bh, bh * 0.4, bh * 0.4)
+  col3({ 200, 203, 210 })
+  lg.rectangle("line", dx, cy - bh / 2, dw, bh, bh * 0.4, bh * 0.4)
+  col3({ 60, 62, 68 })
+  lg.printf(stamp, dx, cy - f:getHeight() / 2, dw, "center")
+  -- the wallpaper panel: pale tiles on grey
+  lg.stencil(function() lg.rectangle("fill", P.x, P.y, P.w, P.h, P.h * 0.05, P.h * 0.05) end, "replace", 1)
+  lg.setStencilTest("greater", 0)
+  col3({ 206, 210, 218 })
+  lg.rectangle("fill", P.x, P.y, P.w, P.h)
+  local ts = P.h / 3.2
+  local step = ts * 1.08
+  for i = -1, math.ceil(P.w / step) do
+    for j = 0, 3 do
+      local tx = P.x + i * step + step * 0.35
+      local ty = P.y + j * step - step * 0.45
+      col3({ 226, 229, 235 })
+      lg.rectangle("fill", tx, ty, ts * 0.92, ts * 0.9, ts * 0.12, ts * 0.12)
+      col3({ 236, 238, 243 }, 0.8)
+      lg.rectangle("fill", tx + ts * 0.18, ty + ts * 0.18, ts * 0.56, ts * 0.54, ts * 0.08, ts * 0.08)
+    end
+  end
+  lg.setStencilTest()
+  -- the selected game's cartridge
+  local c = state.canvases.topcart
+  if c then
+    lg.setColor(1, 1, 1, 1)
+    lg.draw(c, P.x, P.y)
+  end
+  -- the game's name under the panel
+  local imp = state.subject
+  local version = launcherVersion()
+  local ok, GV = pcall(require, "src.core.GameVersion")
+  local info = ok and GV.info and GV.info(version)
+  local ready = imp and imp.ready and imp.ready[version]
+  local nf = font(nh * 0.6)
+  lg.setFont(nf)
+  col3({ 70, 72, 78 })
+  local name = (info and info.displayName or version) .. (ready and "" or "   -   import the ROM")
+  lg.printf(name, r.x, r.y + r.h - nh - pad * 0.3 + (nh - nf:getHeight()) / 2, r.w, "center")
+  lg.pop()
+end
+M.topPanel = topPanel
+
 -- a tap on the top screen while the launcher shows: arrows change the
--- game, the cart plays it
+-- game, the cart plays it (the 3DS theme: the whole screen plays it)
 topScreenTap = function(x, y)
   local L = state.L
   if not L or state.kind == "game" or not inside(L.topCut, x, y) then return false end
   local imp = state.subject
   if not imp then return true end
+  if Theme3DS.active then
+    local version = launcherVersion()
+    if imp.ready and imp.ready[version] and imp.play then pcall(imp.play, imp, version, true) end
+    return true
+  end
   local rel = (x - L.topCut.x) / L.topCut.w
   local ok, GV = pcall(require, "src.core.GameVersion")
   local order = ok and GV.ORDER or { "red" }
@@ -906,10 +1023,10 @@ local function drawFrame()
     Sticker.drawPreview(L.topCut, drawLidIn)
     Sticker.drawEditor(L.botCut)
   elseif homeActive() and Home.showing() then
-    drawTopIdle(L.topCut)
+    if Theme3DS.active then drawTop3DS(L.topCut) else drawTopIdle(L.topCut) end
     Home.draw(L.botCut, state.subject, state.time)
   else
-    drawTopIdle(L.topCut)
+    if Theme3DS.active then drawTop3DS(L.topCut) else drawTopIdle(L.topCut) end
     lg.setColor(1, 1, 1, 1)
     local vr = state.vwin or L.botView
     if canvas then lg.draw(canvas, vr.x, vr.y) end
@@ -1040,6 +1157,19 @@ function backend:beginFrame(kind, subject)
       for i = base, #full do menus[#menus + 1] = full[i] end
       state.split = { stack = subject.stack, full = full, top = top, menus = menus }
       subject.stack.states = top
+    end
+  end
+  -- the 3DS theme's top screen cartridge, painted by the launcher itself
+  do
+    local ok, LV = pcall(require, "src.import.LauncherView")
+    if ok and type(LV) == "table" then
+      if kind ~= "game" and Theme3DS.active then
+        local P = topPanel(state.L.topCut)
+        LV.foldTopCart = { canvas = canvasFor("topcart", { w = math.floor(P.w), h = math.floor(P.h) }),
+                           version = launcherVersion() }
+      else
+        LV.foldTopCart = nil
+      end
     end
   end
   state.frameCanvas = c
