@@ -36,10 +36,12 @@ upstream's own Android build script.
   GAMES mark that used to sit under every page.
 * **SKINS (fold)**: a *THEME* card switches the bottom screen between
   *Classic* and *3DS*.  The 3DS theme turns the bottom screen into the 3DS HOME
-  menu: the applet bar (Settings, Mods, Find, Online, Skins, Import) with
-  the two icon-size buttons, the icon grid (every game, Save Sync, Exit)
+  menu: the applet bar (Settings, Mods, Find, Online, Skins, Import, Save
+  Sync, Exit) with the two icon-size buttons, the icon grid (every game)
   filling down then across on a strip you swipe or flick sideways, the
-  name bubble over the selected icon at one row, and Manual / Open.  Five
+  name bubble over the selected icon at one row, the play meter (the
+  blue bar fills with time in the app; every 12 hours full pays a coin,
+  up to 99999) and Manual / Open.  Five
   sizes, 1 row of 4 across to 5 rows of 9 across (size buttons, a pinch,
   or X / Y), and every change animates the icons from their old slots to
   their new ones.  Hold an icon until it lifts to drag it somewhere else;

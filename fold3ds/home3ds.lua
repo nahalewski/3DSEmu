@@ -1,11 +1,14 @@
 -- The 3DS theme's HOME menu, as the 3DS draws its bottom screen:
 --
 --   * the applet bar across the top -- Settings, Mods, Find, Online, Skins,
---     Import -- with the two icon-size buttons on its right;
---   * the icon grid: one tile per game plus Save Sync and Exit, laid out in
---     columns (down, then across) on one strip that scrolls sideways under
---     a finger (with a flick's momentum) or the d-pad;
+--     Import, Save Sync, Exit -- with the two icon-size buttons on its right;
+--   * the icon grid: one tile per game, laid out in columns (down, then
+--     across) on one strip that scrolls sideways under a finger (with a
+--     flick's momentum) or the d-pad;
 --   * at one row, the selected tile's name in a speech bubble above it;
+--   * the play meter: the blue bar fills with time spent in the app, and
+--     every 12 hours it fills it pays a coin and starts over (up to 99999
+--     coins, kept in fold3ds_coins.cfg);
 --   * the Manual / Open bar across the bottom.
 --
 -- Sizes: 1 row of 4 across up to 5 rows of 9 across (the size buttons, a
@@ -53,13 +56,15 @@ local APPLETS = {
   { id = "online", name = "Online", icon = "globe", color = { 30, 170, 170 }, tab = "online" },
   { id = "skins", name = "Skins", icon = "paintbrush", color = { 40, 130, 230 }, tab = "skins" },
   { id = "importers", name = "Import", icon = "download", color = { 90, 180, 60 }, tab = "importers" },
+  { id = "sync", name = "Save Sync", icon = "arrow-left-right", color = { 20, 170, 170 }, modal = "sync" },
+  { id = "exit", name = "Exit", icon = "x", color = { 226, 56, 60 }, exit = true },
 }
--- tiles in the grid besides the games
-local EXTRA = {
-  sync = { id = "sync", name = "Save Sync", sub = "Your saves on your devices", icon = "arrow-left-right",
-           color = { 20, 170, 170 }, modal = "sync" },
-  exit = { id = "exit", name = "Exit", sub = "Close gen1recomp", icon = "x", color = { 226, 56, 60 }, exit = true },
-}
+
+-- the play meter: seconds toward the next coin, and the coins
+local COIN_FILE = "fold3ds_coins.cfg"
+local COIN_SECONDS = 12 * 60 * 60
+local COIN_MAX = 99999
+local coins = { seconds = 0, count = 0, dirty = 0, loaded = false }
 
 local st = {
   open = nil,          -- the opened tile, or nil while the grid shows
@@ -120,9 +125,6 @@ local function allTiles(imp)
       ready = imp and imp.ready and imp.ready[v] }
     ids[#ids + 1] = v
   end
-  for _, id in ipairs({ "sync", "exit" }) do
-    if not (id == "exit" and imp and imp.ios) then byId[id] = EXTRA[id]; ids[#ids + 1] = id end
-  end
   return byId, ids
 end
 
@@ -144,7 +146,40 @@ end
 
 function H.showing() return st.open == nil end
 function H.opened() return st.open end
-function H.init(context) ctx = context; load() end
+---------------------------------------------------------------- play meter
+
+local function loadCoins()
+  coins.loaded = true
+  local ok, text = pcall(love.filesystem.read, COIN_FILE)
+  text = ok and type(text) == "string" and text or ""
+  coins.seconds = tonumber(text:match("seconds=([%d%.]+)")) or 0
+  coins.count = math.min(COIN_MAX, math.floor(tonumber(text:match("coins=(%d+)")) or 0))
+end
+
+local function saveCoins()
+  pcall(love.filesystem.write, COIN_FILE,
+    ("seconds=%.1f\ncoins=%d\n"):format(coins.seconds, coins.count))
+  coins.dirty = 0
+end
+
+-- every frame the app runs (launcher or game): the meter fills; a full
+-- meter pays a coin and starts over.  Saved every half minute and on quit.
+function H.tick(dt)
+  if not coins.loaded then loadCoins() end
+  dt = math.max(0, math.min(dt or 0, 1))
+  coins.seconds = coins.seconds + dt
+  while coins.seconds >= COIN_SECONDS do
+    coins.seconds = coins.seconds - COIN_SECONDS
+    coins.count = math.min(COIN_MAX, coins.count + 1)
+  end
+  coins.dirty = coins.dirty + dt
+  if coins.dirty >= 30 then saveCoins() end
+end
+
+function H.saveCoins() if coins.loaded then saveCoins() end end
+function H.coins() return coins.count, coins.seconds / COIN_SECONDS end
+
+function H.init(context) ctx = context; load(); loadCoins() end
 
 ---------------------------------------------------------------- actions
 
@@ -387,7 +422,9 @@ function H.draw(r, imp, time)
 
   local obH = math.floor(r.h * 0.14)
   local oy = r.y + r.h - obH
-  local g = { x = r.x, y = r.y + barH + pad, w = r.w, h = oy - (r.y + barH + pad) - pad }
+  local mh = math.floor(r.h * 0.075)         -- the play meter row
+  local my = oy - mh - pad
+  local g = { x = r.x, y = r.y + barH + pad, w = r.w, h = my - (r.y + barH + pad) - pad }
   st.grid = g
   local G = geometry(st.level, g)
   local Gp = geometry(st.prevLevel, g)
@@ -505,6 +542,36 @@ function H.draw(r, imp, time)
     end
   end
   lg.setScissor(r.x, r.y, r.w, r.h)
+
+  -- the play meter and the coins
+  do
+    local count, frac = H.coins()
+    local bw = r.w * 0.42
+    local bx = r.x + pad * 2
+    col({ 20, 190, 220 })
+    roundRect("fill", bx, my, bw, mh, mh / 2)
+    col({ 190, 240, 250 })
+    roundRect("fill", bx + mh * 0.14, my + mh * 0.14, bw - mh * 0.28, mh * 0.72, mh * 0.36)
+    local fw = (bw - mh * 0.28) * math.max(0, math.min(1, frac))
+    if fw > 0.5 then
+      col({ 40, 215, 240 })
+      roundRect("fill", bx + mh * 0.14, my + mh * 0.14, math.max(fw, mh * 0.72), mh * 0.72, mh * 0.36)
+      col({ 255, 255, 255 }, 0.4)
+      roundRect("fill", bx + mh * 0.25, my + mh * 0.2, math.max(fw - mh * 0.22, 0), mh * 0.2, mh * 0.1)
+    end
+    local cx, cy, cr = bx + bw + mh * 1.1, my + mh / 2, mh * 0.62
+    col({ 214, 160, 10 })
+    lg.circle("fill", cx, cy, cr)
+    col({ 250, 206, 40 })
+    lg.circle("fill", cx, cy, cr * 0.84)
+    col({ 214, 160, 10 })
+    lg.rectangle("fill", cx - cr * 0.3, cy - cr * 0.45, cr * 0.18, cr * 0.9)
+    lg.rectangle("fill", cx + cr * 0.12, cy - cr * 0.45, cr * 0.18, cr * 0.9)
+    local cf = ctx.font(mh * 1.05)
+    lg.setFont(cf)
+    col({ 80, 82, 88 })
+    lg.print(tostring(count), cx + cr * 1.6, cy - cf:getHeight() / 2)
+  end
 
   -- Manual / Open
   col({ 250, 250, 252 })

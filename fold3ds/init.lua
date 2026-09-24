@@ -938,6 +938,7 @@ local backend = {}
 local dbgFrames = 0
 function backend:update(dt)
   state.time = state.time + (dt or 0)
+  Home.tick(dt)   -- the play meter runs whenever the app does
   if M.debug and dbgFrames < 3 then dbgFrames = dbgFrames + 1 io.stdout:setvbuf("no") print("fold3ds update mode=" .. tostring(state.mode) .. " kind=" .. tostring(state.kind)) end
   if M.driverTick then M.driverTick() end
   local mode = detectMode()
@@ -1272,6 +1273,12 @@ function M.install()
       -- the launcher's desktop window manager would resize it back
       lw.setMode = function() return true end
     end
+  end
+  -- keep the play meter's last seconds when the app closes
+  local quit = love.quit
+  love.quit = function(...)
+    pcall(Home.saveCoins)
+    if quit then return quit(...) end
   end
   local script = os.getenv and os.getenv("POKEPORT_FOLD_TEST")
   if script then
