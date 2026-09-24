@@ -772,6 +772,13 @@ function H.button(imp, name)
   if name == "a" then openTile(imp, tiles[s]) return true end
   if name == "x" and g then setLevel(st.level - 1, g, n) return true end
   if name == "y" and g then setLevel(st.level + 1, g, n) return true end
+  -- ZL / ZR resize; L / R scroll the strip a screen at a time
+  if name == "zr" and g then setLevel(st.level - 1, g, n) return true end
+  if name == "zl" and g then setLevel(st.level + 1, g, n) return true end
+  if (name == "l" or name == "r") and g then
+    st.vel = (name == "r" and 1 or -1) * g.w * 3.2
+    return true
+  end
   if name == "up" then if (s - 1) % rows > 0 then s = s - 1 end
   elseif name == "down" then if (s - 1) % rows < rows - 1 and s < n then s = s + 1 end
   elseif name == "left" then s = s - rows

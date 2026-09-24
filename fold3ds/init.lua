@@ -69,9 +69,24 @@ local BUTTONS = {
 }
 -- game buttons (Input names) and launcher buttons (SDL gamepad names)
 local GAME_BTN = { a = "a", b = "b", x = "r", y = "l", start = "start", select = "select",
-                   up = "up", down = "down", left = "left", right = "right" }
+                   up = "up", down = "down", left = "left", right = "right", l = "l", r = "r" }
 local PAD_BTN = { a = "a", b = "b", x = "x", y = "y", start = "start", select = "back",
-                  up = "dpup", down = "dpdown", left = "dpleft", right = "dpright" }
+                  up = "dpup", down = "dpdown", left = "dpleft", right = "dpright",
+                  l = "leftshoulder", r = "rightshoulder", zl = "triggerleft", zr = "triggerright" }
+-- ZL / ZR in game: the controller triggers (game speed down / up)
+local GAME_TRIGGER = { zl = "lefttrigger", zr = "righttrigger" }
+
+-- The shoulder buttons: L over ZL at the middle of the left edge, R over ZR
+-- at the middle of the right, straddling the hinge.  They fade away when
+-- nothing touches that edge and come back at a touch; Settings can hide
+-- them for good.
+local SHOULDERS = {
+  { name = "l", label = "L", side = -1, slot = 0 },
+  { name = "zl", label = "ZL", side = -1, slot = 1 },
+  { name = "r", label = "R", side = 1, slot = 0 },
+  { name = "zr", label = "ZR", side = 1, slot = 1 },
+}
+local SHOULDER_SHOW, SHOULDER_FADE = 3.0, 0.6
 
 local state = {
   mode = "off",          -- off | lid | ds
@@ -90,6 +105,8 @@ local state = {
   time = 0,
   screenMode = nil,      -- gbc | wide | full (the game's top screen shape)
   theme = "classic",     -- classic | 3ds (the bottom-screen launcher's look)
+  shoulders = true,      -- L / ZL / R / ZR shown at the sides
+  shoulderSeen = -10,    -- when an edge was last touched (they fade after)
   toast = nil,           -- { text, at } shown over the top screen
   arrowHeld = nil,       -- { dir, id, next } an on-screen scroll arrow held
   padScroll = nil,       -- { dir, next } the d-pad held up / down in the launcher
@@ -121,11 +138,12 @@ local function loadSettings()
   local mode = text:match("screen=(%a+)")
   state.screenMode = (mode == "gbc" or mode == "wide" or mode == "full") and mode or "gbc"
   state.theme = text:match("theme=(%w+)") == "3ds" and "3ds" or "classic"
+  state.shoulders = text:match("shoulders=(%d)") ~= "0"
 end
 
 local function saveSettings()
   pcall(love.filesystem.write, SETTINGS_FILE, "screen=" .. tostring(state.screenMode)
-    .. "\ntheme=" .. tostring(state.theme) .. "\n")
+    .. "\ntheme=" .. tostring(state.theme) .. "\nshoulders=" .. (state.shoulders and "1" or "0") .. "\n")
 end
 
 -- physical pixels per LOVE unit (Android runs high-DPI: a unit is several pixels)
@@ -233,9 +251,36 @@ end
 ---------------------------------------------------------------- buttons
 
 -- the shell button under a point (bottom half, outside the screen)
+-- where each shoulder button sits: the margin beside the shells (or over
+-- their edge on a narrow screen), centred on the hinge
+local function shoulderRect(L, sb)
+  local margin = math.max(L.bottom.x, L.top.x)
+  local w = math.max(math.min(margin * 0.8, L.W * 0.1), L.W * 0.06)
+  local h = math.min(L.H * 0.11, w * 1.1)
+  local gap = h * 0.25
+  local x = sb.side < 0 and math.max(4, (margin - w) / 2) or L.W - math.max(4, (margin - w) / 2) - w
+  local y = L.topH - h - gap / 2 + sb.slot * (h + gap)
+  return { x = x, y = y, w = w, h = h }
+end
+
+-- the edge strips that wake the shoulder buttons
+local function shoulderZone(L, x, y)
+  local margin = math.max(L.bottom.x, L.top.x, L.W * 0.06)
+  return (x < margin or x > L.W - margin) and math.abs(y - L.topH) < L.H * 0.25
+end
+
 local function buttonAt(x, y)
   local L = state.L
   if M.debug then print("fold3ds buttonAt L=" .. tostring(L) .. " topH=" .. tostring(L and L.topH)) end
+  if L and state.shoulders then
+    for _, sb in ipairs(SHOULDERS) do
+      local r = shoulderRect(L, sb)
+      if x >= r.x - 6 and x <= r.x + r.w + 6 and y >= r.y - 4 and y <= r.y + r.h + 4 then
+        state.shoulderSeen = state.time
+        return sb
+      end
+    end
+  end
   if not L or y < L.topH then return nil end
   for _, b in ipairs(BUTTONS) do
     if M.debug then print("fold3ds  check " .. b.name) end
@@ -382,6 +427,11 @@ local function press(btn, src)
   if btn == "cstick" then cycleScreen() return end
   if state.kind == "game" then
     if btn == "select" and selectOpensMods(state.subject) then return end
+    if GAME_TRIGGER[btn] then
+      local g = state.subject
+      if g and g.gamepadpressed then pcall(g.gamepadpressed, g, nil, GAME_TRIGGER[btn]) end
+      return
+    end
     if btn == "home" then
       -- HOME: back to the launcher (the engine turns quit into a return)
       love.event.quit()
@@ -421,6 +471,11 @@ local function release(btn, src)
   if btn == "cstick" then return end
   if Sticker.editing() and state.kind ~= "game" then return end
   if src == "pad" and (btn == "up" or btn == "down") then state.padScroll = nil end
+  if state.kind == "game" and GAME_TRIGGER[btn] then
+    local g = state.subject
+    if g and g.gamepadreleased then pcall(g.gamepadreleased, g, nil, GAME_TRIGGER[btn]) end
+    return
+  end
   if state.kind == "game" then
     local Input = gameInput()
     if Input and Input.overlayReleased and GAME_BTN[btn] then Input:overlayReleased(GAME_BTN[btn]) end
@@ -523,6 +578,7 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
     if state.mode == "lid" then return end
     return orig.touchpressed and orig.touchpressed(id, x, y, dx, dy, pr)
   end
+  if state.L and shoulderZone(state.L, x, y) then state.shoulderSeen = state.time end
   local b = buttonAt(x, y)
   if M.debug then print("fold3ds buttonAt -> " .. tostring(b and b.name)) end
   if b then holdStart(id, b, x, y) return end
@@ -883,6 +939,37 @@ topScreenTap = function(x, y)
   return true
 end
 
+local function drawShoulders(L)
+  if not state.shoulders then return end
+  local age = state.time - state.shoulderSeen
+  for _, sb in ipairs(SHOULDERS) do
+    local lit = buttonLit(sb)
+    if lit then state.shoulderSeen = state.time; age = 0 end
+  end
+  local alpha = 1 - math.max(0, math.min(1, (age - SHOULDER_SHOW) / SHOULDER_FADE))
+  if alpha <= 0.01 then return end
+  lg.push("all")
+  for _, sb in ipairs(SHOULDERS) do
+    local r = shoulderRect(L, sb)
+    local lit = buttonLit(sb)
+    local rad = r.h * 0.35
+    lg.setColor(0, 0, 0, 0.35 * alpha)
+    lg.rectangle("fill", r.x + 1, r.y + r.h * 0.08, r.w, r.h, rad, rad)
+    if lit then lg.setColor(0.52, 0.53, 0.56, alpha) else lg.setColor(0.24, 0.25, 0.27, alpha) end
+    lg.rectangle("fill", r.x, r.y + (lit and r.h * 0.05 or 0), r.w, r.h, rad, rad)
+    lg.setColor(1, 1, 1, 0.12 * alpha)
+    lg.rectangle("fill", r.x + r.w * 0.08, r.y + r.h * 0.08, r.w * 0.84, r.h * 0.3, rad * 0.6, rad * 0.6)
+    lg.setColor(0.06, 0.06, 0.07, alpha)
+    lg.setLineWidth(1.5)
+    lg.rectangle("line", r.x, r.y + (lit and r.h * 0.05 or 0), r.w, r.h, rad, rad)
+    local f = font(r.h * 0.46)
+    lg.setFont(f)
+    lg.setColor(0.93, 0.93, 0.95, alpha)
+    lg.printf(sb.label, r.x, r.y + (lit and r.h * 0.05 or 0) + (r.h - f:getHeight()) / 2, r.w, "center")
+  end
+  lg.pop()
+end
+
 local function drawButtons(L)
   local sheet = image(SHEET)
   if not sheet then return end
@@ -1044,6 +1131,7 @@ local function drawFrame()
   end
   lg.draw(L.bottom.img, L.bottom.x, L.bottom.y, 0, L.bottom.sc, L.bottom.sc)
   drawButtons(L)
+  drawShoulders(L)
   drawToast(state.kind == "game" and gr or L.topCut)
   lg.pop()
 end
@@ -1316,6 +1404,22 @@ local function aboutSection(imp)
   return { title = S("About"), rows = rows }
 end
 
+-- the 3DS shell's own options
+local function controlsSection()
+  local okS, Strings = pcall(require, "src.core.Strings")
+  local S = okS and Strings or function(x) return x end
+  return { title = S("3DS Shell"), rows = {
+    { label = S("L / ZL / R / ZR buttons"),
+      choices = { { value = "on", label = S("On") }, { value = "off", label = S("Off") } },
+      selected = function() return state.shoulders and "on" or "off" end,
+      select = function(v)
+        state.shoulders = v == "on"
+        state.shoulderSeen = state.time
+        saveSettings()
+      end },
+  } }
+end
+
 local function wrapSettings()
   local ok, RomImporter = pcall(require, "src.import.RomImporter")
   if not ok or type(RomImporter) ~= "table" or not RomImporter._openSettings then return end
@@ -1324,7 +1428,10 @@ local function wrapSettings()
     local r = open(self, ...)
     local model = self._settings
     if state.mode == "ds" and model and type(model.sections) == "table" then
-      pcall(function() model.sections[#model.sections + 1] = aboutSection(self) end)
+      pcall(function()
+        model.sections[#model.sections + 1] = controlsSection()
+        model.sections[#model.sections + 1] = aboutSection(self)
+      end)
     end
     return r
   end

@@ -22,6 +22,13 @@ upstream's own Android build script.
   GAME BOY COLOR (the 10:9 screen at a whole pixel scale), WIDESCREEN (the
   whole screen opening) and FULL SCREEN (the whole top panel, over the
   Game Boy Color frame).  The choice is remembered.
+* **L / ZL / R / ZR**: L over ZL at the middle of the left edge, R over
+  ZR at the right, beside the hinge.  They fade out when nothing touches
+  that edge and come back at a touch.  In game L / R are the GBA's L / R
+  (FireRed / LeafGreen) and ZL / ZR slow the game down / speed it up; in
+  the launcher L / R change tabs and ZL / ZR fast-scroll; on the 3DS HOME
+  menu L / R scroll the icons and ZL / ZR change their size.  Settings >
+  3DS Shell turns them off.
 * **Menus on the bottom screen**: START's menu (and everything opened
   from it) and the mod manager draw on the bottom screen while the world
   stays on the top.  SELECT in the overworld opens the mod manager; SELECT
