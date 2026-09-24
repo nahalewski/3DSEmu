@@ -40,6 +40,7 @@ local real = {
 }
 local orig = {}   -- the engine's event handlers, wrapped by install()
 local Sticker = require("fold3ds.sticker")
+local Theme3DS = require("fold3ds.theme3ds")
 
 local DIR = "fold3ds/"
 -- shell art (full size); cut = the screen opening in the art's pixels
@@ -87,6 +88,7 @@ local state = {
   oriented = false,
   time = 0,
   screenMode = nil,      -- gbc | wide | full (the game's top screen shape)
+  theme = "classic",     -- classic | 3ds (the bottom-screen launcher's look)
   toast = nil,           -- { text, at } shown over the top screen
   arrowHeld = nil,       -- { dir, id, next } an on-screen scroll arrow held
   padScroll = nil,       -- { dir, next } the d-pad held up / down in the launcher
@@ -114,12 +116,15 @@ end
 
 local function loadSettings()
   local ok, text = pcall(love.filesystem.read, SETTINGS_FILE)
-  local mode = ok and type(text) == "string" and text:match("screen=(%a+)")
+  text = ok and type(text) == "string" and text or ""
+  local mode = text:match("screen=(%a+)")
   state.screenMode = (mode == "gbc" or mode == "wide" or mode == "full") and mode or "gbc"
+  state.theme = text:match("theme=(%w+)") == "3ds" and "3ds" or "classic"
 end
 
 local function saveSettings()
-  pcall(love.filesystem.write, SETTINGS_FILE, "screen=" .. tostring(state.screenMode) .. "\n")
+  pcall(love.filesystem.write, SETTINGS_FILE, "screen=" .. tostring(state.screenMode)
+    .. "\ntheme=" .. tostring(state.theme) .. "\n")
 end
 
 -- physical pixels per LOVE unit (Android runs high-DPI: a unit is several pixels)
@@ -749,9 +754,11 @@ end
 
 local function drawArrows(L)
   local a = L.arrows
-  lg.setColor(0.07, 0.08, 0.10, 1)
+  local light = Theme3DS.active
+  local ink = light and Theme3DS.arrowInk or { 1, 1, 1 }
+  if light then lg.setColor(Theme3DS.arrowFill) else lg.setColor(0.07, 0.08, 0.10, 1) end
   lg.rectangle("fill", a.x, a.y, a.w, a.h)
-  lg.setColor(1, 1, 1, 0.10)
+  lg.setColor(ink[1], ink[2], ink[3], 0.10)
   lg.rectangle("fill", a.x, a.y, 1, a.h)
   local function tri(r, dir)
     local on = canScroll(dir)
@@ -759,10 +766,10 @@ local function drawArrows(L)
     local cx, cy = r.x + r.w / 2, r.y + r.h / 2
     local sz = math.min(r.w * 0.34, r.h * 0.2)
     if held then
-      lg.setColor(1, 1, 1, 0.12)
+      lg.setColor(ink[1], ink[2], ink[3], 0.12)
       lg.rectangle("fill", r.x + 2, r.y + 2, r.w - 4, r.h - 4, 4, 4)
     end
-    lg.setColor(1, 1, 1, on and (held and 1 or 0.85) or 0.18)
+    lg.setColor(ink[1], ink[2], ink[3], on and (held and 1 or 0.85) or 0.18)
     if dir < 0 then
       lg.polygon("fill", cx - sz, cy + sz * 0.5, cx + sz, cy + sz * 0.5, cx, cy - sz * 0.7)
     else
@@ -771,7 +778,7 @@ local function drawArrows(L)
   end
   tri(L.arrowUp, -1)
   tri(L.arrowDown, 1)
-  lg.setColor(1, 1, 1, 0.10)
+  lg.setColor(ink[1], ink[2], ink[3], 0.10)
   lg.rectangle("fill", a.x + 4, a.y + math.floor(a.h / 2), a.w - 8, 1)
 end
 
@@ -910,8 +917,17 @@ function backend:update(dt)
       LV.foldSticker = LV.foldSticker or {
         has = Sticker.has, open = Sticker.open, remove = Sticker.remove,
       }
+      LV.foldTheme = LV.foldTheme or {
+        get = function() return state.theme end,
+        set = function(t)
+          state.theme = t == "3ds" and "3ds" or "classic"
+          saveSettings()
+        end,
+      }
     end
   end
+  -- the 3DS look dresses the launcher on the fold's bottom screen
+  Theme3DS.set(state.mode == "ds" and state.theme == "3ds")
   Sticker.update()
   -- held scroll arrow / d-pad: repeat
   local now = state.time

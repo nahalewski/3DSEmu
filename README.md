@@ -34,6 +34,13 @@ upstream's own Android build script.
   left / right move the focus.  Settings is its own screen, and carries
   the app updater, the patch notes, Troubleshooting and the BOIS CLUB
   GAMES mark that used to sit under every page.
+* **SKINS (fold)**: a *THEME* card switches the bottom screen between
+  *Classic* and *3DS* (light grey rounded tiles on a striped pale field,
+  white panels, HOME-menu blue selection), and a *COVER STICKER* card puts
+  a picture of your own on the closed lid: pick it from the phone, crop it
+  (drag the frame or its corners), round its corners, size it, keep or drop
+  its white die-cut edge, and drag it into place on the cover preview on
+  the top screen.  It keeps its proportions and always stays on the shell.
 * **Mods**: MODS has a *Download mods* button that opens FIND on the
   community catalog (gen1recomp.com/mod, the
   `bryanthaboi/gen1recomp-mod-index` feed): every listed mod, voxel ones
