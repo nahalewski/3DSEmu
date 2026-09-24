@@ -1,19 +1,35 @@
--- The 3DS theme's HOME menu: the bottom screen as the 3DS draws it -- a
--- grid of icon tiles on the blue-grey wall, the selected one's name on the
--- cream bar under it, a status row (a coin with the ready games, the mods,
--- the clock, the battery) and the page buttons.  One tile per game and one
--- per launcher function (MODS, FIND, ONLINE, SKINS, IMPORT, Settings, save
--- sync, exit).  Tap a tile to select it, tap it again (or A) to open it;
--- the D-pad moves the selection.  An opened tile shows the launcher's own
--- page under a bar with a back button; back (or HOME) returns here.
+-- The 3DS theme's HOME menu, as the 3DS draws its bottom screen:
 --
--- Icons: fold3ds/icons3ds/<id>.png (square, any size) when present; else a
--- stand-in -- the game's cartridge colour and letter, or the function's
--- glyph on a white tile.
+--   * the applet bar across the top -- Settings, Mods, Find, Online, Skins,
+--     Import -- with the two icon-size buttons on its right;
+--   * the icon grid: one tile per game plus Save Sync and Exit, laid out in
+--     columns (down, then across) on one strip that scrolls sideways under
+--     a finger (with a flick's momentum) or the d-pad;
+--   * at one row, the selected tile's name in a speech bubble above it;
+--   * the Manual / Open bar across the bottom.
+--
+-- Sizes: 1 row of 4 across up to 5 rows of 9 across (the size buttons, a
+-- pinch, or X / Y).  Changing size animates: every tile glides and scales
+-- from its old slot to its new one, and the empty slots cross-fade.
+-- Rearranging: hold a tile until it lifts, drag it to a new slot (the strip
+-- scrolls at the edges), let go.  Order and size are remembered
+-- (fold3ds_home.cfg).
+--
+-- Tap a tile to select it, tap it again (or A / Open) to open it.  An
+-- opened tile shows the launcher's page under a back bar; back, B or HOME
+-- return here.  Icons: fold3ds/icons3ds/<id>.png, else a drawn stand-in.
 local H = {}
 
 local lg = love.graphics
 local DIR = "fold3ds/icons3ds/"
+local CFG = "fold3ds_home.cfg"
+
+-- rows -> icons across, the five sizes
+local LEVELS = { { rows = 1, cols = 4 }, { rows = 2, cols = 5 }, { rows = 3, cols = 6 },
+                 { rows = 4, cols = 8 }, { rows = 5, cols = 9 } }
+local ANIM = 0.32            -- resize, seconds
+local HOLD = 0.45            -- press this long to lift a tile
+local SLOP = 10              -- finger travel that makes a drag
 
 local GAME_NAMES = {
   red = "Pokémon Red", blue = "Pokémon Blue", green = "Pokémon Green",
@@ -29,31 +45,43 @@ local GAME_LETTERS = {
   red = "R", blue = "B", green = "G", yellow = "Y", gold = "G", silver = "S",
   crystal = "C", firered = "FR", leafgreen = "LG",
 }
-local FUNCS = {
-  { id = "mods", name = "Mods", icon = "puzzle", color = { 246, 130, 20 }, tab = "mods" },
-  { id = "find", name = "Find Mods", icon = "search", color = { 30, 136, 240 }, tab = "find" },
-  { id = "online", name = "Online", icon = "globe", color = { 24, 120, 220 }, tab = "online" },
-  { id = "skins", name = "Skins", icon = "paintbrush", color = { 236, 80, 150 }, tab = "skins" },
-  { id = "importers", name = "Import", icon = "download", color = { 40, 170, 90 }, tab = "importers" },
-  { id = "settings", name = "Settings", icon = "settings", color = { 110, 112, 120 }, modal = "settings" },
-  { id = "sync", name = "Save Sync", icon = "arrow-left-right", color = { 20, 170, 170 }, modal = "sync" },
-  { id = "exit", name = "Exit", icon = "x", color = { 226, 56, 60 }, exit = true },
+-- the applet bar (always there, not rearranged)
+local APPLETS = {
+  { id = "settings", name = "Settings", icon = "settings", color = { 70, 140, 220 }, modal = "settings" },
+  { id = "mods", name = "Mods", icon = "puzzle", color = { 236, 176, 30 }, tab = "mods" },
+  { id = "find", name = "Find Mods", icon = "search", color = { 246, 130, 40 }, tab = "find" },
+  { id = "online", name = "Online", icon = "globe", color = { 30, 170, 170 }, tab = "online" },
+  { id = "skins", name = "Skins", icon = "paintbrush", color = { 40, 130, 230 }, tab = "skins" },
+  { id = "importers", name = "Import", icon = "download", color = { 90, 180, 60 }, tab = "importers" },
+}
+-- tiles in the grid besides the games
+local EXTRA = {
+  sync = { id = "sync", name = "Save Sync", sub = "Your saves on your devices", icon = "arrow-left-right",
+           color = { 20, 170, 170 }, modal = "sync" },
+  exit = { id = "exit", name = "Exit", sub = "Close gen1recomp", icon = "x", color = { 226, 56, 60 }, exit = true },
 }
 
 local st = {
   open = nil,          -- the opened tile, or nil while the grid shows
-  sel = 1,             -- selected tile index
-  page = 1,
-  big = false,         -- the grid button: 4 x 2 big tiles instead of 5 x 3
+  sel = 1,             -- selected index in the ordered tiles
+  level = 3, prevLevel = 3, animAt = -10,
+  scroll = 0, prevScroll = 0,   -- grid strip offset (px) at level / prevLevel
+  vel = 0,             -- flick momentum, px / s
+  order = nil,         -- tile ids in grid order
   images = {},
-  hit = {},            -- this frame's tap targets
-  drag = nil,          -- a finger on the grid { id, x0, y0, x, dragged }
-  slide = 0,           -- the wall's sideways offset (follows a swipe, eases back)
-  wallW = 1,
+  hit = {},
+  touches = {},        -- id -> { x0, y0, x, y, t0, kind, ... }
+  lift = nil,          -- the tile being rearranged { id, x, y }
+  disp = {},           -- tile id -> displayed { x, y, s } (eased)
+  lastT = nil,
+  pinch = nil,
 }
 local ctx
 
 local function col(c, a) lg.setColor(c[1] / 255, c[2] / 255, c[3] / 255, a or 1) end
+local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
+local function now() return love.timer.getTime() end
+local function ease(t) t = clamp(t, 0, 1) return 1 - (1 - t) ^ 3 end
 
 local function icon(id)
   if st.images[id] == nil then
@@ -64,27 +92,66 @@ local function icon(id)
   return st.images[id] or nil
 end
 
-function H.tiles(imp)
-  local out = {}
+---------------------------------------------------------------- persistence
+
+local function load()
+  local ok, text = pcall(love.filesystem.read, CFG)
+  text = ok and type(text) == "string" and text or ""
+  local lv = tonumber(text:match("level=(%d)"))
+  if lv and LEVELS[lv] then st.level, st.prevLevel = lv, lv end
+  local order = text:match("order=([%w_,]+)")
+  if order then
+    st.order = {}
+    for id in order:gmatch("[%w_]+") do st.order[#st.order + 1] = id end
+  end
+end
+
+local function save()
+  pcall(love.filesystem.write, CFG, ("level=%d\norder=%s\n"):format(st.level, table.concat(st.order or {}, ",")))
+end
+
+---------------------------------------------------------------- tiles
+
+local function allTiles(imp)
+  local byId, ids = {}, {}
   local okGV, GV = pcall(require, "src.core.GameVersion")
   for _, v in ipairs(okGV and GV.ORDER or { "red", "blue", "yellow" }) do
-    out[#out + 1] = { id = v, game = true, name = GAME_NAMES[v] or v,
+    byId[v] = { id = v, game = true, name = GAME_NAMES[v] or v,
       ready = imp and imp.ready and imp.ready[v] }
+    ids[#ids + 1] = v
   end
-  for _, f in ipairs(FUNCS) do
-    if not (f.exit and imp and imp.ios) then out[#out + 1] = f end
+  for _, id in ipairs({ "sync", "exit" }) do
+    if not (id == "exit" and imp and imp.ios) then byId[id] = EXTRA[id]; ids[#ids + 1] = id end
   end
+  return byId, ids
+end
+
+-- the tiles in the player's order (new tiles join at the end)
+function H.tiles(imp)
+  local byId, ids = allTiles(imp)
+  local out, seen = {}, {}
+  for _, id in ipairs(st.order or {}) do
+    if byId[id] and not seen[id] then out[#out + 1] = byId[id]; seen[id] = true end
+  end
+  for _, id in ipairs(ids) do
+    if not seen[id] then out[#out + 1] = byId[id] end
+  end
+  local order = {}
+  for i, t in ipairs(out) do order[i] = t.id end
+  st.order = order
   return out
 end
 
-local function grid() if st.big then return 4, 2 end return 5, 3 end
-
 function H.showing() return st.open == nil end
 function H.opened() return st.open end
-
-function H.init(context) ctx = context end
+function H.init(context) ctx = context; load() end
 
 ---------------------------------------------------------------- actions
+
+local function selectTile(imp, t)
+  -- the top screen follows the selected game, as the 3DS shows its banner
+  if t and t.game and imp and imp.tab ~= t.id then imp.tab = t.id end
+end
 
 local function openTile(imp, t)
   if not imp or not t then return end
@@ -93,10 +160,8 @@ local function openTile(imp, t)
     return
   end
   st.open = t
-  if t.game then
-    if imp._switchTab then imp:_switchTab(t.id) end
-  elseif t.tab then
-    if imp._switchTab then imp:_switchTab(t.tab) end
+  if t.game or t.tab then
+    if imp._switchTab then imp:_switchTab(t.tab or t.id) end
   elseif t.modal == "settings" then
     if imp._openSettings then imp:_openSettings() end
   elseif t.modal == "sync" then
@@ -104,14 +169,18 @@ local function openTile(imp, t)
   end
 end
 
--- back to the grid, closing the Settings screen if it is what is open
+-- Manual: the game's manage page (ROM, saves, carts)
+local function manual(imp, t)
+  if not imp or not t or not t.game then return end
+  openTile(imp, t)
+  imp._gameManage = t.id
+end
+
 function H.goHome(imp)
   if imp and imp._settings and imp._closeSettings then imp:_closeSettings() end
   st.open = nil
 end
 
--- per frame: a tile that was a popup (Settings, Save Sync) is done when its
--- popup closes
 function H.update(imp)
   local t = st.open
   if t and t.modal and imp then
@@ -121,26 +190,71 @@ function H.update(imp)
   else
     st.syncSeen = 0
   end
+  -- a finger held still on a tile lifts it for rearranging
+  for id, tc in pairs(st.touches) do
+    if tc.kind == "tile" and not tc.moved and not st.lift and now() - tc.t0 >= HOLD then
+      tc.kind = "lift"
+      st.lift = { id = tc.tileId, x = tc.x, y = tc.y, touch = id }
+      st.sel = tc.idx
+    end
+  end
+end
+
+---------------------------------------------------------------- layout
+
+-- The grid's geometry at a level inside grid rect g.  One row leaves room
+-- above for the name bubble.
+local function geometry(level, g)
+  local L = LEVELS[level]
+  local top = g.y
+  local h = g.h
+  if L.rows == 1 then top = g.y + g.h * 0.36; h = g.h * 0.64 end
+  local pitchX = g.w / (L.cols + 0.35)
+  local pitchY = h / L.rows
+  local ts = math.min(pitchX, pitchY) * 0.84
+  local y0 = top + (h - pitchY * L.rows) / 2 + (pitchY - ts) / 2
+  local x0 = g.x + pitchX * 0.35
+  return { rows = L.rows, pitchX = pitchX, pitchY = pitchY, ts = ts, x0 = x0, y0 = y0, top = top, h = h }
+end
+
+local function slotPos(G, i, scroll)
+  local c = math.floor((i - 1) / G.rows)
+  local r = (i - 1) % G.rows
+  return G.x0 + c * G.pitchX - scroll, G.y0 + r * G.pitchY
+end
+
+local function maxScroll(G, n, g)
+  local ncols = math.ceil(n / G.rows)
+  return math.max(0, G.x0 - g.x + ncols * G.pitchX + G.pitchX * 0.35 - g.w)
+end
+
+-- keep the selected tile on screen
+local function reveal(G, n, g)
+  local x = slotPos(G, st.sel, 0)
+  local lo = x + G.ts + G.pitchX * 0.35 - (g.x + g.w)
+  local hi = x - G.pitchX * 0.35 - g.x
+  st.scroll = clamp(clamp(st.scroll, lo, hi), 0, maxScroll(G, n, g))
+end
+
+local function setLevel(lv, g, n)
+  lv = clamp(lv, 1, #LEVELS)
+  if lv == st.level then return end
+  -- the selected tile stays where it is on screen while everything reflows
+  local Gold = geometry(st.level, g)
+  local sx = slotPos(Gold, st.sel, st.scroll)
+  st.prevLevel, st.prevScroll = st.level, st.scroll
+  st.level, st.animAt = lv, now()
+  local Gnew = geometry(lv, g)
+  local nx = slotPos(Gnew, st.sel, 0)
+  st.scroll = clamp(nx - sx, 0, maxScroll(Gnew, n, g))
+  st.vel = 0
+  save()
 end
 
 ---------------------------------------------------------------- drawing
 
 local function roundRect(mode, x, y, w, h, r)
   lg.rectangle(mode, x, y, w, h, r, r, 12)
-end
-
-local function bevelBox(x, y, w, h, r, fill, edge)
-  col({ 0, 0, 0 }, 0.18)
-  roundRect("fill", x, y + h * 0.05, w, h, r)
-  col(fill)
-  roundRect("fill", x, y, w, h, r)
-  col({ 255, 255, 255 }, 0.55)
-  roundRect("fill", x + w * 0.06, y + h * 0.05, w * 0.88, h * 0.35, r * 0.7)
-  col(fill)
-  roundRect("fill", x + w * 0.04, y + h * 0.16, w * 0.92, h * 0.78, r * 0.8)
-  lg.setLineWidth(math.max(1, h * 0.03))
-  col(edge or { 150, 150, 150 })
-  roundRect("line", x, y, w, h, r)
 end
 
 local function drawIcon(t, x, y, s)
@@ -152,213 +266,262 @@ local function drawIcon(t, x, y, s)
     lg.draw(img, x + (s - iw * k) / 2, y + (s - ih * k) / 2, 0, k, k)
     return
   end
-  -- stand-ins
   if t.game then
     local c = GAME_COLORS[t.id] or { 150, 150, 160 }
-    local r = s * 0.2
+    local r = s * 0.12
     col(c)
     roundRect("fill", x, y, s, s, r)
     col({ 255, 255, 255 }, 0.25)
-    roundRect("fill", x + s * 0.08, y + s * 0.06, s * 0.84, s * 0.3, r * 0.6)
-    -- a label window like a cartridge's
-    col({ 255, 255, 255 }, 0.9)
-    roundRect("fill", x + s * 0.18, y + s * 0.34, s * 0.64, s * 0.46, s * 0.06)
+    roundRect("fill", x + s * 0.06, y + s * 0.05, s * 0.88, s * 0.3, r * 0.6)
+    col({ 255, 255, 255 }, 0.92)
+    roundRect("fill", x + s * 0.16, y + s * 0.34, s * 0.68, s * 0.48, s * 0.06)
     col(c)
-    local f = ctx.font(s * (#(GAME_LETTERS[t.id] or "?") > 1 and 0.26 or 0.34))
+    local letters = GAME_LETTERS[t.id] or "?"
+    local f = ctx.font(s * (#letters > 1 and 0.28 or 0.36))
     lg.setFont(f)
-    lg.printf(GAME_LETTERS[t.id] or "?", x + s * 0.18, y + s * 0.57 - f:getHeight() / 2, s * 0.64, "center")
+    lg.printf(letters, x + s * 0.16, y + s * 0.58 - f:getHeight() / 2, s * 0.68, "center")
     return
   end
   local okI, Icons = pcall(require, "src.ui.kit.Icons")
-  col({ 255, 255, 255 })
-  roundRect("fill", x, y, s, s, s * 0.2)
-  lg.setLineWidth(math.max(1, s * 0.05))
-  col(t.color)
-  roundRect("line", x + s * 0.03, y + s * 0.03, s * 0.94, s * 0.94, s * 0.18)
-  if okI then
-    local c = t.color
-    Icons.draw(t.icon, x + s * 0.18, y + s * 0.18, s * 0.64, { c[1], c[2], c[3] }, 1)
+  if okI then Icons.draw(t.icon, x + s * 0.12, y + s * 0.12, s * 0.76, t.color, 1) end
+end
+
+-- the white tile the icon sits in, with its soft shadow
+local function drawTile(t, x, y, ts, alpha, lifted)
+  local r = ts * 0.2
+  col({ 60, 70, 90 }, (lifted and 0.3 or 0.14) * alpha)
+  roundRect("fill", x + ts * 0.02, y + ts * (lifted and 0.1 or 0.05), ts, ts, r)
+  col({ 255, 255, 255 }, alpha)
+  roundRect("fill", x, y, ts, ts, r)
+  local inset = ts * 0.12
+  drawIcon(t, x + inset, y + inset, ts - 2 * inset)
+  if t.game and not t.ready then
+    lg.setColor(0.93, 0.94, 0.96, 0.55 * alpha)
+    roundRect("fill", x, y, ts, ts, r)
   end
 end
 
--- the selection cursor: the HOME menu's corner brackets
 local function brackets(x, y, w, h, t)
-  local len = w * 0.26
-  local th = math.max(2, w * 0.07)
-  local pulse = 0.75 + 0.25 * math.sin(t * 5)
-  lg.setColor(0.2, 0.86, 0.7, pulse)
-  local pts = {
-    { x, y, 1, 1 }, { x + w, y, -1, 1 }, { x, y + h, 1, -1 }, { x + w, y + h, -1, -1 },
-  }
+  local len = w * 0.3
+  local th = math.max(2, w * 0.075)
+  local pulse = 0.78 + 0.22 * math.sin(t * 5)
+  lg.setColor(0.36, 0.9, 0.76, pulse)
+  local pts = { { x, y, 1, 1 }, { x + w, y, -1, 1 }, { x, y + h, 1, -1 }, { x + w, y + h, -1, -1 } }
   for _, p in ipairs(pts) do
     lg.rectangle("fill", p[3] > 0 and p[1] or p[1] - len, p[4] > 0 and p[2] or p[2] - th, len, th, th / 2, th / 2)
     lg.rectangle("fill", p[3] > 0 and p[1] or p[1] - th, p[4] > 0 and p[2] or p[2] - len, th, len, th / 2, th / 2)
   end
 end
 
-local function button(id, x, y, w, h, fill, edge)
-  bevelBox(x, y, w, h, h * 0.2, fill, edge)
-  st.hit[#st.hit + 1] = { id = id, x = x, y = y, w = w, h = h }
+local function hit(id, x, y, w, h, extra)
+  local e = extra or {}
+  e.id, e.x, e.y, e.w, e.h = id, x, y, w, h
+  st.hit[#st.hit + 1] = e
 end
 
-local function triangle(cx, cy, s, dir, c)
-  col(c)
-  if dir < 0 then lg.polygon("fill", cx + s * 0.4, cy - s * 0.55, cx + s * 0.4, cy + s * 0.55, cx - s * 0.5, cy)
-  else lg.polygon("fill", cx - s * 0.4, cy - s * 0.55, cx - s * 0.4, cy + s * 0.55, cx + s * 0.5, cy) end
+-- the two size buttons: one big tile (bigger icons), four small (smaller)
+local function sizeButtons(x, y, w, h)
+  local bw = w / 2
+  col({ 246, 248, 251 })
+  roundRect("fill", x, y, w, h, h * 0.25)
+  col({ 200, 206, 216 })
+  lg.rectangle("fill", x + bw, y + h * 0.18, 1, h * 0.64)
+  local s = h * 0.42
+  lg.setColor(0.42, 0.62, 0.86, st.level > 1 and 1 or 0.35)
+  roundRect("fill", x + bw / 2 - s / 2, y + h / 2 - s / 2, s, s, s * 0.3)
+  lg.setColor(0.42, 0.62, 0.86, st.level < #LEVELS and 1 or 0.35)
+  local q = s * 0.42
+  for i = 0, 1 do for j = 0, 1 do
+    roundRect("fill", x + bw + bw / 2 - q - q * 0.08 + i * q * 1.16, y + h / 2 - q - q * 0.08 + j * q * 1.16, q, q, q * 0.25)
+  end end
+  hit("bigger", x, y, bw, h)
+  hit("smaller", x + bw, y, bw, h)
 end
 
 function H.draw(r, imp, time)
   st.hit = {}
+  local dt = st.lastT and clamp(time - st.lastT, 0, 0.1) or 0
+  st.lastT = time
   local tiles = H.tiles(imp)
-  local cols, rows = grid()
-  local per = cols * rows
-  local pages = math.max(1, math.ceil(#tiles / per))
-  st.page = math.max(1, math.min(st.page, pages))
-  st.sel = math.max(1, math.min(st.sel, #tiles))
+  local n = #tiles
+  st.sel = clamp(st.sel, 1, math.max(1, n))
   lg.push("all")
   lg.setScissor(r.x, r.y, r.w, r.h)
-  col({ 250, 250, 250 })
-  lg.rectangle("fill", r.x, r.y, r.w, r.h)
-  local pad = math.floor(r.w * 0.018)
-  -- the wall: blue-grey, lighter at the top, with the faint empty slots
-  local wallH = math.floor(r.h * 0.63)
-  local wx, wy, ww = r.x + pad, r.y + pad, r.w - 2 * pad
-  lg.stencil(function() roundRect("fill", wx, wy, ww, wallH, r.w * 0.025) end, "replace", 1)
-  lg.setStencilTest("greater", 0)
-  for i = 0, wallH do
-    local k = i / wallH
-    lg.setColor(0.64 - 0.14 * k, 0.68 - 0.13 * k, 0.75 - 0.12 * k, 1)
-    lg.rectangle("fill", wx, wy + i, ww, 1)
+  -- the wallpaper: pale, faintly striped
+  for i = 0, r.h, 2 do
+    local k = i / r.h
+    lg.setColor(0.93 - 0.03 * k, 0.945 - 0.03 * k, 0.965 - 0.025 * k, 1)
+    lg.rectangle("fill", r.x, r.y + i, r.w, 2)
   end
-  local gap = ww * 0.022
-  local cw = (ww - gap * (cols + 1)) / cols
-  local ch = (wallH - gap * (rows + 1)) / rows
-  local ts = math.min(cw, ch)
-  st.wallW, st.wall = ww, { x = wx, y = wy, w = ww, h = wallH }
-  -- ease a released swipe back into place
-  if not (st.drag and st.drag.dragged) then st.slide = st.slide * 0.7 if math.abs(st.slide) < 0.5 then st.slide = 0 end end
-  local function drawPage(page, off)
-  for i = 0, per - 1 do
-    local cx = wx + off + gap + (i % cols) * (cw + gap) + (cw - ts) / 2
-    local cy = wy + gap + math.floor(i / cols) * (ch + gap) + (ch - ts) / 2
-    lg.setColor(1, 1, 1, 0.13)
-    roundRect("fill", cx, cy, ts, ts, ts * 0.2)
-    local idx = (page - 1) * per + i + 1
-    local t = tiles[idx]
-    if t then
-      -- the tile: white-grey frame around the icon
-      local inset = ts * 0.1
-      col({ 245, 245, 247 })
-      roundRect("fill", cx, cy, ts, ts, ts * 0.2)
-      col({ 170, 172, 178 })
-      lg.setLineWidth(math.max(1, ts * 0.025))
-      roundRect("line", cx, cy, ts, ts, ts * 0.2)
-      drawIcon(t, cx + inset, cy + inset, ts - 2 * inset)
-      if t.game and not t.ready then
-        lg.setColor(0.2, 0.22, 0.28, 0.45)
-        roundRect("fill", cx, cy, ts, ts, ts * 0.2)
+  lg.setColor(1, 1, 1, 0.22)
+  local stripe = math.max(4, math.floor(r.w / 70))
+  for x = r.x, r.x + r.w, stripe * 2 do lg.rectangle("fill", x, r.y, stripe, r.h) end
+
+  -- applet bar
+  local barH = math.floor(r.h * 0.17)
+  local pad = math.floor(r.w * 0.015)
+  local sizeW = barH * 1.9
+  local ax = r.x + pad
+  local aw = (r.w - 2 * pad - sizeW - pad) / #APPLETS
+  for i, a in ipairs(APPLETS) do
+    local x = ax + (i - 1) * aw
+    local s = math.min(aw, barH) * 0.72
+    local hot = st.appletDown == a.id
+    if i == 1 then
+      col({ 246, 248, 251 })
+      roundRect("fill", x, r.y + pad * 0.6, aw, barH - pad * 0.6, barH * 0.25)
+    end
+    local img = icon(a.id)
+    local ix, iy = x + (aw - s) / 2, r.y + (barH - s) / 2 + (hot and s * 0.05 or 0)
+    if img then
+      local iw, ih = img:getDimensions()
+      lg.setColor(1, 1, 1, 1)
+      lg.draw(img, ix, iy, 0, s / iw, s / ih)
+    else
+      local okI, Icons = pcall(require, "src.ui.kit.Icons")
+      if okI then Icons.draw(a.icon, ix, iy, s, a.color, 1) end
+    end
+    hit("applet", x, r.y, aw, barH, { applet = a })
+  end
+  sizeButtons(r.x + r.w - pad - sizeW, r.y + pad * 0.6, sizeW, barH - pad * 1.2)
+
+  local obH = math.floor(r.h * 0.14)
+  local oy = r.y + r.h - obH
+  local g = { x = r.x, y = r.y + barH + pad, w = r.w, h = oy - (r.y + barH + pad) - pad }
+  st.grid = g
+  local G = geometry(st.level, g)
+  local Gp = geometry(st.prevLevel, g)
+  local a = ease((now() - st.animAt) / ANIM)
+  local animating = a < 1
+
+  -- momentum after a flick, and the springy edges
+  if not next(st.touches) and st.vel ~= 0 then
+    st.scroll = st.scroll + st.vel * dt
+    st.vel = st.vel * math.exp(-dt * 5)
+    if math.abs(st.vel) < 5 then st.vel = 0 end
+  end
+  local maxS = maxScroll(G, n, g)
+  if not next(st.touches) then
+    if st.scroll < 0 then st.scroll = st.scroll * math.exp(-dt * 14); st.vel = 0 end
+    if st.scroll > maxS then st.scroll = maxS + (st.scroll - maxS) * math.exp(-dt * 14); st.vel = 0 end
+  end
+  -- while a lifted tile is held near an edge, the strip scrolls
+  if st.lift then
+    local edge = g.w * 0.1
+    if st.lift.x < g.x + edge then st.scroll = math.max(0, st.scroll - dt * g.w * 0.8) end
+    if st.lift.x > g.x + g.w - edge then st.scroll = math.min(maxS, st.scroll + dt * g.w * 0.8) end
+  end
+
+  lg.setScissor(g.x, g.y - pad, g.w, g.h + 2 * pad)
+  -- empty slots, cross-faded between the old size and the new
+  local function slots(Gx, scroll, alpha)
+    if alpha <= 0.01 then return end
+    local ncols = math.max(math.ceil(n / Gx.rows), math.ceil((g.w + scroll) / Gx.pitchX) + 1)
+    local first = math.max(0, math.floor((scroll - Gx.x0 + g.x) / Gx.pitchX) - 1)
+    for c = first, ncols do
+      for rr = 0, Gx.rows - 1 do
+        local x = Gx.x0 + c * Gx.pitchX - scroll
+        if x > g.x - Gx.pitchX and x < g.x + g.w then
+          lg.setColor(0.8, 0.83, 0.88, 0.5 * alpha)
+          roundRect("line", x, Gx.y0 + rr * Gx.pitchY, Gx.ts, Gx.ts, Gx.ts * 0.2)
+        end
       end
-      if idx == st.sel then brackets(cx - ts * 0.08, cy - ts * 0.08, ts * 1.16, ts * 1.16, time) end
-      if off == 0 then st.hit[#st.hit + 1] = { id = "tile", idx = idx, x = cx, y = cy, w = ts, h = ts } end
     end
   end
+  lg.setLineWidth(1)
+  if animating then slots(Gp, st.prevScroll, 1 - a) end
+  slots(G, st.scroll, a)
+
+  -- tiles: each eases toward its slot (so a rearrange glides; a resize
+  -- follows the animated blend of the old and new layouts)
+  local k = 1 - math.exp(-dt * 16)
+  local selRect
+  for i, t in ipairs(tiles) do
+    local tx, ty = slotPos(G, i, st.scroll)
+    local ts = G.ts
+    if animating then
+      local px, py = slotPos(Gp, i, st.prevScroll)
+      tx, ty, ts = px + (tx - px) * a, py + (ty - py) * a, Gp.ts + (G.ts - Gp.ts) * a
+    end
+    local d = st.disp[t.id]
+    if not d or animating or dt == 0 or st.dragging then
+      d = d or {}
+      d.x, d.y, d.s = tx, ty, ts
+      st.disp[t.id] = d
+    else
+      d.x, d.y, d.s = d.x + (tx - d.x) * k, d.y + (ty - d.y) * k, d.s + (ts - d.s) * k
+    end
+    local lifted = st.lift and st.lift.id == t.id
+    if not lifted and d.x > g.x - d.s * 1.5 and d.x < g.x + g.w + d.s then
+      drawTile(t, d.x, d.y, d.s, 1, false)
+      hit("tile", d.x, d.y, d.s, d.s, { idx = i, tile = t })
+    end
+    if i == st.sel then selRect = { d.x, d.y, d.s } end
   end
-  local off = math.floor(st.slide)
-  st.selShown = math.floor((st.sel - 1) / per) + 1 == st.page
-  drawPage(st.page, off)
-  -- the neighbours slide in beside it (wrapping, like the page buttons)
-  if off > 0 then drawPage((st.page - 2) % pages + 1, off - ww) end
-  if off < 0 then drawPage(st.page % pages + 1, off + ww) end
-  -- page dots over the wall's foot
-  if pages > 1 then
-    local dr = math.max(2, wallH * 0.018)
-    for p = 1, pages do
-      lg.setColor(1, 1, 1, p == st.page and 0.95 or 0.4)
-      lg.circle("fill", wx + ww / 2 + (p - (pages + 1) / 2) * dr * 4, wy + wallH - dr * 2.2, dr)
+  -- one row: the name bubble over the selected tile
+  if LEVELS[st.level].rows == 1 and selRect and not animating then
+    local t = tiles[st.sel]
+    local bx, bw = g.x + g.w * 0.08, g.w * 0.84
+    local by, bh = g.y + g.h * 0.03, g.h * 0.28
+    lg.setColor(1, 1, 1, 0.96)
+    roundRect("fill", bx, by, bw, bh, bh * 0.2)
+    lg.setColor(0.78, 0.8, 0.84, 1)
+    lg.setLineWidth(math.max(1, bh * 0.025))
+    lg.line(selRect[1] + selRect[3] / 2, by + bh, selRect[1] + selRect[3] / 2, selRect[2] - selRect[3] * 0.1)
+    local f = ctx.font(bh * 0.3)
+    lg.setFont(f)
+    col({ 80, 82, 88 })
+    local sub = t.sub or (t.game and (t.ready and "Game Freak / BOIS CLUB GAMES" or "Import the ROM to play")) or ""
+    lg.printf(t.name, bx, by + bh * 0.16, bw, "center")
+    col({ 110, 112, 118 })
+    lg.printf(sub, bx, by + bh * 0.16 + f:getHeight() * 1.1, bw, "center")
+  end
+  if selRect and not st.lift then
+    local s = selRect[3]
+    brackets(selRect[1] - s * 0.1, selRect[2] - s * 0.1, s * 1.2, s * 1.2, time)
+  end
+  -- more to the right / left: the half-round arrow tabs at the edges
+  local function edgeTab(side)
+    local th = g.h * 0.36
+    local cy = g.y + g.h / 2
+    local cx = side > 0 and g.x + g.w or g.x
+    lg.setColor(1, 1, 1, 0.9)
+    lg.circle("fill", cx, cy, th / 2)
+    lg.setColor(0.45, 0.78, 0.86, 1)
+    local s = th * 0.16
+    local ax = cx - side * th * 0.22
+    lg.polygon("fill", ax - side * s, cy - s, ax - side * s, cy + s, ax + side * s * 0.6, cy)
+    hit(side > 0 and "scrollRight" or "scrollLeft", side > 0 and cx - th / 2 or cx, cy - th / 2, th / 2, th)
+  end
+  if st.scroll < maxS - 1 then edgeTab(1) end
+  if st.scroll > 1 then edgeTab(-1) end
+  -- the lifted tile rides the finger, a little larger, on top
+  if st.lift then
+    local t
+    for _, tt in ipairs(tiles) do if tt.id == st.lift.id then t = tt end end
+    if t then
+      local s = G.ts * 1.15
+      drawTile(t, st.lift.x - s / 2, st.lift.y - s / 2, s, 0.95, true)
     end
   end
-  lg.setStencilTest()
-  -- the name bar
-  local by = wy + wallH + math.floor(r.h * 0.015)
-  local bh = math.floor(r.h * 0.115)
-  col({ 243, 241, 232 })
-  roundRect("fill", wx, by, ww, bh, bh * 0.2)
-  lg.setLineWidth(math.max(1, bh * 0.03))
-  col({ 170, 168, 160 })
-  roundRect("line", wx, by, ww, bh, bh * 0.2)
-  local t = tiles[st.sel]
-  local f = ctx.font(bh * 0.52)
+  lg.setScissor(r.x, r.y, r.w, r.h)
+
+  -- Manual / Open
+  col({ 250, 250, 252 })
+  lg.rectangle("fill", r.x, oy, r.w, obH)
+  col({ 205, 208, 214 })
+  lg.rectangle("fill", r.x, oy, r.w, 1)
+  local split = r.x + r.w * 0.44
+  lg.rectangle("fill", split, oy + obH * 0.12, 1, obH * 0.76)
+  local f = ctx.font(obH * 0.5)
   lg.setFont(f)
-  col({ 70, 70, 72 })
-  local name = t and t.name or ""
-  if t and t.game and not t.ready then name = name .. "  (import the ROM)" end
-  lg.printf(name, wx, by + (bh - f:getHeight()) / 2, ww, "center")
-  -- the status row: cyan bar, a coin with the ready games, mods, clock, battery
-  local sy = by + bh + math.floor(r.h * 0.022)
-  local sh = math.floor(r.h * 0.075)
-  col({ 20, 200, 225 })
-  roundRect("fill", wx, sy, ww * 0.3, sh, sh / 2)
-  col({ 90, 235, 250 })
-  roundRect("fill", wx + sh * 0.2, sy + sh * 0.15, ww * 0.3 - sh * 0.4, sh * 0.35, sh * 0.2)
-  local ready = 0
-  for _, tt in ipairs(tiles) do if tt.game and tt.ready then ready = ready + 1 end end
-  local coinX = wx + ww * 0.34
-  col({ 240, 196, 30 })
-  lg.circle("fill", coinX + sh / 2, sy + sh / 2, sh / 2)
-  col({ 255, 226, 90 })
-  lg.circle("fill", coinX + sh / 2, sy + sh / 2, sh * 0.36)
-  local sf = ctx.font(sh * 0.8)
-  lg.setFont(sf)
-  col({ 70, 70, 72 })
-  lg.print(tostring(ready), coinX + sh * 1.2, sy + (sh - sf:getHeight()) / 2)
-  local mods = imp and imp.mods and #imp.mods or 0
-  local clock = os.date("%H:%M")
-  local pw = ww * 0.42
-  local px = wx + ww - pw
-  col({ 120, 122, 128 })
-  roundRect("fill", px, sy, pw, sh, sh * 0.3)
-  col({ 255, 255, 255 })
-  local status = ("%d Mods   %s"):format(mods, clock)
-  lg.printf(status, px, sy + (sh - sf:getHeight()) / 2, pw - sh * 1.6, "center")
-  -- battery
-  local bx, bw2 = px + pw - sh * 1.5, sh * 1.2
-  local pct = 1
-  if love.system.getPowerInfo then
-    local _, p = love.system.getPowerInfo()
-    if p then pct = p / 100 end
-  end
-  col({ 255, 255, 255 })
-  roundRect("fill", bx, sy + sh * 0.2, bw2, sh * 0.6, sh * 0.1)
-  col({ 20, 200, 225 })
-  lg.rectangle("fill", bx + sh * 0.08, sy + sh * 0.28, (bw2 - sh * 0.16) * pct, sh * 0.44)
-  -- page buttons: < 1 2 ... > and the grid-size button
-  local ry = sy + sh + math.floor(r.h * 0.022)
-  local rh = r.y + r.h - pad - ry
-  local bw = rh * 1.2
-  button("prev", wx, ry, bw, rh, { 238, 236, 226 }, { 150, 150, 146 })
-  triangle(wx + bw / 2, ry + rh / 2, rh * 0.4, -1, { 50, 50, 52 })
-  local gridW = rh * 1.3
-  button("grid", wx + ww - gridW, ry, gridW, rh, { 70, 72, 78 }, { 40, 40, 44 })
-  col({ 255, 255, 255 })
-  local q = rh * 0.2
-  for i = 0, 1 do for j = 0, 1 do
-    lg.rectangle("fill", wx + ww - gridW / 2 - q * 1.1 + i * q * 1.2, ry + rh / 2 - q * 1.1 + j * q * 1.2, q, q, q * 0.2)
-  end end
-  local nextX = wx + ww - gridW - gap - bw
-  button("next", nextX, ry, bw, rh, { 238, 236, 226 }, { 150, 150, 146 })
-  triangle(nextX + bw / 2, ry + rh / 2, rh * 0.4, 1, { 50, 50, 52 })
-  local nx0, nx1 = wx + bw + gap, nextX - gap
-  local nw = math.min(rh * 1.1, (nx1 - nx0 - gap * (pages - 1)) / pages)
-  local nf = ctx.font(rh * 0.55)
-  lg.setFont(nf)
-  for p = 1, pages do
-    local x = nx0 + (p - 1) * (nw + gap)
-    local on = p == st.page
-    button("page" .. p, x, ry, nw, rh, on and { 150, 240, 180 } or { 238, 236, 226 },
-      on and { 40, 190, 90 } or { 150, 150, 146 })
-    col(on and { 20, 110, 50 } or { 50, 50, 52 })
-    lg.printf(tostring(p), x, ry + (rh - nf:getHeight()) / 2, nw, "center")
-  end
+  local sel = tiles[st.sel]
+  col({ 100, 102, 108 }, sel and sel.game and 1 or 0.35)
+  lg.printf("Manual", r.x, oy + (obH - f:getHeight()) / 2, split - r.x, "center")
+  col({ 100, 102, 108 })
+  lg.printf("Open", split, oy + (obH - f:getHeight()) / 2, r.x + r.w - split, "center")
+  hit("manual", r.x, oy, split - r.x, obH)
+  hit("open", split, oy, r.x + r.w - split, obH)
   lg.pop()
 end
 
@@ -371,23 +534,19 @@ function H.drawBar(r)
   st.barHit = nil
   lg.push("all")
   local h = H.barHeight(r)
-  col({ 250, 250, 250 })
+  col({ 248, 249, 251 })
   lg.rectangle("fill", r.x, r.y, r.w, h)
-  local pad = math.floor(h * 0.12)
-  local bw = h * 1.25
-  bevelBox(r.x + pad, r.y + pad, bw, h - 2 * pad, (h - 2 * pad) * 0.22, { 238, 236, 226 }, { 150, 150, 146 })
-  triangle(r.x + pad + bw / 2, r.y + h / 2, (h - 2 * pad) * 0.42, -1, { 50, 50, 52 })
-  st.barHit = { x = r.x + pad, y = r.y + pad, w = bw, h = h - 2 * pad }
-  local tx = r.x + pad * 2 + bw
-  col({ 243, 241, 232 })
-  roundRect("fill", tx, r.y + pad, r.x + r.w - pad - tx, h - 2 * pad, (h - 2 * pad) * 0.22)
-  lg.setLineWidth(1)
-  col({ 170, 168, 160 })
-  roundRect("line", tx, r.y + pad, r.x + r.w - pad - tx, h - 2 * pad, (h - 2 * pad) * 0.22)
-  local f = ctx.font((h - 2 * pad) * 0.5)
+  col({ 205, 208, 214 })
+  lg.rectangle("fill", r.x, r.y + h - 1, r.w, 1)
+  local bw = h * 1.2
+  col({ 100, 102, 108 })
+  local cx, cy, s = r.x + bw / 2, r.y + h / 2, h * 0.2
+  lg.polygon("fill", cx + s * 0.6, cy - s, cx + s * 0.6, cy + s, cx - s * 0.8, cy)
+  lg.rectangle("fill", r.x + bw, r.y + h * 0.15, 1, h * 0.7)
+  st.barHit = { x = r.x, y = r.y, w = bw, h = h }
+  local f = ctx.font(h * 0.46)
   lg.setFont(f)
-  col({ 70, 70, 72 })
-  lg.printf(t.name, tx, r.y + (h - f:getHeight()) / 2, r.x + r.w - pad - tx, "center")
+  lg.printf(t.name, r.x + bw, r.y + (h - f:getHeight()) / 2, r.w - bw, "center")
   lg.pop()
 end
 
@@ -395,79 +554,136 @@ end
 
 local function inside(h, x, y) return x >= h.x and y >= h.y and x <= h.x + h.w and y <= h.y + h.h end
 
-local SWIPE_SLOP = 12
-
-local function turnPage(imp, dir)
-  local tiles = H.tiles(imp)
-  local cols, rows = grid()
-  local per = cols * rows
-  local pages = math.max(1, math.ceil(#tiles / per))
-  if pages < 2 then return end
-  -- the selection stays where it was, as on a 3DS: a tap after a swipe
-  -- selects, it never opens something unseen
-  st.page = (st.page - 1 + dir) % pages + 1
+local function hitAt(x, y)
+  for i = #st.hit, 1, -1 do
+    local h = st.hit[i]
+    if inside(h, x, y) then return h end
+  end
 end
 
--- A finger on the grid screen.  On the wall it can swipe left / right to
--- turn the page (the wall follows it); a short touch is a tap.
+-- the slot a point on the grid falls in (for dropping a lifted tile)
+local function slotAt(x, y, n)
+  local g = st.grid
+  if not g then return nil end
+  local G = geometry(st.level, g)
+  local c = math.floor((x + st.scroll - G.x0 + (G.pitchX - G.ts) / 2) / G.pitchX)
+  local rr = math.floor((y - G.y0 + (G.pitchY - G.ts) / 2) / G.pitchY)
+  c = math.max(0, c)
+  rr = clamp(rr, 0, G.rows - 1)
+  return clamp(c * G.rows + rr + 1, 1, n)
+end
+
+local function moveTile(from, to)
+  if from == to then return end
+  local id = table.remove(st.order, from)
+  table.insert(st.order, to, id)
+end
+
 function H.pressed(imp, id, x, y)
-  st.drag = { id = id, x0 = x, y0 = y, x = x, onWall = st.wall and x >= st.wall.x and x <= st.wall.x + st.wall.w
-    and y >= st.wall.y and y <= st.wall.y + st.wall.h }
+  local tc = { x0 = x, y0 = y, x = x, y = y, t0 = now(), lastX = x, lastT = now() }
+  st.touches[id] = tc
+  -- a second finger on the grid: pinch to resize
+  local count, other = 0, nil
+  for oid, o in pairs(st.touches) do count = count + 1; if oid ~= id then other = o end end
+  if count == 2 and other and st.grid and inside(st.grid, x, y) and not st.lift then
+    local d = math.sqrt((x - other.x) ^ 2 + (y - other.y) ^ 2)
+    st.pinch = { d0 = math.max(1, d) }
+    other.kind = "pinch"
+    tc.kind = "pinch"
+    return true
+  end
+  local h = hitAt(x, y)
+  if h and h.id == "tile" then
+    tc.kind, tc.idx, tc.tileId = "tile", h.idx, h.tile.id
+  elseif h then
+    tc.kind, tc.hit = "button", h
+    if h.id == "applet" then st.appletDown = h.applet.id end
+  elseif st.grid and inside(st.grid, x, y) then
+    tc.kind = "strip"
+  else
+    tc.kind = "none"
+  end
+  st.vel = 0
   return true
 end
 
 function H.moved(imp, id, x, y)
-  local d = st.drag
-  if not d or d.id ~= id then return false end
-  d.x = x
-  if d.onWall and math.abs(x - d.x0) > SWIPE_SLOP then d.dragged = true end
-  if d.dragged then st.slide = x - d.x0 end
+  local tc = st.touches[id]
+  if not tc then return false end
+  local dx = x - tc.x
+  tc.x, tc.y = x, y
+  if math.abs(x - tc.x0) > SLOP or math.abs(y - tc.y0) > SLOP then tc.moved = true end
+  if tc.kind == "pinch" and st.pinch then
+    local a, b
+    for _, o in pairs(st.touches) do if o.kind == "pinch" then if a then b = o else a = o end end end
+    if a and b and st.grid then
+      local d = math.sqrt((a.x - b.x) ^ 2 + (a.y - b.y) ^ 2)
+      local ratio = d / st.pinch.d0
+      local n = #H.tiles(imp)
+      if ratio > 1.3 then setLevel(st.level - 1, st.grid, n); st.pinch.d0 = d end
+      if ratio < 0.77 then setLevel(st.level + 1, st.grid, n); st.pinch.d0 = d end
+    end
+    return true
+  end
+  if tc.kind == "lift" and st.lift then
+    st.lift.x, st.lift.y = x, y
+    local to = slotAt(x, y, #st.order)
+    local from
+    for i, oid in ipairs(st.order) do if oid == st.lift.id then from = i end end
+    if to and from and to ~= from then moveTile(from, to); st.sel = to end
+    return true
+  end
+  if (tc.kind == "tile" or tc.kind == "strip") and tc.moved then
+    tc.kind = "strip"
+    st.dragging = true
+    st.scroll = st.scroll - dx
+    local t = now()
+    local sdt = math.max(1e-3, t - tc.lastT)
+    st.vel = -(x - tc.lastX) / sdt
+    tc.lastX, tc.lastT = x, t
+  end
   return true
 end
 
 function H.released(imp, id, x, y)
-  local d = st.drag
-  if not d or d.id ~= id then return false end
-  st.drag = nil
-  if d.dragged then
-    local dx = x - d.x0
-    if math.abs(dx) > st.wallW * 0.18 then
-      local dir = dx < 0 and 1 or -1
-      turnPage(imp, dir)
-      -- the new page starts where the finger left the old one's neighbour
-      st.slide = dx + (dir > 0 and st.wallW or -st.wallW)
-    end
+  local tc = st.touches[id]
+  if not tc then return false end
+  st.touches[id] = nil
+  st.appletDown = nil
+  st.dragging = nil
+  if tc.kind == "pinch" then
+    if not next(st.touches) then st.pinch = nil end
+    for _, o in pairs(st.touches) do o.kind = "none" end
     return true
   end
-  return H.tap(imp, d.x0, d.y0)
-end
-
--- a tap on the grid screen; true when it landed on something
-function H.tap(imp, x, y)
-  for _, h in ipairs(st.hit) do
-    if inside(h, x, y) then
-      local tiles = H.tiles(imp)
-      local cols, rows = grid()
-      local pages = math.max(1, math.ceil(#tiles / (cols * rows)))
-      if h.id == "tile" then
-        if st.sel == h.idx and st.selShown then openTile(imp, tiles[h.idx]) else st.sel = h.idx end
-      elseif h.id == "prev" then
-        turnPage(imp, -1)
-        st.slide = -st.wallW * 0.5
-      elseif h.id == "next" then
-        turnPage(imp, 1)
-        st.slide = st.wallW * 0.5
-      elseif h.id == "grid" then
-        st.big = not st.big
-        local per = st.big and 8 or 15
-        st.page = math.floor((st.sel - 1) / per) + 1
-      elseif h.id:match("^page") then
-        st.page = tonumber(h.id:sub(5))
-      end
-      return true
-    end
+  if tc.kind == "lift" then
+    st.lift = nil
+    save()
+    return true
   end
-  return false
+  if tc.kind == "strip" then
+    if now() - tc.lastT > 0.08 then st.vel = 0 end
+    return true
+  end
+  st.vel = 0
+  if tc.moved then return true end
+  local tiles = H.tiles(imp)
+  if tc.kind == "tile" then
+    if st.sel == tc.idx then openTile(imp, tiles[tc.idx])
+    else st.sel = tc.idx; selectTile(imp, tiles[tc.idx]) end
+  elseif tc.kind == "button" then
+    local h = tc.hit
+    local g = st.grid
+    local n = #tiles
+    if h.id == "applet" then openTile(imp, h.applet)
+    elseif h.id == "bigger" and g then setLevel(st.level - 1, g, n)
+    elseif h.id == "smaller" and g then setLevel(st.level + 1, g, n)
+    elseif h.id == "open" then openTile(imp, tiles[st.sel])
+    elseif h.id == "manual" then manual(imp, tiles[st.sel])
+    elseif h.id == "scrollRight" and g then st.vel = g.w * 3.2
+    elseif h.id == "scrollLeft" and g then st.vel = -g.w * 3.2 end
+  end
+  return true
 end
 
 function H.tapBar(imp, x, y)
@@ -478,22 +694,25 @@ function H.tapBar(imp, x, y)
   return false
 end
 
--- shell buttons on the grid: the d-pad / circle pad move, A opens
+-- shell buttons on the grid: the d-pad / circle pad move (down a column,
+-- then across), A opens, X / Y resize
 function H.button(imp, name)
   local tiles = H.tiles(imp)
-  local cols, rows = grid()
-  local per = cols * rows
+  local n = #tiles
+  local rows = LEVELS[st.level].rows
   local s = st.sel
+  local g = st.grid
   if name == "a" then openTile(imp, tiles[s]) return true end
-  if name == "left" then s = s - 1
-  elseif name == "right" then s = s + 1
-  elseif name == "up" then s = s - cols
-  elseif name == "down" then s = s + cols
+  if name == "x" and g then setLevel(st.level - 1, g, n) return true end
+  if name == "y" and g then setLevel(st.level + 1, g, n) return true end
+  if name == "up" then if (s - 1) % rows > 0 then s = s - 1 end
+  elseif name == "down" then if (s - 1) % rows < rows - 1 and s < n then s = s + 1 end
+  elseif name == "left" then s = s - rows
+  elseif name == "right" then s = math.min(n, s + rows)
   else return false end
-  st.sel = math.max(1, math.min(#tiles, s))
-  local page = math.floor((st.sel - 1) / per) + 1
-  if page ~= st.page then st.slide = (page > st.page and 0.5 or -0.5) * st.wallW end
-  st.page = page
+  st.sel = clamp(s, 1, n)
+  selectTile(imp, tiles[st.sel])
+  if g then reveal(geometry(st.level, g), n, g) end
   return true
 end
 

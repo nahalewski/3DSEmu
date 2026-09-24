@@ -3,7 +3,8 @@
 --   30:touch:X,Y        press a finger at real-window X,Y for 3 frames
 --   30:hold:X,Y,N       hold a finger for N frames
 --   30:key:z            love.keypressed / keyreleased
---   30:drag:X1,Y1,X2,Y2,N  a finger from X1,Y1 to X2,Y2 over N frames
+--   30:drag:X1,Y1,X2,Y2,N[,W]  a finger from X1,Y1 to X2,Y2 over N frames
+--                       (held still W frames first)
 --   30:pick:/path.png   hand the cover sticker editor a picture
 --   60:shot:/tmp/a.png  screenshot
 --   200:quit
@@ -24,7 +25,7 @@ function D.start(script, M)
     if frame % 10 == 0 then print(("driver frame %d t=%.1f fps=%.1f"):format(frame, love.timer.getTime(), love.timer.getFPS())) end
     for _, f in ipairs(fingers) do
       f.left = f.left - 1
-      if f.to and f.left >= 0 then
+      if f.to and f.left >= 0 and f.left < f.n then
         local t = 1 - f.left / f.n
         f.x = f.from[1] + (f.to[1] - f.from[1]) * t
         f.y = f.from[2] + (f.to[2] - f.from[2]) * t
@@ -42,10 +43,11 @@ function D.start(script, M)
           fingers[#fingers + 1] = { id = id, x = tonumber(x), y = tonumber(y), left = tonumber(n) or 3 }
           love.touchpressed(id, tonumber(x), tonumber(y), 0, 0, 1)
         elseif a.act == "drag" then
-          local x1, y1, x2, y2, n = a.arg:match("^(%d+),(%d+),(%d+),(%d+),(%d+)$")
+          local x1, y1, x2, y2, n, w = a.arg:match("^(%d+),(%d+),(%d+),(%d+),(%d+),?(%d*)$")
           local id = {}
           n = tonumber(n)
-          fingers[#fingers + 1] = { id = id, x = tonumber(x1), y = tonumber(y1), left = n, n = n,
+          w = tonumber(w) or 0
+          fingers[#fingers + 1] = { id = id, x = tonumber(x1), y = tonumber(y1), left = n + w, n = n,
             from = { tonumber(x1), tonumber(y1) }, to = { tonumber(x2), tonumber(y2) } }
           love.touchpressed(id, tonumber(x1), tonumber(y1), 0, 0, 1)
         elseif a.act == "key" then
