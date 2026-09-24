@@ -248,6 +248,7 @@ end
 
 ---------------------------------------------------------------- events
 
+local topScreenTap   -- defined with the drawing (the launcher's top screen)
 local function toVirtual(x, y)
   local r = state.vwin
   if not r then return x, y, false end
@@ -263,6 +264,7 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
   local b = buttonAt(x, y)
   if M.debug then print("fold3ds buttonAt -> " .. tostring(b and b.name)) end
   if b then holdStart(id, b, x, y) return end
+  if topScreenTap(x, y) then return end
   local lx, ly, ok = toVirtual(x, y)
   if M.debug then print(("fold3ds touch %d,%d -> %s %.0f,%.0f kind=%s"):format(x, y, tostring(ok), lx, ly, tostring(state.kind))) end
   if ok then
@@ -311,6 +313,7 @@ local function onMousePressed(x, y, button, istouch, presses)
   if not istouch and button == 1 then
     local b = buttonAt(x, y)
     if b then holdStart("mouse", b, x, y) return end
+    if topScreenTap(x, y) then return end
   end
   local lx, ly, ok = toVirtual(x, y)
   if ok and orig.mousepressed then return orig.mousepressed(lx, ly, button, istouch, presses) end
@@ -399,22 +402,88 @@ local function drawIdle(r)
   lg.draw(anim.img, anim.quads[frame], math.floor(dx), math.floor(dy), 0, scale, scale)
 end
 
--- the top screen behind the launcher: the project's logo
+-- the launcher's selected game (the GAMES tab's version, else the last panel)
+local function launcherVersion()
+  local imp = state.subject
+  local ok, GV = pcall(require, "src.core.GameVersion")
+  local v = imp and (imp.panelVersion or imp.tab)
+  if ok and GV.VERSIONS and v and GV.VERSIONS[v] then return v end
+  return "red"
+end
+
+local function cartImage(version)
+  local key = "cart:" .. version
+  if state.images[key] == nil then
+    local ok, img = pcall(lg.newImage, DIR .. "carts/" .. version .. ".png")
+    state.images[key] = ok and img or false
+    if ok then img:setFilter("linear", "linear") end
+  end
+  return state.images[key] or nil
+end
+
+local fonts = {}
+local function font(px)
+  px = math.max(8, math.floor(px))
+  if not fonts[px] then fonts[px] = lg.newFont(px) end
+  return fonts[px]
+end
+
+-- the top screen behind the launcher: the selected game's cartridge, the
+-- arrows that change it, the project credit
 local function drawTopIdle(r)
   lg.setColor(0.02, 0.02, 0.03, 1)
   lg.rectangle("fill", r.x, r.y, r.w, r.h)
-  local logo = state.images.logo
-  if logo == nil then
-    local ok, img = pcall(lg.newImage, "assets/logo/logo.png")
-    logo = ok and img or false
-    state.images.logo = logo
-  end
-  if logo then
-    local iw, ih = logo:getDimensions()
-    local s = math.min(r.w * 0.7 / iw, r.h * 0.6 / ih)
+  local version = launcherVersion()
+  local img = cartImage(version)
+  if img then
+    local iw, ih = img:getDimensions()
+    local s = math.max(r.w / iw, r.h / ih)
     lg.setColor(1, 1, 1, 1)
-    lg.draw(logo, r.x + (r.w - iw * s) / 2, r.y + (r.h - ih * s) / 2, 0, s, s)
+    lg.setScissor(r.x, r.y, r.w, r.h)
+    lg.draw(img, r.x + (r.w - iw * s) / 2, r.y + (r.h - ih * s) / 2, 0, s, s)
+    lg.setScissor()
   end
+  local f = font(r.h * 0.12)
+  lg.setFont(f)
+  lg.setColor(1, 1, 1, 0.85)
+  lg.print("<", r.x + r.w * 0.03, r.y + r.h / 2 - f:getHeight() / 2)
+  lg.print(">", r.x + r.w * 0.97 - f:getWidth(">"), r.y + r.h / 2 - f:getHeight() / 2)
+  local ok, GV = pcall(require, "src.core.GameVersion")
+  local info = ok and GV.info and GV.info(version)
+  local imp = state.subject
+  local ready = imp and imp.ready and imp.ready[version]
+  local cf = font(r.h * 0.05)
+  lg.setFont(cf)
+  lg.setColor(0, 0, 0, 0.55)
+  lg.rectangle("fill", r.x, r.y + r.h - cf:getHeight() * 3.4, r.w, cf:getHeight() * 3.4)
+  lg.setColor(0.85, 0.85, 0.9, 1)
+  lg.printf((info and info.displayName or version) .. (ready and "  -  tap the cart to play" or "  -  import the ROM below"),
+    r.x, r.y + r.h - cf:getHeight() * 3.2, r.w, "center")
+  lg.printf("Based on the Pokemon Gen 1 Recompilation Project by BOIS CLUB GAMES, LLC\ngithub.com/bryanthaboi/gen1recomp",
+    r.x, r.y + r.h - cf:getHeight() * 2.1, r.w, "center")
+end
+
+-- a tap on the top screen while the launcher shows: arrows change the
+-- game, the cart plays it
+topScreenTap = function(x, y)
+  local L = state.L
+  if not L or state.kind == "game" or not inside(L.topCut, x, y) then return false end
+  local imp = state.subject
+  if not imp then return true end
+  local rel = (x - L.topCut.x) / L.topCut.w
+  local ok, GV = pcall(require, "src.core.GameVersion")
+  local order = ok and GV.ORDER or { "red" }
+  local version = launcherVersion()
+  if rel < 0.2 or rel > 0.8 then
+    local idx = 1
+    for i, v in ipairs(order) do if v == version then idx = i end end
+    idx = (idx - 1 + (rel < 0.2 and -1 or 1)) % #order + 1
+    imp.tab = order[idx]
+    imp.panelVersion = order[idx]
+  elseif imp.ready and imp.ready[version] and imp.play then
+    pcall(imp.play, imp, version, true)
+  end
+  return true
 end
 
 local function drawButtons(L)

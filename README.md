@@ -11,7 +11,8 @@ the packaged `game.love`, and runs upstream's own Android build script.
 ## What it does
 
 * **Open (inner screen)**: the 3DS.  The top shell's screen shows the game
-  (or upstream's logo while in the launcher); the bottom shell's screen
+  (or, in the launcher, the selected game's cartridge with arrows that
+  change the game and a tap on the cart that plays it); the bottom shell's screen
   shows upstream's launcher with all its menus (GAMES, MODS, FIND, ONLINE,
   SKINS, IMPORT, settings) or, in game, the game's Pokémon animated
   (Yellow's Pikachu surfs).  Touch inside either screen reaches the
