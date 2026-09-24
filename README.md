@@ -35,8 +35,16 @@ upstream's own Android build script.
   the app updater, the patch notes, Troubleshooting and the BOIS CLUB
   GAMES mark that used to sit under every page.
 * **SKINS (fold)**: a *THEME* card switches the bottom screen between
-  *Classic* and *3DS* (light grey rounded tiles on a striped pale field,
-  white panels, HOME-menu blue selection), and a *COVER STICKER* card puts
+  *Classic* and *3DS*.  The 3DS theme turns the bottom screen into a
+  HOME menu: a tile per game and per function (Mods, Find, Online, Skins,
+  Import, Settings, Save Sync, Exit) on the blue-grey wall, the selected
+  tile's name on the cream bar, a status row and page buttons.  Tap a tile
+  to select it and again to open it; swipe the wall left / right (or use
+  the page buttons, or walk the D-pad past an edge) to turn pages; the
+  grid button switches to bigger tiles.  An opened tile shows its page
+  (light theme: white panels, HOME-menu blue selection) under a back bar;
+  back, B or HOME returns to the menu.  Tile icons come from
+  `fold3ds/icons3ds/<id>.png`, with stand-ins until they exist.  And a *COVER STICKER* card puts
   a picture of your own on the closed lid: pick it from the phone, crop it
   (drag the frame or its corners), round its corners, size it, keep or drop
   its white die-cut edge, and drag it into place on the cover preview on

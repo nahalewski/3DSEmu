@@ -41,6 +41,7 @@ local real = {
 local orig = {}   -- the engine's event handlers, wrapped by install()
 local Sticker = require("fold3ds.sticker")
 local Theme3DS = require("fold3ds.theme3ds")
+local Home = require("fold3ds.home3ds")
 
 local DIR = "fold3ds/"
 -- shell art (full size); cut = the screen opening in the art's pixels
@@ -204,10 +205,20 @@ local function gameRect(L)
   return L.topGbc
 end
 
+-- the 3DS theme's HOME menu is up (the grid, or a tile opened from it)
+local function homeActive()
+  return state.mode == "ds" and state.theme == "3ds" and state.kind ~= "game"
+end
+
 local function virtualRect()
   local L = state.L
   if not L then return nil end
   if state.kind == "game" then return gameRect(L) end
+  if homeActive() and Home.opened() then
+    -- an opened tile: the launcher's page under the HOME menu's back bar
+    local bh = Home.barHeight(L.botCut)
+    return { x = L.botView.x, y = L.botView.y + bh, w = L.botView.w, h = L.botView.h - bh }
+  end
   return L.botView
 end
 
@@ -380,6 +391,18 @@ local function press(btn, src)
     if Input and Input.overlayPressed and GAME_BTN[btn] then Input:overlayPressed(GAME_BTN[btn]) end
   else
     local s = state.subject
+    if homeActive() then
+      -- the HOME menu: HOME returns to it; on the grid the pads move and A opens
+      if btn == "home" then Home.goHome(s) return end
+      if Home.showing() then
+        Home.button(s, btn)
+        return
+      end
+      if btn == "b" and s and not s._modalKey and not launcherOwnsPad() then
+        Home.goHome(s)
+        return
+      end
+    end
     if btn == "home" then return end
     -- the d-pad's up / down scroll the bottom screen; the circle pad and the
     -- d-pad's left / right move the launcher's focus
@@ -478,6 +501,16 @@ local topScreenTap   -- defined with the drawing (the launcher's top screen)
 local function editingSticker()
   return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Sticker.editing()
 end
+
+-- a touch on the 3DS HOME menu (the grid, or an opened tile's back bar)
+local function homeTouch(id, x, y)
+  if not homeActive() or not state.L then return false end
+  if Home.showing() then
+    if inside(state.L.botCut, x, y) then return Home.pressed(state.subject, id, x, y) end
+    return false
+  end
+  return Home.tapBar(state.subject, x, y)
+end
 local function toVirtual(x, y)
   local r = state.vwin
   if not r then return x, y, false end
@@ -494,6 +527,7 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
   if M.debug then print("fold3ds buttonAt -> " .. tostring(b and b.name)) end
   if b then holdStart(id, b, x, y) return end
   if editingSticker() then Sticker.pressed(id, x, y, state.L.botCut, state.L.topCut) return end
+  if homeTouch(id, x, y) then return end
   local dir = arrowAt(x, y)
   if dir then arrowStart(id, dir) return end
   if topScreenTap(x, y) then return end
@@ -516,6 +550,7 @@ local function onTouchMoved(id, x, y, dx, dy, pr)
   end
   if state.held[id] then holdMove(id, x, y) return end
   if editingSticker() then Sticker.moved(id, x, y) return end
+  if Home.moved(state.subject, id, x, y) then return end
   if state.vtouch[id] then
     local lx, ly = toVirtual(x, y)
     state.vtouch[id] = { lx, ly }
@@ -530,6 +565,7 @@ local function onTouchReleased(id, x, y, dx, dy, pr)
   end
   if state.held[id] then holdEnd(id) return end
   if editingSticker() then Sticker.released(id) return end
+  if Home.released(state.subject, id, x, y) then return end
   if state.arrowHeld and state.arrowHeld.id == id then arrowEnd(id) return end
   if state.vtouch[id] then
     state.vtouch[id] = nil
@@ -549,6 +585,7 @@ local function onMousePressed(x, y, button, istouch, presses)
     local b = buttonAt(x, y)
     if b then holdStart("mouse", b, x, y) return end
     if editingSticker() then Sticker.pressed("mouse", x, y, state.L.botCut, state.L.topCut) return end
+    if homeTouch("mouse", x, y) then return end
     local dir = arrowAt(x, y)
     if dir then arrowStart("mouse", dir) return end
     if topScreenTap(x, y) then return end
@@ -564,6 +601,7 @@ local function onMouseMoved(x, y, dx, dy, istouch)
   end
   if state.held.mouse then holdMove("mouse", x, y) return end
   if editingSticker() then if not istouch then Sticker.moved("mouse", x, y) end return end
+  if not istouch and Home.moved(state.subject, "mouse", x, y) then return end
   local lx, ly = toVirtual(x, y)
   if orig.mousemoved then return orig.mousemoved(lx, ly, dx, dy, istouch) end
 end
@@ -575,6 +613,7 @@ local function onMouseReleased(x, y, button, istouch, presses)
   end
   if state.held.mouse and not istouch then holdEnd("mouse") return end
   if editingSticker() then if not istouch then Sticker.released("mouse") end return end
+  if not istouch and Home.released(state.subject, "mouse", x, y) then return end
   if not istouch and state.arrowHeld and state.arrowHeld.id == "mouse" then arrowEnd("mouse") return end
   local lx, ly = toVirtual(x, y)
   if orig.mousereleased then return orig.mousereleased(lx, ly, button, istouch, presses) end
@@ -866,10 +905,15 @@ local function drawFrame()
     -- the cover sticker editor: the cover on top, the tools below
     Sticker.drawPreview(L.topCut, drawLidIn)
     Sticker.drawEditor(L.botCut)
+  elseif homeActive() and Home.showing() then
+    drawTopIdle(L.topCut)
+    Home.draw(L.botCut, state.subject, state.time)
   else
     drawTopIdle(L.topCut)
     lg.setColor(1, 1, 1, 1)
-    if canvas then lg.draw(canvas, L.botView.x, L.botView.y) end
+    local vr = state.vwin or L.botView
+    if canvas then lg.draw(canvas, vr.x, vr.y) end
+    if homeActive() then Home.drawBar(L.botView) end
     drawArrows(L)
   end
   lg.setColor(1, 1, 1, 1)
@@ -914,6 +958,7 @@ function backend:update(dt)
     local ok, LV = pcall(require, "src.import.LauncherView")
     if ok and type(LV) == "table" then
       LV.fold = state.mode == "ds" or nil
+      LV.foldNoHeader = homeActive() or nil
       LV.foldSticker = LV.foldSticker or {
         has = Sticker.has, open = Sticker.open, remove = Sticker.remove,
       }
@@ -929,6 +974,7 @@ function backend:update(dt)
   -- the 3DS look dresses the launcher on the fold's bottom screen
   Theme3DS.set(state.mode == "ds" and state.theme == "3ds")
   Sticker.update()
+  if homeActive() then Home.update(state.subject) end
   -- held scroll arrow / d-pad: repeat
   local now = state.time
   for i = 1, 2 do
@@ -972,6 +1018,8 @@ function backend:beginFrame(kind, subject)
   local changed = kind ~= state.kind
   state.kind, state.subject = kind, subject
   if changed then releaseAll() end
+  -- back from a game: the HOME menu's grid, as on a 3DS
+  if changed and kind == "launcher" then Home.goHome(nil) end
   if state.mode ~= "ds" or not state.L then return end
   state.vwin = virtualRect()
   local r = state.vwin
@@ -1156,6 +1204,7 @@ function M.install()
   M.installed = true
   loadSettings()
   Sticker.init({ setCanvas = real.setCanvas, font = font })
+  Home.init({ font = font })
   seedModIndex()
   wrapSettings()
   -- the virtual window: size, mode, safe area, pointer queries
