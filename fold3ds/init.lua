@@ -47,6 +47,8 @@ local TOP = { file = "skin/top_gbc.png", cut = { 318, 196, 838, 464 }, full = { 
 local BOTTOM = { file = "skin/bottom_empty.png", cut = { 318, 158, 756, 504 } }
 local SHEET = "skin/buttons.png"
 local LID = "skin/lid.png"
+-- the closed shell inside lid.png (x, y, w, h); the rest is transparent
+local LID_BOX = { 30, 157, 1390, 757 }
 -- sockets in half-size units of the bottom shell (x, y centre, r radius);
 -- sprite = rect in the half-size button sheet.  Both scale by 2 for the art.
 local BUTTONS = {
@@ -781,18 +783,21 @@ local function drawLid(W, H)
   lg.setColor(0.16, 0.16, 0.17, 1)
   lg.rectangle("fill", 0, 0, W, H)
   if not lid then return end
-  local iw, ih = lid:getDimensions()
+  -- only the shell itself (the art's opaque box), as big as the screen
+  -- holds with a thin margin
+  local cx, cy, cw, ch = LID_BOX[1], LID_BOX[2], LID_BOX[3], LID_BOX[4]
+  state.lidQuad = state.lidQuad or lg.newQuad(cx, cy, cw, ch, lid:getDimensions())
   local portrait = H > W * 1.1
   local aw, ah = W, H
   if portrait then aw, ah = H, W end
-  local s = math.min(aw / iw, ah / ih)
+  local s = math.min(aw / cw, ah / ch) * 0.98
   lg.push()
   if portrait then
     lg.translate(W, 0)
     lg.rotate(math.pi / 2)
   end
   lg.setColor(1, 1, 1, 1)
-  lg.draw(lid, math.floor((aw - iw * s) / 2), math.floor((ah - ih * s) / 2), 0, s, s)
+  lg.draw(lid, state.lidQuad, math.floor((aw - cw * s) / 2), math.floor((ah - ch * s) / 2), 0, s, s)
   lg.pop()
 end
 
