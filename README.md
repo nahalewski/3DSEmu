@@ -3,10 +3,11 @@
 gen1recomp on a foldable phone, as a 3DS.  This is upstream
 [gen1recomp](https://github.com/bryanthaboi/gen1recomp)'s own Android app
 (LÖVE 11.5, its launcher, its game engine, its mods) plus one layer,
-`fold3ds/`, that plugs into the engine's display and input seams.  No
-engine file is edited: `apply.sh` clones upstream at a pinned commit,
-drops `fold3ds/` in, appends one line to `main.lua`, adds the folder to
-the packaged `game.love`, and runs upstream's own Android build script.
+`fold3ds/`, that plugs into the engine's display and input seams.  `apply.sh` clones upstream at a pinned commit,
+drops `fold3ds/` in, applies `patches/` (the launcher's compact
+bottom-screen layout, active only on the fold), appends one line to
+`main.lua`, adds the folder to the packaged `game.love`, and runs
+upstream's own Android build script.
 
 ## What it does
 
@@ -17,6 +18,30 @@ the packaged `game.love`, and runs upstream's own Android build script.
   SKINS, IMPORT, settings) or, in game, the game's Pokémon animated
   (Yellow's Pikachu surfs).  Touch inside either screen reaches the
   launcher or the game as if that screen were the whole window.
+* **Top screen shapes (in game)**: a tap on the C-stick above X cycles
+  GAME BOY COLOR (the 10:9 screen at a whole pixel scale), WIDESCREEN (the
+  whole screen opening) and FULL SCREEN (the whole top panel, over the
+  Game Boy Color frame).  The choice is remembered.
+* **Menus on the bottom screen**: START's menu (and everything opened
+  from it) and the mod manager draw on the bottom screen while the world
+  stays on the top.  SELECT in the overworld opens the mod manager; SELECT
+  again closes it.
+* **Bottom-screen launcher**: no wordmark and no cartridge (the cartridge
+  is on the top screen); the GAMES / MODS / FIND / ONLINE / SKINS / IMPORT
+  strip scrolls sideways by dragging; the header stays put while the page
+  under it scrolls with the up / down arrows at the screen's right edge or
+  the D-pad's up / down (hold to repeat).  The circle pad and the D-pad's
+  left / right move the focus.  Settings is its own screen, and carries
+  the app updater, the patch notes, Troubleshooting and the BOIS CLUB
+  GAMES mark that used to sit under every page.
+* **Mods**: MODS has a *Download mods* button that opens FIND on the
+  community catalog (gen1recomp.com/mod, the
+  `bryanthaboi/gen1recomp-mod-index` feed): every listed mod, voxel ones
+  included, downloads from its author's GitHub release, and MODS' update
+  check keeps them current.  *Import* still installs a mod .zip.  The
+  catalog as of the build ships in the APK (`fold3ds/modindex/`, refreshed
+  by `apply.sh`) so the list is there before the first live fetch; no mod
+  itself is bundled.
 * **Shell buttons**: the drawn A, B, X, Y, D-pad, stick, START, SELECT and
   HOME press real input.  In game they are the Game Boy buttons (X and Y
   are R and L for FireRed / LeafGreen); HOME returns to the launcher.  In

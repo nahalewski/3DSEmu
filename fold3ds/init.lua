@@ -15,7 +15,16 @@
 --     in that "virtual window" while it is active);
 --   * Input:overlayPressed / overlayReleased for the game buttons;
 --   * the launcher's gamepadpressed / gamepadreleased for menu buttons;
---   * Orientation.apply("landscape") so the hinge runs across the middle.
+--   * Orientation.apply("landscape") so the hinge runs across the middle;
+--   * LauncherView.fold (a flag the patched launcher reads) for the compact
+--     bottom-screen launcher, and the mod index API to list the community
+--     catalog in FIND.
+--
+-- In game the top screen has three shapes, cycled by a tap on the C-stick
+-- above X: the Game Boy's own 10:9 screen at a whole pixel scale, wide
+-- (the whole screen opening), and full (the whole top panel, over the
+-- Game Boy Color frame).  START's menu and the SELECT mod manager draw on
+-- the bottom screen while the world stays on top.
 --
 -- POKEPORT_FOLD=ds|lid|off forces a mode on the desktop for testing.
 local M = {}
@@ -33,7 +42,8 @@ local orig = {}   -- the engine's event handlers, wrapped by install()
 
 local DIR = "fold3ds/"
 -- shell art (full size); cut = the screen opening in the art's pixels
-local TOP = { file = "skin/top_gbc.png", cut = { 318, 196, 838, 464 } }
+-- full = the dark panel around the opening (the "full screen" game shape)
+local TOP = { file = "skin/top_gbc.png", cut = { 318, 196, 838, 464 }, full = { 224, 148, 1044, 568 } }
 local BOTTOM = { file = "skin/bottom_empty.png", cut = { 318, 158, 756, 504 } }
 local SHEET = "skin/buttons.png"
 local LID = "skin/lid.png"
@@ -43,6 +53,8 @@ local BUTTONS = {
   { name = "stick", x = 68, y = 134, r = 50, sprite = { 270, 228, 181, 182 }, kind = "dpad" },
   { name = "pad", x = 68, y = 249, r = 48, sprite = { 37, 228, 184, 186 }, kind = "dpad" },
   { name = "x", x = 620, y = 126, r = 21, sprite = { 381, 57, 133, 134 } },
+  -- the C-stick in its socket above X: cycles the top screen's shape
+  { name = "cstick", x = 583.5, y = 93.5, r = 13, sprite = { 515, 256, 62, 62 } },
   { name = "y", x = 583, y = 164, r = 21, sprite = { 560, 58, 133, 133 } },
   { name = "a", x = 656, y = 164, r = 21, sprite = { 35, 58, 132, 133 } },
   { name = "b", x = 620, y = 201, r = 21, sprite = { 209, 58, 132, 133 } },
@@ -71,7 +83,20 @@ local state = {
   idle = { manifest = nil, sheets = {} },
   oriented = false,
   time = 0,
+  screenMode = nil,      -- gbc | wide | full (the game's top screen shape)
+  toast = nil,           -- { text, at } shown over the top screen
+  arrowHeld = nil,       -- { dir, id, next } an on-screen scroll arrow held
+  padScroll = nil,       -- { dir, next } the d-pad held up / down in the launcher
+  split = nil,           -- this frame's in-game menu split { full, top, menus }
 }
+
+local MODES = { "gbc", "wide", "full" }
+local MODE_NAMES = { gbc = "GAME BOY COLOR  -  10:9", wide = "WIDESCREEN", full = "FULL SCREEN" }
+local SETTINGS_FILE = "fold3ds.cfg"
+-- the community mod index (the catalog at gen1recomp.com/mod), and the copy
+-- of its feed shipped in the APK so the list is there before any network
+local MOD_INDEX = "bryanthaboi/gen1recomp-mod-index"
+local MOD_INDEX_SNAPSHOT = "modindex/index.json"
 
 ---------------------------------------------------------------- helpers
 
@@ -82,6 +107,24 @@ local function image(file)
     if ok then img:setFilter("linear", "linear") end
   end
   return state.images[file] or nil
+end
+
+local function loadSettings()
+  local ok, text = pcall(love.filesystem.read, SETTINGS_FILE)
+  local mode = ok and type(text) == "string" and text:match("screen=(%a+)")
+  state.screenMode = (mode == "gbc" or mode == "wide" or mode == "full") and mode or "gbc"
+end
+
+local function saveSettings()
+  pcall(love.filesystem.write, SETTINGS_FILE, "screen=" .. tostring(state.screenMode) .. "\n")
+end
+
+-- physical pixels per LOVE unit (Android runs high-DPI: a unit is several pixels)
+local function dpi()
+  local w = real.getWidth()
+  local pw = real.getPixelWidth and real.getPixelWidth() or w
+  if not w or w <= 0 or not pw or pw <= 0 then return 1 end
+  return pw / w
 end
 
 local function detectMode()
@@ -113,17 +156,51 @@ local function layout(W, H)
   L.bottom = { x = math.floor((W - bw * sb) / 2), y = topH, sc = sb, img = bottom }
   L.botCut = { x = math.floor(L.bottom.x + BOTTOM.cut[1] * sb), y = math.floor(L.bottom.y + BOTTOM.cut[2] * sb),
                w = math.floor(BOTTOM.cut[3] * sb), h = math.floor(BOTTOM.cut[4] * sb) }
+  L.topFull = { x = math.floor(L.top.x + TOP.full[1] * sc), y = math.floor(L.top.y + TOP.full[2] * sc),
+                w = math.floor(TOP.full[3] * sc), h = math.floor(TOP.full[4] * sc) }
+  -- the Game Boy's own screen: 10:9 at the largest whole number of physical
+  -- pixels per Game Boy pixel that fits the opening, centred in it
+  do
+    local d = dpi()
+    local k = math.floor(math.min(L.topCut.w * d / 160, L.topCut.h * d / 144))
+    local gw, gh
+    if k >= 1 then
+      gw, gh = math.floor(160 * k / d), math.floor(144 * k / d)
+    else
+      gh = L.topCut.h
+      gw = math.floor(gh * 160 / 144)
+    end
+    L.topGbc = { x = L.topCut.x + math.floor((L.topCut.w - gw) / 2),
+                 y = L.topCut.y + math.floor((L.topCut.h - gh) / 2), w = gw, h = gh }
+  end
+  -- the launcher's window is the bottom opening less a column on its right
+  -- for the up / down scroll arrows
+  do
+    local c = L.botCut
+    local aw = math.max(18, math.floor(c.w * 0.085))
+    L.botView = { x = c.x, y = c.y, w = c.w - aw, h = c.h }
+    L.arrows = { x = c.x + c.w - aw, y = c.y, w = aw, h = c.h }
+    L.arrowUp = { x = L.arrows.x, y = c.y, w = aw, h = math.floor(c.h / 2) }
+    L.arrowDown = { x = L.arrows.x, y = c.y + math.floor(c.h / 2), w = aw, h = c.h - math.floor(c.h / 2) }
+  end
   L.s2 = sb * 2          -- half-size units -> pixels
   L.topH = topH
   L.W, L.H = W, H
   return L
 end
 
+-- where the game draws on the top screen, by the chosen shape
+local function gameRect(L)
+  if state.screenMode == "full" then return L.topFull end
+  if state.screenMode == "wide" then return L.topCut end
+  return L.topGbc
+end
+
 local function virtualRect()
   local L = state.L
   if not L then return nil end
-  if state.kind == "game" then return L.topCut end
-  return L.botCut
+  if state.kind == "game" then return gameRect(L) end
+  return L.botView
 end
 
 local function vactive()
@@ -175,8 +252,116 @@ local function gameInput()
   return ok and Input or nil
 end
 
-local function press(btn)
+---------------------------------------------------------------- launcher scroll
+-- What an up / down arrow (or the d-pad) scrolls: the open Settings page, else
+-- the open popup's list, else the tab's panel, else the whole page.
+local function scrollTarget()
+  local imp = state.subject
+  if not imp or state.kind == "game" then return nil end
+  local s = imp._settings
+  if s and imp._modalKey == "_settings" and not s.confirm then
+    return { get = function() return s.scroll or 0 end, max = s.maxScroll or 0,
+             set = function(v) s.scroll = v end }
+  end
+  if imp._modalKey then
+    local ms = imp._modalScroll and imp._modalScroll[imp._modalKey]
+    if ms and (ms.maxScroll or 0) > 0 then
+      return { get = function() return ms.scroll or 0 end, max = ms.maxScroll,
+               set = function(v) ms.scroll = v end }
+    end
+    return nil
+  end
+  local tab = imp.tab or "red"
+  local tmax = imp._tabScrollMax and imp._tabScrollMax[tab] or 0
+  local pmax = imp._pageScrollMax or 0
+  if tmax <= 0 and pmax <= 0 then return nil end
+  -- the page (header) scroll first on the way down, last on the way up
+  return {
+    get = function() return (imp._pageScroll or 0) + ((imp._tabScroll and imp._tabScroll[tab]) or 0) end,
+    max = tmax + pmax,
+    set = function(v)
+      local page = math.min(pmax, v)
+      imp._pageScroll = page
+      imp._tabScroll = imp._tabScroll or {}
+      imp._tabScroll[tab] = math.max(0, math.min(tmax, v - page))
+    end,
+  }
+end
+
+local function canScroll(dir)
+  local t = scrollTarget()
+  if not t or t.max <= 0 then return false end
+  local at = t.get()
+  if dir < 0 then return at > 0.5 end
+  return at < t.max - 0.5
+end
+
+local function scrollBy(dir, mult)
+  local t = scrollTarget()
+  if not t or t.max <= 0 then return false end
+  local step = math.max(24, math.floor((state.vwin and state.vwin.h or 300) * 0.3)) * (mult or 1)
+  t.set(math.max(0, math.min(t.max, t.get() + dir * step)))
+  return true
+end
+
+-- the launcher's own text fields / file browser keep the d-pad
+local function launcherOwnsPad()
+  local ok, Kit = pcall(require, "src.ui.kit.Kit")
+  if not ok then return false end
+  return (Kit.FileBrowser and Kit.FileBrowser.active)
+    or (Kit.VirtualKeyboard and Kit.VirtualKeyboard.active) or false
+end
+
+local REPEAT_FIRST, REPEAT_NEXT = 0.35, 0.09
+
+local function toast(text)
+  state.toast = { text = text, at = state.time }
+end
+
+local function cycleScreen()
+  local idx = 1
+  for i, m in ipairs(MODES) do if m == state.screenMode then idx = i end end
+  state.screenMode = MODES[idx % #MODES + 1]
+  saveSettings()
+  toast(MODE_NAMES[state.screenMode])
+end
+
+---------------------------------------------------------------- in-game menus
+-- The states that draw on the bottom screen: START's menu and the mod
+-- manager, and everything opened on top of them.
+local MENU_BASE = { StartMenu = true, Gen2StartMenu = true, ManagerState = true }
+
+local function menuBase(game)
+  local st = game and game.stack and game.stack.states
+  if type(st) ~= "table" then return nil end
+  for i = 1, #st do
+    local s = st[i]
+    if type(s) == "table" and MENU_BASE[s.screenId] then return i end
+  end
+  return nil
+end
+
+-- SELECT in the overworld opens the mod manager (and closes it again)
+local function selectOpensMods(game)
+  if not game or not game.stack then return false end
+  local top = game.stack.top and game.stack:top()
+  local ok, Screens = pcall(require, "src.ui.Screens")
+  if not ok then return false end
+  if top and top.screenId == "ManagerState" then
+    game.stack:pop()
+    return true
+  end
+  local overworld = (top ~= nil and top == game.overworld)
+    or (top == nil and game.world ~= nil and game.phase == "play")
+  if not overworld then return false end
+  pcall(Screens.push, game, "ManagerState")
+  return true
+end
+
+local function press(btn, src)
+  if btn == "cstick" then cycleScreen() return end
   if state.kind == "game" then
+    if btn == "select" and selectOpensMods(state.subject) then return end
     if btn == "home" then
       -- HOME: back to the launcher (the engine turns quit into a return)
       love.event.quit()
@@ -187,11 +372,22 @@ local function press(btn)
   else
     local s = state.subject
     if btn == "home" then return end
+    -- the d-pad's up / down scroll the bottom screen; the circle pad and the
+    -- d-pad's left / right move the launcher's focus
+    if src == "pad" and (btn == "up" or btn == "down") and not launcherOwnsPad() then
+      local dir = btn == "up" and -1 or 1
+      if scrollBy(dir) then
+        state.padScroll = { dir = dir, next = state.time + REPEAT_FIRST }
+        return
+      end
+    end
     if s and s.gamepadpressed and PAD_BTN[btn] then pcall(s.gamepadpressed, s, nil, PAD_BTN[btn]) end
   end
 end
 
-local function release(btn)
+local function release(btn, src)
+  if btn == "cstick" then return end
+  if src == "pad" and (btn == "up" or btn == "down") then state.padScroll = nil end
   if state.kind == "game" then
     local Input = gameInput()
     if Input and Input.overlayReleased and GAME_BTN[btn] then Input:overlayReleased(GAME_BTN[btn]) end
@@ -206,7 +402,7 @@ local function holdStart(id, b, x, y)
   state.held[id] = h
   if b.kind == "dpad" then
     h.dirs = dirsAt(b, x, y)
-    for d in pairs(h.dirs) do press(d) end
+    for d in pairs(h.dirs) do press(d, b.name) end
   else
     press(b.name)
   end
@@ -218,8 +414,8 @@ local function holdMove(id, x, y)
   local b
   for _, bb in ipairs(BUTTONS) do if bb.name == h.name then b = bb end end
   local nd = dirsAt(b, x, y)
-  for d in pairs(h.dirs) do if not nd[d] then release(d) end end
-  for d in pairs(nd) do if not h.dirs[d] then press(d) end end
+  for d in pairs(h.dirs) do if not nd[d] then release(d, h.name) end end
+  for d in pairs(nd) do if not h.dirs[d] then press(d, h.name) end end
   h.dirs = nd
 end
 
@@ -228,7 +424,7 @@ local function holdEnd(id)
   if not h then return end
   state.held[id] = nil
   if h.kind == "dpad" then
-    for d in pairs(h.dirs) do release(d) end
+    for d in pairs(h.dirs) do release(d, h.name) end
   else
     release(h.name)
   end
@@ -237,6 +433,25 @@ end
 local function releaseAll()
   for id in pairs(state.held) do holdEnd(id) end
   state.vtouch = {}
+  state.arrowHeld, state.padScroll = nil, nil
+end
+
+-- the on-screen scroll arrows at the bottom screen's right edge
+local function arrowAt(x, y)
+  local L = state.L
+  if not L or state.kind == "game" then return nil end
+  if inside(L.arrowUp, x, y) then return -1 end
+  if inside(L.arrowDown, x, y) then return 1 end
+  return nil
+end
+
+local function arrowStart(id, dir)
+  scrollBy(dir)
+  state.arrowHeld = { dir = dir, id = id, next = state.time + REPEAT_FIRST }
+end
+
+local function arrowEnd(id)
+  if state.arrowHeld and state.arrowHeld.id == id then state.arrowHeld = nil end
 end
 
 local function buttonLit(b)
@@ -264,6 +479,8 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
   local b = buttonAt(x, y)
   if M.debug then print("fold3ds buttonAt -> " .. tostring(b and b.name)) end
   if b then holdStart(id, b, x, y) return end
+  local dir = arrowAt(x, y)
+  if dir then arrowStart(id, dir) return end
   if topScreenTap(x, y) then return end
   local lx, ly, ok = toVirtual(x, y)
   if M.debug then print(("fold3ds touch %d,%d -> %s %.0f,%.0f kind=%s"):format(x, y, tostring(ok), lx, ly, tostring(state.kind))) end
@@ -296,6 +513,7 @@ local function onTouchReleased(id, x, y, dx, dy, pr)
     return orig.touchreleased and orig.touchreleased(id, x, y, dx, dy, pr)
   end
   if state.held[id] then holdEnd(id) return end
+  if state.arrowHeld and state.arrowHeld.id == id then arrowEnd(id) return end
   if state.vtouch[id] then
     state.vtouch[id] = nil
     local lx, ly = toVirtual(x, y)
@@ -313,6 +531,8 @@ local function onMousePressed(x, y, button, istouch, presses)
   if not istouch and button == 1 then
     local b = buttonAt(x, y)
     if b then holdStart("mouse", b, x, y) return end
+    local dir = arrowAt(x, y)
+    if dir then arrowStart("mouse", dir) return end
     if topScreenTap(x, y) then return end
   end
   local lx, ly, ok = toVirtual(x, y)
@@ -335,6 +555,7 @@ local function onMouseReleased(x, y, button, istouch, presses)
     return orig.mousereleased and orig.mousereleased(x, y, button, istouch, presses)
   end
   if state.held.mouse and not istouch then holdEnd("mouse") return end
+  if not istouch and state.arrowHeld and state.arrowHeld.id == "mouse" then arrowEnd("mouse") return end
   local lx, ly = toVirtual(x, y)
   if orig.mousereleased then return orig.mousereleased(lx, ly, button, istouch, presses) end
 end
@@ -511,6 +732,50 @@ local function drawButtons(L)
   end
 end
 
+local function drawArrows(L)
+  local a = L.arrows
+  lg.setColor(0.07, 0.08, 0.10, 1)
+  lg.rectangle("fill", a.x, a.y, a.w, a.h)
+  lg.setColor(1, 1, 1, 0.10)
+  lg.rectangle("fill", a.x, a.y, 1, a.h)
+  local function tri(r, dir)
+    local on = canScroll(dir)
+    local held = state.arrowHeld and state.arrowHeld.dir == dir
+    local cx, cy = r.x + r.w / 2, r.y + r.h / 2
+    local sz = math.min(r.w * 0.34, r.h * 0.2)
+    if held then
+      lg.setColor(1, 1, 1, 0.12)
+      lg.rectangle("fill", r.x + 2, r.y + 2, r.w - 4, r.h - 4, 4, 4)
+    end
+    lg.setColor(1, 1, 1, on and (held and 1 or 0.85) or 0.18)
+    if dir < 0 then
+      lg.polygon("fill", cx - sz, cy + sz * 0.5, cx + sz, cy + sz * 0.5, cx, cy - sz * 0.7)
+    else
+      lg.polygon("fill", cx - sz, cy - sz * 0.5, cx + sz, cy - sz * 0.5, cx, cy + sz * 0.7)
+    end
+  end
+  tri(L.arrowUp, -1)
+  tri(L.arrowDown, 1)
+  lg.setColor(1, 1, 1, 0.10)
+  lg.rectangle("fill", a.x + 4, a.y + math.floor(a.h / 2), a.w - 8, 1)
+end
+
+local function drawToast(r)
+  local t = state.toast
+  if not t then return end
+  local age = state.time - t.at
+  if age > 1.6 then state.toast = nil return end
+  local alpha = age > 1.2 and (1.6 - age) / 0.4 or 1
+  local f = font(r.h * 0.075)
+  lg.setFont(f)
+  local tw, th = f:getWidth(t.text) + f:getHeight() * 1.4, f:getHeight() * 1.6
+  local x, y = r.x + (r.w - tw) / 2, r.y + r.h * 0.08
+  lg.setColor(0, 0, 0, 0.72 * alpha)
+  lg.rectangle("fill", x, y, tw, th, th / 3, th / 3)
+  lg.setColor(1, 1, 1, alpha)
+  lg.printf(t.text, x, y + (th - f:getHeight()) / 2, tw, "center")
+end
+
 local function drawLid(W, H)
   local lid = image(LID)
   lg.setColor(0.16, 0.16, 0.17, 1)
@@ -549,17 +814,39 @@ local function drawFrame()
   lg.clear(0.05, 0.05, 0.06, 1)
   -- screens first (the openings in the shell art are transparent)
   local canvas = state.canvases[state.kind == "game" and "game" or "launcher"]
+  local gr = gameRect(L)
   if state.kind == "game" then
-    if canvas then lg.draw(canvas, L.topCut.x, L.topCut.y) end
-    drawIdle(L.botCut)
+    lg.setColor(0, 0, 0, 1)
+    lg.rectangle("fill", L.topCut.x, L.topCut.y, L.topCut.w, L.topCut.h)
+    lg.setColor(1, 1, 1, 1)
+    if canvas and state.screenMode ~= "full" then lg.draw(canvas, gr.x, gr.y) end
+    local menus = state.canvases.menus
+    if state.menusShown and menus then
+      lg.setColor(0, 0, 0, 1)
+      lg.rectangle("fill", L.botCut.x, L.botCut.y, L.botCut.w, L.botCut.h)
+      lg.setColor(1, 1, 1, 1)
+      lg.draw(menus, L.botCut.x, L.botCut.y)
+    else
+      drawIdle(L.botCut)
+    end
   else
     drawTopIdle(L.topCut)
-    if canvas then lg.draw(canvas, L.botCut.x, L.botCut.y) end
+    lg.setColor(1, 1, 1, 1)
+    if canvas then lg.draw(canvas, L.botView.x, L.botView.y) end
+    drawArrows(L)
   end
   lg.setColor(1, 1, 1, 1)
   lg.draw(L.top.img, L.top.x, L.top.y, 0, L.top.sc, L.top.sc)
+  -- FULL: the game covers the whole top panel, Game Boy Color frame included
+  if state.kind == "game" and state.screenMode == "full" and canvas then
+    lg.setColor(0, 0, 0, 1)
+    lg.rectangle("fill", gr.x, gr.y, gr.w, gr.h)
+    lg.setColor(1, 1, 1, 1)
+    lg.draw(canvas, gr.x, gr.y)
+  end
   lg.draw(L.bottom.img, L.bottom.x, L.bottom.y, 0, L.bottom.sc, L.bottom.sc)
   drawButtons(L)
+  drawToast(state.kind == "game" and gr or L.topCut)
   lg.pop()
 end
 
@@ -585,55 +872,250 @@ function backend:update(dt)
   end
   state.W, state.H = W, H
   state.vwin = state.mode == "ds" and virtualRect() or nil
+  -- the launcher's compact bottom-screen layout
+  do
+    local ok, LV = pcall(require, "src.import.LauncherView")
+    if ok and type(LV) == "table" then LV.fold = state.mode == "ds" or nil end
+  end
+  -- held scroll arrow / d-pad: repeat
+  local now = state.time
+  for i = 1, 2 do
+    local r = i == 1 and state.arrowHeld or state.padScroll
+    if r and now >= r.next then
+      -- held: speeds up to four steps a repeat over two seconds
+      r.count = (r.count or 0) + 1
+      if state.kind == "game" or not scrollBy(r.dir, 1 + math.min(3, r.count / 7)) then
+        if r == state.padScroll then state.padScroll = nil end
+      end
+      r.next = now + REPEAT_NEXT
+    end
+  end
   if not state.oriented and love.system.getOS() == "Android" then
     state.oriented = true
     pcall(function() require("src.core.Orientation").apply("landscape") end)
   end
 end
 
-function backend:beginFrame(kind, subject)
-  local changed = kind ~= state.kind
-  state.kind, state.subject = kind, subject
-  if changed then releaseAll() end
-  if state.mode ~= "ds" or not state.L then return end
-  state.vwin = virtualRect()
-  local r = state.vwin
-  local key = kind == "game" and "game" or "launcher"
+local function canvasFor(key, r)
   local c = state.canvases[key]
   if not c or c:getWidth() ~= r.w or c:getHeight() ~= r.h then
     if c and c.release then c:release() end
     c = lg.newCanvas(r.w, r.h)
     state.canvases[key] = c
   end
+  return c
+end
+
+-- put a split frame's stack back (also run defensively before each frame,
+-- should a draw have thrown between the two halves)
+local function unsplit()
+  local sp = state.split
+  if sp and sp.stack and sp.stack.states ~= sp.full then sp.stack.states = sp.full end
+  state.split = nil
+end
+
+function backend:beginFrame(kind, subject)
+  unsplit()
+  state.menusShown = false
+  local changed = kind ~= state.kind
+  state.kind, state.subject = kind, subject
+  if changed then releaseAll() end
+  if state.mode ~= "ds" or not state.L then return end
+  state.vwin = virtualRect()
+  local r = state.vwin
+  local c = canvasFor(kind == "game" and "game" or "launcher", r)
   if kind == "game" then
     -- the shell's buttons replace the engine's touch overlay
     local ok, TC = pcall(require, "src.core.TouchControls")
     if ok and TC then TC.enabled = false end
+    -- START's menu / the mod manager open: the top screen draws the stack
+    -- below them, the bottom screen draws them (endFrame)
+    local base = menuBase(subject)
+    if base then
+      local full = subject.stack.states
+      local top = {}
+      for i = 1, base - 1 do top[i] = full[i] end
+      local menus = {}
+      for i = base, #full do menus[#menus + 1] = full[i] end
+      state.split = { stack = subject.stack, full = full, top = top, menus = menus }
+      subject.stack.states = top
+    end
   end
   state.frameCanvas = c
   real.setCanvas(c)
   lg.clear(0, 0, 0, 1)
 end
 
+-- the menus of a split frame, drawn by the game itself into the bottom screen
+local function drawMenus(subject)
+  local sp = state.split
+  local L = state.L
+  local r = L.botCut
+  local c = canvasFor("menus", r)
+  sp.stack.states = sp.menus
+  state.vwin = r
+  state.frameCanvas = c
+  real.setCanvas(c)
+  lg.clear(0, 0, 0, 1)
+  lg.push("all")
+  local ok, err = pcall(subject.draw, subject)
+  lg.pop()
+  if not ok then print("fold3ds: bottom menu draw: " .. tostring(err)) end
+  sp.stack.states = sp.full
+  state.frameCanvas = nil
+  state.vwin = virtualRect()
+  state.menusShown = true
+end
+
 function backend:endFrame(kind, subject)
   state.frameCanvas = nil
+  if state.split then state.split.stack.states = state.split.full end
+  if state.mode ~= "off" and kind == "game" and state.split and state.L then drawMenus(subject) end
+  state.split = nil
   if state.mode == "off" then return end
   drawFrame()
 end
 
 ---------------------------------------------------------------- install
 
+-- The community mod catalog in FIND: the index is added once (a player who
+-- removes it keeps it removed), and the feed shipped in the APK stands in
+-- until the first live fetch replaces it.
+local function seedModIndex()
+  local ok, err = pcall(function()
+    local ModIndex = require("src.mods.ModIndex")
+    local SaveData = require("src.core.SaveData")
+    local opts = SaveData.loadOptions()
+    if type(opts) ~= "table" then return end
+    local source = ModIndex.resolveSource(MOD_INDEX)
+    if not source then return end
+    if not opts.fold3dsModIndex then
+      ModIndex.addSource(MOD_INDEX)
+      opts = SaveData.loadOptions()
+      opts.fold3dsModIndex = true
+      SaveData.saveOptions(opts)
+    end
+    local listed = false
+    for _, row in ipairs(opts.modIndexes or {}) do
+      if row.feed == source.feed then listed = true end
+    end
+    if not listed or ModIndex.readCache(source.feed) then return end
+    local text = love.filesystem.read(DIR .. MOD_INDEX_SNAPSHOT)
+    if not text then return end
+    local index = ModIndex.parse(text)
+    if not index then return end
+    ModIndex.writeCache(source.feed, index)
+    -- stale on purpose: the next visit to FIND fetches the live feed
+    opts = SaveData.loadOptions()
+    local entry = opts.modIndexCache and opts.modIndexCache[source.feed]
+    if entry then
+      entry.checkedAt = 0
+      SaveData.saveOptions(opts)
+    end
+  end)
+  if not ok then print("fold3ds: mod index: " .. tostring(err)) end
+end
+
+-- Settings gets what the fold launcher's footer used to carry: the app
+-- updater, the patch notes and the BOIS CLUB GAMES mark.
+local invertShader
+local function aboutSection(imp)
+  local okLV, LV = pcall(require, "src.import.LauncherView")
+  local okS, Strings = pcall(require, "src.core.Strings")
+  local S = okS and Strings or function(x) return x end
+  local rows = {}
+  if okLV and LV._updateControl and imp.Check then
+    rows[#rows + 1] = {
+      label = S("App updates"),
+      actionLabel = function()
+        local _, label = LV._updateControl(imp)
+        return label or S("Check for updates")
+      end,
+      action = function()
+        local _, _, act = LV._updateControl(imp)
+        if act then pcall(act) end
+        return false
+      end,
+    }
+  end
+  rows[#rows + 1] = {
+    label = S("Patch notes"),
+    actionLabel = S("Open"),
+    action = function()
+      if imp._closeSettings then imp:_closeSettings() end
+      imp._appPatchNotes = true
+      return false
+    end,
+  }
+  if imp._openBugPanel then
+    rows[#rows + 1] = {
+      label = S("Troubleshooting"),
+      actionLabel = S("Open"),
+      action = function() imp:_openBugPanel() return false end,
+    }
+  end
+  if imp.bcg then
+    rows[#rows + 1] = { label = "", custom = {
+      height = function(m) return math.floor(76 * m.s) end,
+      draw = function(_, m, x, y, w, h)
+        local Kit = require("src.ui.kit.Kit")
+        local Theme = require("src.ui.kit.Theme")
+        invertShader = invertShader or lg.newShader([[
+          vec4 effect(vec4 color, Image tex, vec2 tc, vec2 sc) {
+            vec4 p = Texel(tex, tc);
+            return vec4((vec3(1.0) - p.rgb) * color.rgb, p.a * color.a);
+          }
+        ]])
+        local bw, bh = imp.bcg:getDimensions()
+        local sc = math.min((160 * m.s) / bw, (28 * m.s) / bh)
+        local dw, dh = bw * sc, bh * sc
+        local bx, by = x + (w - dw) / 2, y + math.floor(10 * m.s)
+        lg.setShader(invertShader)
+        lg.setColor(1, 1, 1, Kit.hover(bx, by, dw, dh) and 1 or 0.85)
+        lg.draw(imp.bcg, Theme.snap(bx), Theme.snap(by), 0, sc, sc)
+        lg.setShader()
+        lg.setColor(1, 1, 1, 1)
+        local line = "BOIS CLUB GAMES  -  bois.icu"
+        local lw = Kit.textWidth("micro", line)
+        Kit.text("micro", line, x + (w - lw) / 2, by + dh + math.floor(8 * m.s), Theme.PAL.muted)
+        if Kit.press(x, y, w, h) then pcall(love.system.openURL, "https://bois.icu") end
+      end,
+    } }
+  end
+  return { title = S("About"), rows = rows }
+end
+
+local function wrapSettings()
+  local ok, RomImporter = pcall(require, "src.import.RomImporter")
+  if not ok or type(RomImporter) ~= "table" or not RomImporter._openSettings then return end
+  local open = RomImporter._openSettings
+  RomImporter._openSettings = function(self, ...)
+    local r = open(self, ...)
+    local model = self._settings
+    if state.mode == "ds" and model and type(model.sections) == "table" then
+      pcall(function() model.sections[#model.sections + 1] = aboutSection(self) end)
+    end
+    return r
+  end
+end
+
 function M.install()
   if M.installed then return end
   M.installed = true
+  loadSettings()
+  seedModIndex()
+  wrapSettings()
   -- the virtual window: size, mode, safe area, pointer queries
   lg.getDimensions = function() if vactive() then return state.vwin.w, state.vwin.h end return real.getDimensions() end
   lg.getWidth = function() if vactive() then return state.vwin.w end return real.getWidth() end
   lg.getHeight = function() if vactive() then return state.vwin.h end return real.getHeight() end
   if real.getPixelDimensions then
-    lg.getPixelDimensions = function() if vactive() then return state.vwin.w, state.vwin.h end return real.getPixelDimensions() end
-    lg.getPixelWidth = function() if vactive() then return state.vwin.w end return real.getPixelWidth() end
-    lg.getPixelHeight = function() if vactive() then return state.vwin.h end return real.getPixelHeight() end
+    -- physical pixels, not units: the engine picks its whole-pixel Game Boy
+    -- scale from these, and on a high-DPI phone units are several pixels
+    local function px(v) return math.floor(v * dpi() + 0.5) end
+    lg.getPixelDimensions = function() if vactive() then return px(state.vwin.w), px(state.vwin.h) end return real.getPixelDimensions() end
+    lg.getPixelWidth = function() if vactive() then return px(state.vwin.w) end return real.getPixelWidth() end
+    lg.getPixelHeight = function() if vactive() then return px(state.vwin.h) end return real.getPixelHeight() end
   end
   -- "the screen" (no target, or a nil target) is the subject's canvas while
   -- it draws; the engine's GameViewport passes nil when it has no viewport
