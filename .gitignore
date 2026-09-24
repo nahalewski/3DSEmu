@@ -1,0 +1,32 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+
+# Scratch / logs
+*.log
+
+# Node
+node_modules/
+shared-doc.json
+
+# PSP port build output
+build/
+dist/
+runtime/build/
+runtime/src/*.o
+third_party/lua/*.o
+runtime/test/smoke/save/
+runtime/test/smoke/shot.png
+build_*/
+ports/ps3/build/
+ports/ps3/pkgfiles/
+ports/ps3/*.self
+ports/ps3/*.pkg
+mods_extra/
+ports/android/out/
+ports/android/gen/
+ports/android/jni/SDL
+ports/android/debug.keystore
+ports/android/res/mipmap-xxhdpi/
+build_android/
