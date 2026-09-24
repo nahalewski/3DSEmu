@@ -1,4 +1,4 @@
-# G1R Fold
+# gen1recomp Fold
 
 gen1recomp on a foldable phone, as a 3DS.  This is upstream
 [gen1recomp](https://github.com/bryanthaboi/gen1recomp)'s own Android app
@@ -31,7 +31,7 @@ the packaged `game.love`, and runs upstream's own Android build script.
 
 ## Build
 
-    ./apply.sh                    # debug APK, app id com.nahalewski.g1rfold
+    ./apply.sh                    # debug APK, app id com.nahalewski.gen1recompfold
     ./apply.sh --release          # with upstream's signing variables set
 
 Needs the Android SDK (platform 36, build-tools 36, NDK 25.2.9519653) and

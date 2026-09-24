@@ -24,6 +24,6 @@ s = s.replace("main.lua conf.lua src data assets tools/save-editor \\", "main.lu
 s = s.replace("-x 'data/generated/*' -x 'assets/generated/*')", "-x 'data/generated/*' -x 'assets/generated/*' -x 'fold3ds/dev/*')")
 p.write_text(s)
 PY
-export GEN1RECOMP_ANDROID_APPLICATION_ID="${GEN1RECOMP_ANDROID_APPLICATION_ID:-com.nahalewski.g1rfold}"
-export GEN1RECOMP_ANDROID_APP_NAME="${GEN1RECOMP_ANDROID_APP_NAME:-G1R Fold}"
+export GEN1RECOMP_ANDROID_APPLICATION_ID="${GEN1RECOMP_ANDROID_APPLICATION_ID:-com.nahalewski.gen1recompfold}"
+export GEN1RECOMP_ANDROID_APP_NAME="${GEN1RECOMP_ANDROID_APP_NAME:-gen1recomp Fold}"
 bash scripts/build_android.sh "$@"
