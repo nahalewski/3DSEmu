@@ -24,6 +24,7 @@
 local X = {}
 
 local lg = love.graphics
+local Pads = require("fold3ds.pads")
 
 local CFG = "fold3ds_ui.cfg"
 local REF_W, REF_H = 1280, 720
@@ -48,6 +49,7 @@ local BUTTONS = {
 local SETTINGS = {
   { id = "themes", name = "Themes" },
   { id = "home", name = "HOME Menu" },
+  { id = "controllers", name = "Controllers" },
   { id = "more", name = "Other Settings" },
 }
 
@@ -387,6 +389,11 @@ local function drawSettings(F, T)
   elseif cat == "home" then
     opts = { { id = "switch", name = "Nintendo Switch HOME Menu", on = true },
              { id = "3ds", name = "Nintendo 3DS HOME Menu", on = false } }
+  elseif cat == "controllers" then
+    local l = Pads.layoutSetting()
+    opts = { { id = "pad_auto", name = "Button Layout: Automatic", on = l == "auto" },
+             { id = "pad_nintendo", name = "Button Layout: Nintendo (A on the right)", on = l == "nintendo" },
+             { id = "pad_xbox", name = "Button Layout: Xbox (A at the bottom)", on = l == "xbox" } }
   else
     opts = { { id = "more", name = "Open the app's settings" } }
   end
@@ -413,6 +420,18 @@ local function drawSettings(F, T)
     end
     hit("opt", ox, y, ow, rh, i)
     y = y + rh + 10 * s
+  end
+  if cat == "controllers" then
+    lg.setFont(hf)
+    col(T.dim)
+    local pads = Pads.list()
+    local lines = {}
+    for _, pd in ipairs(pads) do
+      lines[#lines + 1] = pd.name .. "  -  " .. (pd.layout == "nintendo" and "Nintendo layout" or "Xbox layout")
+    end
+    local text = #lines > 0 and ("Connected:\n" .. table.concat(lines, "\n"))
+      or "No controllers connected.  Switch Pro Controllers, Joy-Con, the Razer Kishi and other pads are set up as they connect."
+    lg.printf(text, ox, y + 10 * s, ow, "left")
   end
   if cat == "home" then
     lg.setFont(hf)
@@ -482,6 +501,8 @@ local function pickOption(imp, i)
   elseif cat == "home" and o.id == "3ds" then
     X.disable()
     if ctx.to3ds then ctx.to3ds() end
+  elseif cat == "controllers" then
+    Pads.setLayout(o.id:sub(5))
   elseif cat == "more" then
     st.settings = nil
     if ctx.openSettings then ctx.openSettings(imp) end

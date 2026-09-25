@@ -51,6 +51,7 @@ local Activity = require("fold3ds.activity")
 local Notes = require("fold3ds.notes")
 local Manual = require("fold3ds.manual")
 local HomeNX = require("fold3ds.homenx")
+local Pads = require("fold3ds.pads")
 local Friends = require("fold3ds.friends")
 local EmuPlay = require("fold3ds.emuplay")
 local EmuPage = require("fold3ds.emupage")
@@ -2747,15 +2748,12 @@ function M.install()
     if Friends.textinput(t) or EmuPage.textinput(t) then return end
     if textinput then return textinput(t, ...) end
   end
-  -- the Switch HOME menu and a game's manual take the keyboard and a
-  -- controller as the shell's buttons (they have none on screen to press)
+  -- the Switch HOME menu and a game's manual take the keyboard as the
+  -- shell's buttons (they have none on screen to press)
   local KEY_BTN = { up = "up", down = "down", left = "left", right = "right",
     w = "up", s = "down", a = "left", d = "right",
     z = "a", ["return"] = "a", space = "a", x = "b", backspace = "b",
     c = "x", v = "y", escape = "start", tab = "select", q = "l", e = "r", h = "home" }
-  local PAD_SHELL = { a = "a", b = "b", x = "x", y = "y", start = "start", back = "select", guide = "home",
-    dpup = "up", dpdown = "down", dpleft = "left", dpright = "right",
-    leftshoulder = "l", rightshoulder = "r" }
   local function shellKeys()
     if nxOn() then return true end
     local id = appOn()
@@ -2766,10 +2764,48 @@ function M.install()
     if Friends.keypressed(k) or EmuPage.keypressed(k) then return end
     if keypressed then return keypressed(k, ...) end
   end
-  local gamepadpressed = love.gamepadpressed
+  -- controllers (fold3ds.pads): recognised and mapped by their labels as
+  -- they connect.  In a recomp game they go to the game as ever (HOME
+  -- aside); everywhere else -- both HOME menus, the apps, the emulators in
+  -- the shell -- they are the shell's buttons, the left stick its + Pad
+  local padOrig = { pressed = love.gamepadpressed, released = love.gamepadreleased,
+    axis = love.gamepadaxis, added = love.joystickadded, removed = love.joystickremoved }
+  local function inGame() return state.mode ~= "ds" or state.kind == "game" end
   love.gamepadpressed = function(j, b, ...)
-    if shellKeys() and PAD_SHELL[b] then press(PAD_SHELL[b]) return end
-    if gamepadpressed then return gamepadpressed(j, b, ...) end
+    local btn = Pads.shell(j, b)
+    if inGame() then
+      if btn == "home" and state.mode == "ds" then press("home", "pad") return end
+      if padOrig.pressed then return padOrig.pressed(j, Pads.sdl(j, b), ...) end
+      return
+    end
+    if btn then press(btn, "pad") end
+  end
+  love.gamepadreleased = function(j, b, ...)
+    if inGame() then
+      if padOrig.released then return padOrig.released(j, Pads.sdl(j, b), ...) end
+      return
+    end
+    local btn = Pads.shell(j, b)
+    if btn then release(btn, "pad") end
+  end
+  love.gamepadaxis = function(j, axis, v, ...)
+    if inGame() then
+      if padOrig.axis then return padOrig.axis(j, axis, v, ...) end
+      return
+    end
+    for _, e in ipairs(Pads.axis(j, axis, v)) do
+      if e[1] == "press" then press(e[2], "pad") else release(e[2], "pad") end
+    end
+  end
+  love.joystickadded = function(j, ...)
+    local ok, name = pcall(Pads.added, j)
+    if ok and name and (j:isGamepad() or name ~= "Controller") then toast(name .. " connected") end
+    if padOrig.added then return padOrig.added(j, ...) end
+  end
+  love.joystickremoved = function(j, ...)
+    local ok, ev = pcall(Pads.removed, j)
+    for _, e in ipairs(ok and ev or {}) do release(e[2], "pad") end
+    if padOrig.removed then return padOrig.removed(j, ...) end
   end
   -- the frame
   local ok, HostDisplay = pcall(require, "src.core.HostDisplay")

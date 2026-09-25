@@ -56,6 +56,15 @@ icons on the bottom screen.  Azahar is added to it:
   recomp game's manual.  The *3DS HOME Menu* button, or System Settings >
   HOME Menu, goes back to the 3DS HOME menu; the choice is remembered
   (`fold3ds_ui.cfg`).
+* **Controllers, as they connect.**  A Switch Pro Controller, Joy-Con,
+  the Razer Kishi or any other pad works everywhere the shell draws --
+  both HOME menus, the apps, the games playing in the shell -- and in the
+  recomp games, with no setting up (`fold3ds/pads.lua`).  Buttons follow
+  their labels: A on the right on a Nintendo pad, at the bottom on the
+  Kishi.  The left stick is the + Pad, the right stick the C-Stick, the
+  triggers ZL / ZR, the Home / Guide button HOME.  If a pad's labels come
+  out wrong, the Switch HOME menu's System Settings > Controllers sets the
+  layout by hand.
 * **The 3DS skin is the only skin.**  The Classic launcher look and the
   THEME card are gone; the bottom screen is always the HOME menu.
 * **First run.**  Until Azahar has its folder, a *Set Up 3DS* tile takes
