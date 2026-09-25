@@ -160,21 +160,25 @@ end
 
 -- one package: the ROM (downloadplay/rom/<file>), the saves, the mods
 local Azahar = require("fold3ds.azahar")
+local Emus = require("fold3ds.emus")
 
 local function s3dsName(game) return type(game) == "string" and game:match("^3DS %- ") ~= nil end
 
--- the 3DS game with this tile id, from Azahar's library
+-- an emulator's game with this tile id (fold3ds.emus), if it can travel
 local function ctrGame(id)
-  for _, g in ipairs(Azahar.games()) do if g.id == id then return g end end
+  for _, g in ipairs(Emus.games()) do
+    local p = Emus.owner(g)
+    if g.id == id and p and p.transferEntries then return g, p end
+  end
 end
 
 -- a name another phone's list can show (no : ; | in it)
 local function wireName(s) return (s:gsub("[:;|]", " ")) end
 
 local function sendCtr(id)
-  local g = ctrGame(id)
-  if not g then toast("That 3DS game is gone") Sfx.play("noMove") return end
-  local files = Azahar.transferEntries(g)
+  local g, p = ctrGame(id)
+  if not g then toast("That game is gone") Sfx.play("noMove") return end
+  local files = p.transferEntries(g)
   if #files == 0 then toast("Couldn't find " .. g.name .. "'s files") Sfx.play("noMove") return end
   st.game = id
   NAMES[id] = g.name
@@ -195,7 +199,7 @@ local function sendCtr(id)
 end
 
 local function send(v)
-  if v:match("^ctr_") then return sendCtr(v) end
+  if ctrGame(v) then return sendCtr(v) end
   local rom, name = romBytes(v)
   if not rom then
     toast("No ROM for " .. NAMES[v] .. " on this phone -- import it first")
@@ -457,8 +461,12 @@ function D.drawBottom(r)
       list[#list + 1] = { id = v, name = NAMES[v],
         sub = not hasRom(v) and "no ROM on this phone" or hasSaves(v) and "with its saves" or "no saves yet" }
     end
-    for _, g in ipairs(Azahar.games()) do
-      list[#list + 1] = { id = g.id, name = g.name, sub = g.installed and "3DS, installed" or "3DS" }
+    for _, g in ipairs(Emus.games()) do
+      local p = Emus.owner(g)
+      if p and p.transferEntries then
+        list[#list + 1] = { id = g.id, name = g.name,
+          sub = (p.system or "") .. (g.installed and ", installed" or "") }
+      end
     end
     local cols, rows = 2, 4
     local pages = math.max(1, math.ceil(#list / (cols * rows)))

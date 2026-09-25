@@ -50,7 +50,7 @@ local Eshop = require("fold3ds.eshop")
 local Activity = require("fold3ds.activity")
 local Notes = require("fold3ds.notes")
 local Friends = require("fold3ds.friends")
-local Azahar = require("fold3ds.azahar")
+local Emus = require("fold3ds.emus")
 
 local DIR = "fold3ds/"
 -- shell art (full size); cut = the screen opening in the art's pixels
@@ -1079,11 +1079,11 @@ local function drawTopTile(P, t)
   local time = state.time
   local bob = math.sin(time * 1.7) * P.h * 0.025
   local cx, cy = P.x + P.w / 2, P.y + P.h * 0.47
-  local img = t.ctr and Azahar.icon(t) or image("icons3ds/" .. t.id .. ".png")
+  local img = t.emuGame and Emus.icon(t) or image("icons3ds/" .. t.id .. ".png")
   -- the shadow
   lg.setColor(0.2, 0.24, 0.3, 0.16 - bob / P.h)
   lg.ellipse("fill", cx, P.y + P.h * 0.9, P.h * 0.26, P.h * 0.05)
-  local photo = t.ctr and Azahar.cart(t)
+  local photo = t.emuGame and Emus.cart(t)
   if photo then
     -- the game card itself (GameTDB's photo), floating, with a slow sway
     local iw, ih = photo:getDimensions()
@@ -1093,7 +1093,7 @@ local function drawTopTile(P, t)
     lg.draw(photo, cx, cy + bob, sway, k, k, iw / 2, ih / 2)
     return
   end
-  if t.ctr then
+  if t.emuGame then
     -- a 3DS game card: grey, the ridge on top, the label below it
     local w, h = P.h * 0.6, P.h * 0.68
     local x, y = cx - w / 2, cy - h / 2 + bob
@@ -1117,7 +1117,7 @@ local function drawTopTile(P, t)
       local f = font(ls * 0.5)
       lg.setFont(f)
       col3({ 206, 32, 40 })
-      lg.printf(Azahar.initial(t.name), lx, ly + (ls * 0.95 - f:getHeight()) / 2, ls, "center")
+      lg.printf(Emus.initial(t.name), lx, ly + (ls * 0.95 - f:getHeight()) / 2, ls, "center")
     end
     return
   end
@@ -1169,8 +1169,9 @@ local function ctrColour(t)
   local key = "ctrcol:" .. (t.key or t.id or "")
   if state.images[key] == nil then
     local c
-    if t.hasIcon then
-      local ok, d = pcall(love.image.newImageData, "fold3ds_azahar/icons/" .. t.key .. ".png")
+    local path = Emus.iconPath(t)
+    if path then
+      local ok, d = pcall(love.image.newImageData, path)
       if ok and d then
         local r, g, b, n = 0, 0, 0, 0
         local w, h = d:getDimensions()
@@ -1234,7 +1235,7 @@ local function drawCtrBanner(r, P, t, nh, pad)
   lg.rectangle("line", bx, by, bw, bubH, bubH * 0.22, bubH * 0.22)
   local is = bubH * 0.72
   local ix, iy = bx + bubH * 0.14, by + (bubH - is) / 2
-  local icon = Azahar.icon(t)
+  local icon = Emus.icon(t)
   if icon then
     local iw, ih = icon:getDimensions()
     lg.setColor(1, 1, 1, 1)
@@ -1245,7 +1246,7 @@ local function drawCtrBanner(r, P, t, nh, pad)
     local f = font(is * 0.55)
     lg.setFont(f)
     lg.setColor(1, 1, 1, 1)
-    lg.printf(Azahar.initial(t.name), ix, iy + (is - f:getHeight()) / 2, is, "center")
+    lg.printf(Emus.initial(t.name), ix, iy + (is - f:getHeight()) / 2, is, "center")
   end
   local tx, tw = ix + is + bubH * 0.2, bw - is - bubH * 0.5
   local tf = font(bubH * 0.3)
@@ -1257,7 +1258,7 @@ local function drawCtrBanner(r, P, t, nh, pad)
   lg.printf(t.name or "", tx, ty, tw, "left")
   lg.setFont(sf)
   lg.setColor(0.45, 0.46, 0.5, 1)
-  lg.printf(t.sub or "Nintendo 3DS", tx, ty + tf:getHeight() * 1.05, tw, "left")
+  lg.printf(t.sub or Emus.system(t) or "", tx, ty + tf:getHeight() * 1.05, tw, "left")
 end
 
 local APPLET_TITLES = { friends = "Friend List", gamenotes = "Game Notes" }
@@ -1457,7 +1458,7 @@ local function drawTop3DS(r, banner)
   end
   -- a 3DS game, the Azahar folder or one of its icons: that, not a cartridge
   local other = Home.showing() and Home.topTile(state.subject)
-  if other and other.ctr then
+  if other and other.emuGame then
     drawCtrBanner(r, P, other, nh, pad)
     lg.pop()
     return
@@ -2468,14 +2469,12 @@ function M.install()
       lg.rectangle("fill", x, y, s, s, s * 0.15, s * 0.15)
     end
   end })
-  -- an Azahar game opened from the HOME menu: the Activity Log times it
+  -- an emulator's game opened from the HOME menu: the Activity Log times it
   -- until the menu is back in focus
   do
-    local okA, Az = pcall(require, "fold3ds.azahar")
-    if okA and Az and Az.play then
-      local play = Az.play
-      Az.play = function(t) Activity.launched(t) return play(t) end
-    end
+    -- every emulator's games, not only Azahar's
+    local play = Emus.play
+    Emus.play = function(t) Activity.launched(t) return play(t) end
     local focus = love.focus
     love.focus = function(f)
       Activity.focus(f)
