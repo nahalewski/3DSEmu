@@ -117,6 +117,36 @@ local function model(shape)
       -- the back: the step to the contacts (its top), and the contacts
       cardStep = bot - 6.2 * mm, contacts = 17 }
   end
+  if shape == "switch" then
+    -- a Switch game card, 21 x 31 x 3.3 mm (1 = 21 mm), standing tall: its
+    -- top-left corner cut on a slant, the others rounded; a few grip
+    -- ridges under its top edge; the label filling the front below them;
+    -- on the back the step to its contacts along the bottom
+    local mm = 1 / 21
+    local w, h, d = 1, 31 * mm, 3.3 * mm
+    local top, bot = -h / 2, h / 2
+    local cut, rr = 2.6 * mm, 1.2 * mm
+    local out = {}
+    local function arc(cx, cy, a0, a1)
+      for i = 0, 5 do
+        local a = a0 + (a1 - a0) * i / 5
+        out[#out + 1] = { cx + math.cos(a) * rr, cy + math.sin(a) * rr }
+      end
+    end
+    out[#out + 1] = { -0.5, top + cut }
+    out[#out + 1] = { -0.5 + cut, top }
+    arc(0.5 - rr, top + rr, 1.5 * math.pi, 2 * math.pi)
+    arc(0.5 - rr, bot - rr, 0, 0.5 * math.pi)
+    arc(-0.5 + rr, bot - rr, 0.5 * math.pi, math.pi)
+    local ridges = {}
+    for k = 0, 3 do ridges[#ridges + 1] = top + (1.3 + k * 0.8) * mm end
+    return { w = w, h = h, d = d, cut = cut, card = true, mm = mm,
+      outline = out,
+      labelRect = { -0.5 + 1.8 * mm, top + 5.2 * mm, 1 - 3.6 * mm, h - 5.2 * mm - 1.8 * mm },
+      cardRidges = { ridges = ridges, x0 = -0.5 + cut + 0.8 * mm, x1 = 0.5 - 1.6 * mm },
+      cardNotch = { bot - 9 * mm, 2 * mm },
+      cardStep = bot - 5 * mm, contacts = 16 }
+  end
   if shape == "gba" then
     -- 57 x 35 x 7.5 mm: the top edge gently arched, the corners rounded
     local w, h, d = 1, 0.614, 0.13

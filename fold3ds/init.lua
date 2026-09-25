@@ -1156,10 +1156,10 @@ local function drawTopTile(P, t)
       if ok and type(sk) == "table" then skin = sk end
     end
     if not skin then
-      local sys = t.system or (p and p.id == "azahar" and "3ds") or "3ds"
-      local shape = ({ nds = "ds", ds = "ds", gb = "gb", gbc = "gbc", gba = "gba" })[sys] or "3ds"
+      local sys = t.system or (p and p.id == "azahar" and "3ds") or (p and p.id == "eden" and "switch") or "3ds"
+      local shape = ({ nds = "ds", ds = "ds", gb = "gb", gbc = "gbc", gba = "gba", switch = "switch" })[sys] or "3ds"
       local colors = { ["3ds"] = { 214, 216, 222 }, ds = { 190, 192, 198 }, gb = { 168, 168, 176 },
-        gbc = { 120, 120, 130 }, gba = { 60, 60, 70 } }
+        gbc = { 120, 120, 130 }, gba = { 60, 60, 70 }, switch = { 38, 38, 42 } }
       skin = { shape = shape, color = colors[shape], labelImage = Emus.icon(t), noLabel = true }
     end
     skin.cart = true

@@ -291,6 +291,14 @@ local function openTile(imp, t)
   end
   if t.close then Sfx.play("back"); closeFolder() return end
   if t.url and t.emu then Sfx.play("open"); Emus.open(t) return end
+  if t.emuGame and t.system == "switch" then
+    -- the Switch way: the tile swells to fill the screen, then the game
+    if not st.launch then
+      st.launch = { tile = t, t0 = now() }
+      Sfx.play("launch")
+    end
+    return
+  end
   if t.emuGame then Sfx.play("open"); Emus.play(t) return end
   Sfx.play("open")
   if t.exit then
@@ -653,6 +661,27 @@ local function drawTile(t, x, y, ts, alpha, lifted)
       x, y, ts = x - ts * (s - 1) / 2, y - ts * (s - 1) / 2, ts * s
     end
   end
+  if t.system == "switch" then
+    -- a Switch game: its square art edge to edge, small corners
+    local rr = ts * 0.06
+    col({ 20, 22, 30 }, (lifted and 0.3 or 0.16) * alpha)
+    roundRect("fill", x + ts * 0.02, y + ts * (lifted and 0.1 or 0.05), ts, ts, rr)
+    col({ 235, 235, 238 }, alpha)
+    roundRect("fill", x, y, ts, ts, rr)
+    local img = Emus.icon(t)
+    if img then
+      lg.stencil(function() roundRect("fill", x, y, ts, ts, rr) end, "replace", 1)
+      lg.setStencilTest("greater", 0)
+      lg.setColor(1, 1, 1, alpha)
+      local iw, ih = img:getDimensions()
+      local k = math.max(ts / iw, ts / ih)
+      lg.draw(img, x + (ts - iw * k) / 2, y + (ts - ih * k) / 2, 0, k, k)
+      lg.setStencilTest()
+    else
+      drawIcon(t, x + ts * 0.12, y + ts * 0.12, ts * 0.76)
+    end
+    return
+  end
   local r = ts * 0.2
   col({ 60, 70, 90 }, (lifted and 0.3 or 0.14) * alpha)
   roundRect("fill", x + ts * 0.02, y + ts * (lifted and 0.1 or 0.05), ts, ts, r)
@@ -875,7 +904,46 @@ function H.draw(r, imp, time)
   end
   if selRect and not st.lift then
     local s = selRect[3]
-    if not st.bar then brackets(selRect[1] - s * 0.1, selRect[2] - s * 0.1, s * 1.2, s * 1.2, time) end
+    local selTile = tiles[st.sel]
+    if selTile and selTile.system == "switch" and not st.bar then
+      -- the Switch's selection: a cyan outline that breathes, the tile
+      -- popped up a little the moment it is picked
+      if st.swSel ~= selTile.id then st.swSel, st.swSelAt = selTile.id, now() end
+      local pa = clamp((now() - (st.swSelAt or 0)) / 0.18, 0, 1)
+      local pop = 1 + 0.06 * math.sin(pa * math.pi)
+      local ps = s * pop
+      local px, py = selRect[1] - (ps - s) / 2, selRect[2] - (ps - s) / 2
+      drawTile(selTile, px, py, ps, 1, false)
+      local glow = 0.55 + 0.45 * math.abs(math.sin(time * 2.4))
+      local lw = math.max(2, s * 0.045)
+      lg.setLineWidth(lw)
+      lg.setColor(0, 0.76, 0.89, glow)
+      roundRect("line", px - lw * 1.2, py - lw * 1.2, ps + lw * 2.4, ps + lw * 2.4, ps * 0.08)
+      lg.setColor(0.6, 0.95, 1, glow * 0.4)
+      lg.setLineWidth(math.max(1, lw * 0.4))
+      roundRect("line", px - lw * 2.2, py - lw * 2.2, ps + lw * 4.4, ps + lw * 4.4, ps * 0.1)
+    elseif not st.bar then brackets(selRect[1] - s * 0.1, selRect[2] - s * 0.1, s * 1.2, s * 1.2, time) end
+  end
+  -- a Switch game launching: its tile swells over the whole screen, then
+  -- the game starts
+  if st.launch then
+    local L = st.launch
+    local a = (now() - L.t0) / 0.45
+    local d = st.disp[L.tile.id]
+    if d then
+      local e = ease(clamp(a, 0, 1))
+      local sx, sy, ss = d.x, d.y, d.s
+      local tw = math.max(r.w, r.h) * 1.1
+      local cx, cy = sx + ss / 2 + (r.x + r.w / 2 - sx - ss / 2) * e, sy + ss / 2 + (r.y + r.h / 2 - sy - ss / 2) * e
+      local sz = ss + (tw - ss) * e
+      drawTile(L.tile, cx - sz / 2, cy - sz / 2, sz, 1, false)
+      lg.setColor(1, 1, 1, clamp((a - 0.6) / 0.4, 0, 1))
+      lg.rectangle("fill", r.x, r.y, r.w, r.h)
+    end
+    if a >= 1 then
+      st.launch = nil
+      Emus.play(L.tile)
+    end
   end
   -- more to the right / left: the half-round arrow tabs at the edges
   local function edgeTab(side)
