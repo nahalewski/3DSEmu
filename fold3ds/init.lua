@@ -42,6 +42,7 @@ local orig = {}   -- the engine's event handlers, wrapped by install()
 local Sticker = require("fold3ds.sticker")
 local Theme3DS = require("fold3ds.theme3ds")
 local Home = require("fold3ds.home3ds")
+local Sfx = require("fold3ds.sfx")
 
 local DIR = "fold3ds/"
 -- shell art (full size); cut = the screen opening in the art's pixels
@@ -109,6 +110,7 @@ local state = {
   screenMode = nil,      -- gbc | wide | full (the game's top screen shape)
   theme = "classic",     -- classic | 3ds (the bottom-screen launcher's look)
   shoulders = true,      -- L / ZL / R / ZR shown at the sides
+  sounds = true,         -- the HOME menu's sound effects in the menus
   shoulderSeen = -10,    -- when an edge was last touched (they fade after)
   toast = nil,           -- { text, at } shown over the top screen
   arrowHeld = nil,       -- { dir, id, next } an on-screen scroll arrow held
@@ -142,11 +144,14 @@ local function loadSettings()
   state.screenMode = (mode == "gbc" or mode == "wide" or mode == "full") and mode or "gbc"
   state.theme = text:match("theme=(%w+)") == "3ds" and "3ds" or "classic"
   state.shoulders = text:match("shoulders=(%d)") ~= "0"
+  state.sounds = text:match("sounds=(%d)") ~= "0"
+  Sfx.enabled = state.sounds
 end
 
 local function saveSettings()
   pcall(love.filesystem.write, SETTINGS_FILE, "screen=" .. tostring(state.screenMode)
-    .. "\ntheme=" .. tostring(state.theme) .. "\nshoulders=" .. (state.shoulders and "1" or "0") .. "\n")
+    .. "\ntheme=" .. tostring(state.theme) .. "\nshoulders=" .. (state.shoulders and "1" or "0")
+    .. "\nsounds=" .. (state.sounds and "1" or "0") .. "\n")
 end
 
 -- physical pixels per LOVE unit (Android runs high-DPI: a unit is several pixels)
@@ -389,6 +394,7 @@ local function cycleScreen()
   local idx = 1
   for i, m in ipairs(MODES) do if m == state.screenMode then idx = i end end
   state.screenMode = MODES[idx % #MODES + 1]
+  Sfx.play("screen", true)
   saveSettings()
   toast(MODE_NAMES[state.screenMode])
 end
@@ -437,6 +443,7 @@ local function press(btn, src)
     end
     if btn == "home" then
       -- HOME: back to the launcher (the engine turns quit into a return)
+      Sfx.play("home", true)
       love.event.quit()
       return
     end
@@ -446,22 +453,24 @@ local function press(btn, src)
     local s = state.subject
     if homeActive() then
       -- the HOME menu: HOME returns to it; on the grid the pads move and A opens
-      if btn == "home" then Home.goHome(s) return end
+      if btn == "home" then Sfx.play("homeMenu"); Home.goHome(s, true) return end
       if Home.showing() then
         Home.button(s, btn)
         return
       end
       if btn == "b" and s and not s._modalKey and not launcherOwnsPad() then
-        Home.goHome(s)
+        Sfx.play("cancel")
+        Home.goHome(s, true)
         return
       end
     end
-    if btn == "home" then return end
+    if btn == "home" then Sfx.play("homeMenu") return end
     -- the d-pad's up / down scroll the bottom screen; the circle pad and the
     -- d-pad's left / right move the launcher's focus
     if src == "pad" and (btn == "up" or btn == "down") and not launcherOwnsPad() then
       local dir = btn == "up" and -1 or 1
       if scrollBy(dir) then
+        Sfx.play("scroll")
         state.padScroll = { dir = dir, next = state.time + REPEAT_FIRST }
         return
       end
@@ -568,6 +577,7 @@ end
 local function pressColumnButton(b)
   local imp = state.subject
   if not imp then return end
+  Sfx.play("button")
   if b.id == "sync" and imp._openSync then imp:_openSync()
   elseif b.id == "gear" and imp._openSettings then imp:_openSettings()
   elseif b.id == "quit" and imp._quitApp then imp:_quitApp() end
@@ -584,6 +594,7 @@ local function arrowAt(x, y)
 end
 
 local function arrowStart(id, dir)
+  Sfx.play(canScroll(dir) and "scroll" or "noMove")
   scrollBy(dir)
   state.arrowHeld = { dir = dir, id = id, next = state.time + REPEAT_FIRST }
 end
@@ -1333,7 +1344,10 @@ function backend:beginFrame(kind, subject)
   state.kind, state.subject = kind, subject
   if changed then releaseAll() end
   -- back from a game: the HOME menu's grid, as on a 3DS
-  if changed and kind == "launcher" then Home.goHome(nil) end
+  if changed and kind == "launcher" then Home.goHome(nil, true) end
+  -- the menu's chime the first time it comes up
+  if kind == "launcher" and not state.chimed then state.chimed = true; Sfx.play("start") end
+  Sfx.inGame = kind == "game"
   if state.mode ~= "ds" or not state.L then return end
   state.vwin = virtualRect()
   local r = state.vwin
@@ -1525,12 +1539,36 @@ local function controlsSection()
         state.shoulderSeen = state.time
         saveSettings()
       end },
+    { label = S("Menu sounds"),
+      choices = { { value = "on", label = S("On") }, { value = "off", label = S("Off") } },
+      selected = function() return state.sounds and "on" or "off" end,
+      select = function(v)
+        state.sounds = v == "on"
+        Sfx.enabled = state.sounds
+        Sfx.play(state.sounds and "on" or "off")
+        saveSettings()
+      end },
   } }
 end
 
 local function wrapSettings()
   local ok, RomImporter = pcall(require, "src.import.RomImporter")
   if not ok or type(RomImporter) ~= "table" or not RomImporter._openSettings then return end
+  -- every launcher control a finger or A activates, and a game starting
+  if RomImporter.runActions then
+    local run = RomImporter.runActions
+    RomImporter.runActions = function(self, queue, ...)
+      if state.mode == "ds" and type(queue) == "table" and #queue > 0 then Sfx.play("button") end
+      return run(self, queue, ...)
+    end
+  end
+  if RomImporter.play then
+    local play = RomImporter.play
+    RomImporter.play = function(self, ...)
+      if state.mode == "ds" then Sfx.play("launch") end
+      return play(self, ...)
+    end
+  end
   local open = RomImporter._openSettings
   RomImporter._openSettings = function(self, ...)
     local r = open(self, ...)

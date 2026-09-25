@@ -82,6 +82,7 @@ local st = {
   pinch = nil,
 }
 local ctx
+local Sfx = require("fold3ds.sfx")
 
 local function col(c, a) lg.setColor(c[1] / 255, c[2] / 255, c[3] / 255, a or 1) end
 local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
@@ -170,6 +171,7 @@ function H.tick(dt)
   coins.seconds = coins.seconds + dt
   while coins.seconds >= COIN_SECONDS do
     coins.seconds = coins.seconds - COIN_SECONDS
+    if coins.count < COIN_MAX then Sfx.play("coin") end
     coins.count = math.min(COIN_MAX, coins.count + 1)
   end
   coins.dirty = coins.dirty + dt
@@ -190,6 +192,7 @@ end
 
 local function openTile(imp, t)
   if not imp or not t then return end
+  Sfx.play("open")
   if t.exit then
     if imp._quitApp then imp:_quitApp() end
     return
@@ -211,8 +214,9 @@ local function manual(imp, t)
   imp._gameManage = t.id
 end
 
-function H.goHome(imp)
+function H.goHome(imp, quiet)
   if imp and imp._settings and imp._closeSettings then imp:_closeSettings() end
+  if st.open and not quiet then Sfx.play("back") end
   st.open = nil
 end
 
@@ -230,6 +234,7 @@ function H.update(imp)
     if tc.kind == "tile" and not tc.moved and not st.lift and now() - tc.t0 >= HOLD then
       tc.kind = "lift"
       st.lift = { id = tc.tileId, x = tc.x, y = tc.y, touch = id }
+      Sfx.play("grab")
       st.sel = tc.idx
     end
   end
@@ -273,7 +278,8 @@ end
 
 local function setLevel(lv, g, n)
   lv = clamp(lv, 1, #LEVELS)
-  if lv == st.level then return end
+  if lv == st.level then Sfx.play("edge") return end
+  Sfx.play(lv < st.level and "zoomIn" or "zoomOut")
   -- the selected tile stays where it is on screen while everything reflows
   local Gold = geometry(st.level, g)
   local sx = slotPos(Gold, st.sel, st.scroll)
@@ -697,7 +703,7 @@ function H.moved(imp, id, x, y)
     local to = slotAt(x, y, #st.order)
     local from
     for i, oid in ipairs(st.order) do if oid == st.lift.id then from = i end end
-    if to and from and to ~= from then moveTile(from, to); st.sel = to end
+    if to and from and to ~= from then moveTile(from, to); st.sel = to; Sfx.play("swap") end
     return true
   end
   if (tc.kind == "tile" or tc.kind == "strip") and tc.moved then
@@ -725,6 +731,7 @@ function H.released(imp, id, x, y)
   end
   if tc.kind == "lift" then
     st.lift = nil
+    Sfx.play("drop")
     save()
     return true
   end
@@ -737,18 +744,18 @@ function H.released(imp, id, x, y)
   local tiles = H.tiles(imp)
   if tc.kind == "tile" then
     if st.sel == tc.idx then openTile(imp, tiles[tc.idx])
-    else st.sel = tc.idx; selectTile(imp, tiles[tc.idx]) end
+    else st.sel = tc.idx; Sfx.play("select"); selectTile(imp, tiles[tc.idx]) end
   elseif tc.kind == "button" then
     local h = tc.hit
     local g = st.grid
     local n = #tiles
-    if h.id == "applet" then openTile(imp, h.applet)
+    if h.id == "applet" then Sfx.play("touch"); openTile(imp, h.applet)
     elseif h.id == "bigger" and g then setLevel(st.level - 1, g, n)
     elseif h.id == "smaller" and g then setLevel(st.level + 1, g, n)
     elseif h.id == "open" then openTile(imp, tiles[st.sel])
     elseif h.id == "manual" then manual(imp, tiles[st.sel])
-    elseif h.id == "scrollRight" and g then st.vel = g.w * 3.2
-    elseif h.id == "scrollLeft" and g then st.vel = -g.w * 3.2 end
+    elseif h.id == "scrollRight" and g then st.vel = g.w * 3.2; Sfx.play("strip")
+    elseif h.id == "scrollLeft" and g then st.vel = -g.w * 3.2; Sfx.play("strip") end
   end
   return true
 end
@@ -777,6 +784,7 @@ function H.button(imp, name)
   if name == "zl" and g then setLevel(st.level + 1, g, n) return true end
   if (name == "l" or name == "r") and g then
     st.vel = (name == "r" and 1 or -1) * g.w * 3.2
+    Sfx.play("strip")
     return true
   end
   if name == "up" then if (s - 1) % rows > 0 then s = s - 1 end
@@ -784,7 +792,9 @@ function H.button(imp, name)
   elseif name == "left" then s = s - rows
   elseif name == "right" then s = math.min(n, s + rows)
   else return false end
+  local was = st.sel
   st.sel = clamp(s, 1, n)
+  Sfx.play(st.sel ~= was and "over" or "edge")
   selectTile(imp, tiles[st.sel])
   if g then reveal(geometry(st.level, g), n, g) end
   return true

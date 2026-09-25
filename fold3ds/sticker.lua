@@ -40,6 +40,7 @@ local RESTICK = 0.22          -- peeled at least this far and let go: it was re-
 local FALL_TIME = 1.3         -- the fall, seconds
 
 local ctx                               -- from init: real setCanvas, font()
+local Sfx = require("fold3ds.sfx")
 local list = {}                         -- stickers, bottom to top
 local nextId = 1
 local ed = nil                          -- the open editor
@@ -376,7 +377,7 @@ function S.drawOnLid(ox, oy, s, bw, bh, mask, cover)
     local editing = ed and ed.target == st
     local held = grab and grab.st == st and grab.held
     if st.on and not editing and not held then
-      if st.fall and st.fall.pending then st.fall = { t0 = t } end
+      if st.fall and st.fall.pending then st.fall = { t0 = t }; Sfx.play("fall") end
       local cx, cy, w, h = geometry(st, bw, bh)
       lg.stencil(mask or function() lg.rectangle("fill", -1e5, -1e5, 2e5, 2e5) end, "replace", 1)
       lg.push()
@@ -532,10 +533,12 @@ function S.coverMoved(id, x, y)
   local diag = math.sqrt(w * w + h * h)
   grab.amount = math.sqrt((px - grab.cx) ^ 2 + (py - grab.cy) ^ 2) / diag
   grab.fold = { grab.cx, grab.cy, px, py }
+  if not grab.peeled and grab.amount > 0.06 then grab.peeled = true; Sfx.play("peel") end
   if grab.amount >= PEEL_OFF then
     -- off the cover and into the finger
     grab.held, grab.fold = true, nil
     grab.bx, grab.by = bx, by
+    Sfx.play("peel")
   end
 end
 
@@ -558,9 +561,13 @@ function S.coverReleased(id, x, y)
     for i, o in ipairs(list) do if o == st then table.remove(list, i) break end end
     list[#list + 1] = st
     saveList()
+    Sfx.play("stick")
   elseif grab.amount >= RESTICK then
     restick(st)
     saveList()
+    Sfx.play("stick")
+  elseif grab.peeled then
+    Sfx.play("stick")
   end
   grab, twist = nil, nil
 end
@@ -743,6 +750,7 @@ function S.save()
   loadImage(st)
   saveList()
   ed = nil
+  Sfx.play("newSticker")
   return true
 end
 

@@ -75,6 +75,12 @@ upstream's own Android build script.
   wait in SKINS (*Put the fallen ones back*).  Stickers keep their
   proportions, stay on the lid's flat face and are cut to the shell's
   shape.
+* **Menu sounds**: the 3DS HOME menu's own sound effects
+  (`fold3ds/sounds/`, trimmed) on the menus -- tiles, the applet bar,
+  resizing, lifting and dropping icons, scrolling, HOME, back, launcher
+  buttons, stickers peeling / sticking / falling, the play coin, and a
+  chime when the menu first comes up.  Silent in game except HOME and the
+  C-stick.  Settings > 3DS Shell > Menu sounds turns them off.
 * **Mods**: MODS has a *Download mods* button that opens FIND on the
   community catalog (gen1recomp.com/mod, the
   `bryanthaboi/gen1recomp-mod-index` feed): every listed mod, voxel ones
