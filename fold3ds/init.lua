@@ -1065,7 +1065,20 @@ local function drawLidIn(x, y, W, H, portrait)
   end
   lg.setColor(1, 1, 1, 1)
   lg.draw(lid, state.lidQuad, ox, oy, 0, s, s)
-  Sticker.drawOnLid(ox, oy, s, cw, ch)
+  -- the sticker stays on the shell: its shape (the art's opaque pixels) is
+  -- the stencil anything hanging off the edge is cut by
+  state.alphaTest = state.alphaTest or lg.newShader([[
+    vec4 effect(vec4 color, Image tex, vec2 tc, vec2 sc) {
+      vec4 p = Texel(tex, tc);
+      if (p.a < 0.5) discard;
+      return p;
+    }
+  ]])
+  Sticker.drawOnLid(ox, oy, s, cw, ch, function()
+    lg.setShader(state.alphaTest)
+    lg.draw(lid, state.lidQuad, ox, oy, 0, s, s)
+    lg.setShader()
+  end)
   lg.pop()
 end
 

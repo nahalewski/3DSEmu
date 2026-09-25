@@ -92,7 +92,10 @@ end
 -- Draw the sticker (cut from `img` by cfg) with its top-left at x, y and
 -- width w, into whatever canvas is current.  Used for the finished PNG and
 -- for the editor's live previews alike.
-local function drawSticker(img, c, x, y, w)
+-- `masked`: stencil value 1 already marks where the sticker may show (the
+-- shell), so the picture's own rounded cut stacks on it instead of
+-- replacing it
+local function drawSticker(img, c, x, y, w, masked)
   local ih = w * c.ch / c.cw
   local short = math.min(w, ih)
   local edge = c.outline and short * 0.055 or 0
@@ -100,12 +103,18 @@ local function drawSticker(img, c, x, y, w)
   -- the picture sits inside the white edge
   local px, py, pw, ph = x + edge, y + edge, w - 2 * edge, ih - 2 * edge
   local pr = math.max(0, r - edge)
+  if masked then lg.setStencilTest("greater", 0) end
   if c.outline then
     lg.setColor(1, 1, 1, 1)
     roundRect("fill", x, y, w, ih, r)
   end
-  lg.stencil(function() roundRect("fill", px, py, pw, ph, pr) end, "replace", 1)
-  lg.setStencilTest("greater", 0)
+  if masked then
+    lg.stencil(function() roundRect("fill", px, py, pw, ph, pr) end, "increment", 1, true)
+    lg.setStencilTest("greater", 1)
+  else
+    lg.stencil(function() roundRect("fill", px, py, pw, ph, pr) end, "replace", 1)
+    lg.setStencilTest("greater", 0)
+  end
   lg.setColor(1, 1, 1, 1)
   local iw, ihh = img:getDimensions()
   local q = lg.newQuad(c.cx, c.cy, c.cw, c.ch, iw, ihh)
@@ -131,14 +140,19 @@ end
 
 -- Where the sticker goes on a lid box of bw x bh (the shell's own pixels):
 -- its proportions kept, its size and centre clamped so it stays on the shell.
+-- The flat of the lid inside its box: clear of the rounded corners' worst
+-- and of the hinge along the bottom (landscape, before any turn).
+local FACE = { left = 0.035, right = 0.035, top = 0.06, bottom = 0.2 }
+
 local function placement(c, aspect, bw, bh)
-  local margin = bh * 0.07
+  local x0, x1 = bw * FACE.left, bw * (1 - FACE.right)
+  local y0, y1 = bh * FACE.top, bh * (1 - FACE.bottom)
   local w = c.size * bw
   local h = w / aspect
-  local maxW = math.min(bw - 2 * margin, (bh - 2 * margin) * aspect)
+  local maxW = math.min(x1 - x0, (y1 - y0) * aspect)
   if w > maxW then w = maxW; h = w / aspect end
-  local x = clamp(c.px * bw - w / 2, margin, bw - margin - w)
-  local y = clamp(c.py * bh - h / 2, margin, bh - margin - h)
+  local x = clamp(c.px * bw - w / 2, x0, x1 - w)
+  local y = clamp(c.py * bh - h / 2, y0, y1 - h)
   return x, y, w, h
 end
 S.placement = placement
@@ -162,24 +176,31 @@ function S.has() return saved ~= nil end
 -- Draw the saved sticker (or the editor's live one) on the lid.  The caller
 -- has set up the lid's transform: box origin ox, oy at scale s (units per
 -- lid-box pixel), box bw x bh.
-function S.drawOnLid(ox, oy, s, bw, bh)
+-- `mask` draws the shell's own shape: whatever part of the sticker (or its
+-- shadow) would hang off the cover is cut away.
+function S.drawOnLid(ox, oy, s, bw, bh, mask)
   local live = ed and ed.img
   local c = live and ed.cfg or (saved and saved.cfg)
   if not c then return end
   local aspect = c.cw / c.ch
   local x, y, w, h = placement(c, aspect, bw, bh)
   lg.push("all")
+  if mask then
+    lg.stencil(mask, "replace", 1)
+    lg.setStencilTest("greater", 0)
+  end
   -- a soft shadow, then the sticker
   lg.setColor(0, 0, 0, 0.28)
   roundRect("fill", ox + (x + bh * 0.008) * s, oy + (y + bh * 0.012) * s, w * s, h * s,
     c.round * math.min(w, h) * s)
   if live then
-    drawSticker(ed.img, c, ox + x * s, oy + y * s, w * s)
+    drawSticker(ed.img, c, ox + x * s, oy + y * s, w * s, mask ~= nil)
   else
     local iw = saved.img:getWidth()
     lg.setColor(1, 1, 1, 1)
     lg.draw(saved.img, ox + x * s, oy + y * s, 0, w * s / iw, w * s / iw)
   end
+  lg.setStencilTest()
   lg.pop()
   if ed then
     -- in screen coordinates, for dragging on the preview (never rotated)
