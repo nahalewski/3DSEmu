@@ -2,8 +2,8 @@
 -- one phone sends a game's files, another nearby receives them, the way a
 -- 3DS hands a game to its neighbour.
 --
--- What travels: the game's saves (saves/<game>/ and save_<game>.lua, with
--- their backups) and, if asked, the installed mods.  Never the ROM or the
+-- What travels (the menu picks): the game's saves (saves/<game>/ and save_<game>.lua, with
+-- their backups), the installed mods, or both.  Never the ROM or the
 -- data extracted from it: each phone imports its own cartridge dump.
 --
 -- The transfer is FoldPlay.java (Google Nearby Connections through
@@ -28,7 +28,7 @@ local st = {
   view = "menu",             -- menu / pick / hosting / searching / receiving / received
   status = {},               -- FoldPlay's status lines
   game = nil,                -- the game being sent
-  mods = true,               -- send the mods too
+  what = "both",             -- what Send sends: both / saves / mods
   name = nil,                -- this phone's name on the other's list
   hits = {}, down = nil, touches = {},
   toast = nil,
@@ -39,6 +39,7 @@ local st = {
 
 local GAMES = { "red", "blue", "yellow", "gold", "silver", "crystal", "firered", "leafgreen" }
 local NAMES = {
+  mods = "Mods",
   red = "Pokémon Red", blue = "Pokémon Blue", yellow = "Pokémon Yellow",
   gold = "Pokémon Gold", silver = "Pokémon Silver", crystal = "Pokémon Crystal",
   firered = "Pokémon FireRed", leafgreen = "Pokémon LeafGreen",
@@ -117,8 +118,17 @@ end
 ---------------------------------------------------------------- actions
 
 local function send(v)
-  local files = gameFiles(v, st.mods)
-  if #files == 0 then toast("No saves for " .. NAMES[v] .. " yet") Sfx.play("noMove") return end
+  local files
+  if v == "mods" then
+    files = love.filesystem.getInfo("mods") and { "mods" } or {}
+    if #files == 0 then toast("No mods installed") Sfx.play("noMove") return end
+  else
+    files = {}
+    for _, p in ipairs(gameFiles(v, st.what == "both")) do
+      if p ~= "mods" or st.what == "both" then files[#files + 1] = p end
+    end
+    if #files == 0 then toast("No saves for " .. NAMES[v] .. " yet") Sfx.play("noMove") return end
+  end
   st.game = v
   if fakeMode then
     st.fake = { role = "host", t0 = st.t }
@@ -332,10 +342,15 @@ function D.drawBottom(r)
     lg.printf("Download Play works on the phone.", r.x, y0 + h0 / 2 - f:getHeight(), r.w, "center")
   elseif st.view == "menu" then
     local bw, bh = r.w - pad * 2, (h0 - pad * 2) / 3
-    button("send", r.x + pad, y0, bw, bh, "Send a game", true, "Share a game's saves (and mods) with a phone nearby")
-    button("receive", r.x + pad, y0 + bh + pad, bw, bh, "Receive a game", false, "Get a game's saves from a phone that's sending")
-    button("mods", r.x + pad, y0 + (bh + pad) * 2, bw, bh * 0.8, st.mods and "Mods: sent too" or "Mods: not sent", false,
-      "Only saves and mods travel -- each phone imports its own ROM")
+    local sendSub = st.what == "mods" and "Share your installed mods with a phone nearby"
+      or st.what == "saves" and "Share a game's saves with a phone nearby"
+      or "Share a game's saves and your mods with a phone nearby"
+    button("send", r.x + pad, y0, bw, bh, st.what == "mods" and "Send mods" or "Send a game", true, sendSub)
+    button("receive", r.x + pad, y0 + bh + pad, bw, bh, "Receive", false, "Get saves or mods from a phone that's sending")
+    local label = st.what == "both" and "Sends: saves + mods" or st.what == "saves" and "Sends: saves only"
+      or "Sends: mods only"
+    button("what", r.x + pad, y0 + (bh + pad) * 2, bw, bh * 0.8, label, false,
+      "Tap to change -- the ROM stays on each phone; each imports its own")
   elseif st.view == "pick" then
     local cols, rows = 2, 4
     local bw = (r.w - pad * 3) / cols
@@ -351,7 +366,17 @@ function D.drawBottom(r)
     col(INK)
     local line
     if state == "asking" then line = "Allow Nearby devices in the prompt."
-    elseif state == "error" then line = "Stopped: " .. (s.error ~= "" and s.error or "something went wrong")
+    elseif state == "error" then
+      local e = s.error or ""
+      if e:match("SETTING_LOCATION") or e:match("LOCATION_MUST_BE_ON") then
+        line = "Turn on Location (quick settings), then try again.\nAndroid needs it to find phones nearby."
+      elseif e:match("PERMISSION") then
+        line = "Download Play needs Nearby devices and Location allowed.\nAndroid uses them to find the other phone."
+      elseif e:match("BLUETOOTH") then
+        line = "Turn on Bluetooth, then try again."
+      else
+        line = "Stopped: " .. (e ~= "" and e or "something went wrong")
+      end
     elseif st.view == "hosting" and (state == "hosting" or state == "connecting") then line = "Waiting for another phone...\n" .. (NAMES[st.game] or "")
     elseif state == "sending" then line = "Sending to " .. (s.peer or "") .. "..."
     elseif state == "receiving" or state == "connecting" then line = "Receiving from " .. (s.peer or "") .. "..."
@@ -376,8 +401,14 @@ function D.drawBottom(r)
       local fast = s.speed > 300000 and "a fast link (Wi-Fi)" or s.speed > 0 and "Bluetooth" or ""
       lg.printf(("%s of %s   %s/s   %s"):format(human(s.done), human(s.total), human(s.speed), fast),
         r.x, y0 + h0 * 0.4 + rowH * 0.6, r.w, "center")
-    else
+    elseif state ~= "error" then
       waves(r.x + r.w / 2, y0 + h0 * 0.55, h0 * 0.3, st.t)
+    end
+    if state == "error" then
+      local e = s.error or ""
+      button("retry", r.x + r.w * 0.2, y0 + h0 - rowH * 1.3, r.w * 0.6, rowH * 1.2,
+        e:match("PERMISSION") and "Allow and try again" or "Try again", true,
+        e:match("PERMISSION") and "If nothing asks, allow them in Android Settings > Apps" or nil)
     end
     if state == "done" and st.view ~= "hosting" then
       button("install", r.x + r.w * 0.2, y0 + h0 - rowH * 1.3, r.w * 0.6, rowH * 1.2,
@@ -420,11 +451,12 @@ local function activate(id)
     st.view = "menu"
     Sfx.play("back")
   elseif id == "send" then
-    st.view = "pick"; Sfx.play("select")
+    if st.what == "mods" then send("mods") else st.view = "pick"; Sfx.play("select") end
   elseif id == "receive" then
     receive()
-  elseif id == "mods" then
-    st.mods = not st.mods; Sfx.play(st.mods and "on" or "off")
+  elseif id == "what" then
+    st.what = st.what == "both" and "saves" or st.what == "saves" and "mods" or "both"
+    Sfx.play("button")
   elseif id:match("^game:") then
     send(id:sub(6))
   elseif id:match("^peer:") then
@@ -432,6 +464,9 @@ local function activate(id)
     if p then connect(p) end
   elseif id == "install" then
     install()
+  elseif id == "retry" then
+    stopAll()
+    if st.view == "hosting" and st.game then send(st.game) else receive() end
   end
 end
 
@@ -468,6 +503,7 @@ function D.button(name)
   if name == "home" then return "exit" end
   if name == "b" then return activate("back") end
   if name == "a" and st.view == "menu" then activate("send") end
+  if name == "x" and st.view == "menu" then activate("what") end
   if name == "a" and st.status.state == "done" and st.view ~= "hosting" then activate("install") end
 end
 

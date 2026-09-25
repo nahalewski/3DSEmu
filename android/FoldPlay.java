@@ -72,6 +72,7 @@ final class FoldPlay {
     private static String receivedFile = "";
     private static String receiveDir = "";
     private static String pendingHost;              // waiting on permissions
+    private static long askedAt;
 
     private FoldPlay() {}
 
@@ -88,7 +89,10 @@ final class FoldPlay {
             p.add(Manifest.permission.BLUETOOTH_CONNECT);
         }
         if (Build.VERSION.SDK_INT >= 33) p.add("android.permission.NEARBY_WIFI_DEVICES");
-        else p.add(Manifest.permission.ACCESS_FINE_LOCATION);
+        // Nearby Connections still checks location on every Android version
+        // (error 8034 MISSING_PERMISSION_ACCESS_COARSE_LOCATION without it)
+        p.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+        p.add(Manifest.permission.ACCESS_FINE_LOCATION);
         return p.toArray(new String[0]);
     }
 
@@ -103,6 +107,7 @@ final class FoldPlay {
     private static boolean ask(final Activity a) {
         if (permitted(a)) return true;
         state = "asking";
+        askedAt = System.currentTimeMillis();
         a.runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -192,9 +197,14 @@ final class FoldPlay {
 
     private static String status(Activity a) {
         // the permission prompt answered: carry on
-        if (state.equals("asking") && permitted(a)) {
-            if ("host".equals(pendingHost)) startHosting(a);
-            else startSearching(a);
+        if (state.equals("asking")) {
+            if (permitted(a)) {
+                if ("host".equals(pendingHost)) startHosting(a);
+                else startSearching(a);
+            } else if (System.currentTimeMillis() - askedAt > 1500 && a.hasWindowFocus()) {
+                // the prompt has gone and something was refused
+                fail("MISSING_PERMISSION");
+            }
         }
         StringBuilder b = new StringBuilder();
         b.append("state=").append(state).append('\n');
