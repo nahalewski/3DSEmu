@@ -1,5 +1,5 @@
 diff --git a/src/import/LauncherView.lua b/src/import/LauncherView.lua
-index 8ef7511d..22444c95 100644
+index 8ef7511d..e044589b 100644
 --- a/src/import/LauncherView.lua
 +++ b/src/import/LauncherView.lua
 @@ -156,6 +156,8 @@ local function armMouse(imp, x, y)
@@ -60,7 +60,7 @@ index 8ef7511d..22444c95 100644
    end
  end
  
-@@ -1568,7 +1580,133 @@ local function headerChrome(imp)
+@@ -1568,7 +1580,190 @@ local function headerChrome(imp)
    return c
  end
  
@@ -82,6 +82,21 @@ index 8ef7511d..22444c95 100644
 +  return m.railH + math.floor(6 * m.s) + rowH + math.floor(6 * m.s) + 1
 +end
 +
++-- a tab's caption, scaled down to its width when it would run over
++local function foldLabel(text, x, y, w, color)
++  local tw = Kit.textWidth("micro", text)
++  if tw <= w or tw <= 0 then
++    Kit.textCenter("micro", text, x, y, w, color)
++    return
++  end
++  local k = w / tw
++  love.graphics.push()
++  love.graphics.translate(x, y + Kit.textHeight("micro") * (1 - k) / 2)
++  love.graphics.scale(k, k)
++  Kit.text("micro", text, 0, 0, color)
++  love.graphics.pop()
++end
++
 +local function buildFoldHeader(imp, m)
 +  local y = m.top
 +  Theme.versionRail(m.x, y, m.w, m.railH)
@@ -91,24 +106,66 @@ index 8ef7511d..22444c95 100644
 +  local ty = y + math.floor(6 * m.s)
 +  local chrome = headerChrome(imp)
 +
++  -- Sizes: tabs, dropdown and the pinned cluster (sync, gear, quit) all
++  -- shrink together to fit one row while they stay tappable; only on a
++  -- screen too narrow even for that does the strip scroll, with arrows.
++  local n = #HEADER_TABS
++  local cb = m.chip                      -- cluster button size
++  -- the fold layer may carry sync / settings / quit in its own side column
++  local clusterOut = LauncherView.foldClusterOut
++  local avail = m.w - 2 * m.pad
++  local want = dropW + n * (gap + tabW) + (clusterOut and 0 or (gap + 3 * cb + 2 * gap))
++  if want > avail then
++    local minTab = math.max(Kit.tapMin(), math.floor(m.chip * 0.8))
++    local g = math.max(2, math.floor(gap * 0.6))
++    local k = clusterOut and (avail - n * g) / (dropW + n * tabW)
++      or (avail - (n + 3) * g) / (dropW + n * tabW + 3 * cb)
++    tabW = math.max(minTab, math.floor(tabW * k))
++    dropW = math.max(math.floor(minTab * 1.45), math.floor(dropW * k))
++    cb = math.max(minTab, math.floor(cb * k))
++    gap = g
++  end
++  local cgap = gap
++  clusterW = clusterOut and -gap or (3 * cb + 2 * cgap)
++
 +  -- the pinned cluster, right to left: quit, gear, sync
-+  local rx = m.x + m.w - m.pad - m.chip
-+  btn(imp, rx - 2 * (m.chip + gap), ty, m.chip, m.chip, "tab-sync", "", chrome.sync)
++  local rx = m.x + m.w - m.pad - cb
++  if not clusterOut then
++  local cy0 = ty + math.floor((tabH - cb) / 2)
++  btn(imp, rx - 2 * (cb + cgap), cy0, cb, cb, "tab-sync", "", chrome.sync)
 +  do
 +    local eng = imp._sync
 +    if eng and eng.busy and eng:busy() then
-+      local sx = rx - 2 * (m.chip + gap)
-+      Kit.spinner(sx + m.chip - math.floor(8 * m.s), ty + math.floor(8 * m.s),
++      local sx0 = rx - 2 * (cb + cgap)
++      Kit.spinner(sx0 + cb - math.floor(8 * m.s), cy0 + math.floor(8 * m.s),
 +        math.max(2, math.floor(4 * m.s)))
 +    end
 +  end
-+  btn(imp, rx - (m.chip + gap), ty, m.chip, m.chip, "gear", "", chrome.gear)
-+  btn(imp, rx, ty, m.chip, m.chip, "quit", "", chrome.quit)
++  btn(imp, rx - (cb + cgap), cy0, cb, cb, "gear", "", chrome.gear)
++  btn(imp, rx, cy0, cb, cb, "quit", "", chrome.quit)
++  end
 +
 +  -- the strip
 +  local sx = m.x + m.pad
 +  local sw = math.max(0, m.x + m.w - m.pad - clusterW - gap - sx)
-+  local contentW = dropW + #HEADER_TABS * (gap + tabW)
++  local contentW = dropW + n * (gap + tabW)
++  if contentW > sw then
++    local chev = math.max(math.floor(m.chip * 0.5), 16)
++    local maxX0 = math.max(0, contentW - (sw - 2 * chev))
++    local at0 = clamp(imp._foldTabX or 0, 0, maxX0)
++    local step = (tabW + gap) * 2
++    local function arrow(x, dir, enabled, action)
++      btn(imp, x, ty, chev - 2, tabH, dir < 0 and "tab-strip-left" or "tab-strip-right", "", {
++        kind = "ghost", enabled = enabled, action = action })
++      local cx, cyy, a = x + (chev - 2) / 2, ty + tabH / 2, math.floor(chev * 0.22)
++      Theme.col(PAL.text, enabled and 1 or 0.3)
++      love.graphics.polygon("fill", cx - dir * a * 0.6, cyy - a, cx - dir * a * 0.6, cyy + a, cx + dir * a * 0.8, cyy)
++      love.graphics.setColor(1, 1, 1, 1)
++    end
++    arrow(sx, -1, at0 > 0, function() imp._foldTabX = clamp((imp._foldTabX or 0) - step, 0, maxX0) end)
++    arrow(sx + sw - chev + 2, 1, at0 < maxX0, function() imp._foldTabX = clamp((imp._foldTabX or 0) + step, 0, maxX0) end)
++    sx, sw = sx + chev, sw - 2 * chev
++  end
 +  local maxX = math.max(0, contentW - sw)
 +  local strip = imp._foldStripRect
 +  if not strip then strip = {}; imp._foldStripRect = strip end
@@ -160,7 +217,7 @@ index 8ef7511d..22444c95 100644
 +      love.graphics.setColor(1, 1, 1, 1)
 +    end
 +  end
-+  Kit.textCenter("micro", Strings("GAMES"), tx, ty + tabH + 3 * m.s, dropW, PAL.muted)
++  foldLabel(Strings("GAMES"), tx, ty + tabH + 3 * m.s, dropW, PAL.muted)
 +  tx = tx + dropW + gap
 +  for _, t in ipairs(HEADER_TABS) do
 +    local o = t.opts
@@ -169,7 +226,7 @@ index 8ef7511d..22444c95 100644
 +    o.action = chrome.tab[t.id]
 +    btn(imp, tx, ty, tabW, tabH, t.key, "", o)
 +    if t.beta then overlayBeta(tx, ty, tabW, tabH, m) end
-+    Kit.textCenter("micro", Strings(TAB_LABELS[t.id]), tx, ty + tabH + 3 * m.s, tabW,
++    foldLabel(Strings(TAB_LABELS[t.id]), tx, ty + tabH + 3 * m.s, tabW,
 +      o.active and PAL.text or PAL.muted)
 +    tx = tx + tabW + gap
 +  end
@@ -194,7 +251,7 @@ index 8ef7511d..22444c95 100644
    local y = m.top
    Theme.versionRail(m.x, y, m.w, m.railH)
    y = y + m.railH
-@@ -2201,7 +2339,7 @@ local function buildGamePanel(imp, x, y, w, availH, m, version, budgetH)
+@@ -2201,7 +2396,7 @@ local function buildGamePanel(imp, x, y, w, availH, m, version, budgetH)
    local sy = y + (titleH - tagH) / 2
    if not inline then tx, sy = x, y + titleH + math.floor(4 * m.s) end
    Kit.tag(tx, sy, statusW, tagH, status, statusColor)
@@ -203,7 +260,7 @@ index 8ef7511d..22444c95 100644
      local hx = tx + statusW + gap
      Kit.text("micro", Kit.ellipsize("micro", Strings("(PRESS THE CART TO PLAY)"), math.max(0, x + w - hx)),
        hx, sy + (tagH - Kit.textHeight("micro")) / 2, PAL.muted)
-@@ -2209,7 +2347,7 @@ local function buildGamePanel(imp, x, y, w, availH, m, version, budgetH)
+@@ -2209,7 +2404,7 @@ local function buildGamePanel(imp, x, y, w, availH, m, version, budgetH)
    if not inline then titleH = titleH + math.floor(4 * m.s) + tagH end
    -- Extra gap under the title when the cart is showing: 12px left the 3D
    -- shell sitting on the hairline.  Scaled, and still small on a phone.
@@ -212,7 +269,7 @@ index 8ef7511d..22444c95 100644
    local cy = y + titleH + afterTitle
    local remaining = availH - (titleH + afterTitle)
    local budgetLeft = math.max(remaining,
-@@ -2237,7 +2375,31 @@ local function buildGamePanel(imp, x, y, w, availH, m, version, budgetH)
+@@ -2237,7 +2432,31 @@ local function buildGamePanel(imp, x, y, w, availH, m, version, budgetH)
    local mdl = romModel(imp, version, info, ready, locked)
    local ly = cy
  
@@ -245,7 +302,7 @@ index 8ef7511d..22444c95 100644
      -- Preserve shell proportions.
      local playH = math.floor(clamp(remaining * 0.52, 112 * m.s, 260 * m.s))
      local mgW = math.max(Kit.tapMin(), math.floor(34 * m.s))
-@@ -2462,6 +2624,19 @@ local function buildModsPanel(imp, x, y, w, availH, m)
+@@ -2462,6 +2681,19 @@ local function buildModsPanel(imp, x, y, w, availH, m)
    -- (Import, Updates, Sort) directly on the bar across screen sizes, placing
    -- bulk actions (Enable all / Disable all) into More... on compact viewports.
    local bh = m.btnH
@@ -265,7 +322,7 @@ index 8ef7511d..22444c95 100644
    local importLabel = imp:_modsImportButtonLabel()
    local importW = Kit.textWidth("small", importLabel) + math.floor(24 * m.s)
  
-@@ -3180,6 +3355,61 @@ local function buildSkinsPanel(imp, x, y, w, availH, m)
+@@ -3180,6 +3412,61 @@ local function buildSkinsPanel(imp, x, y, w, availH, m)
        action = function() imp:chooseSkin() end })
    cy = cy + bh + gap
  
@@ -327,7 +384,7 @@ index 8ef7511d..22444c95 100644
    if imp._skinNotice then
      cy = cy + Kit.textWrapped("small", imp._skinNotice.text, x, cy, w,
        imp._skinNotice.ok and PAL.green or PAL.red, 2) + gap
-@@ -3633,6 +3863,8 @@ end
+@@ -3633,6 +3920,8 @@ end
  -- competing with the panel for a short window's height, so the mark and the
  -- link share one line and the trust warning is capped at a single line.
  local function footerHeight(imp, m)
@@ -336,7 +393,7 @@ index 8ef7511d..22444c95 100644
    -- Top pad + mark/update row + optional notes wrap row + gap + the FULL
    -- wrapped trust message + bottom pad.  The message wraps to as many lines
    -- as it needs: truncating a trust warning defeats its purpose, and the
-@@ -3647,6 +3879,7 @@ local function footerHeight(imp, m)
+@@ -3647,6 +3936,7 @@ local function footerHeight(imp, m)
  end
  
  local function buildFooter(imp, m, y)
@@ -344,7 +401,7 @@ index 8ef7511d..22444c95 100644
    Theme.fill(m.x, y, m.w, 1, PAL.line, Theme.A.hairline)
    local cy = y + math.floor(8 * m.s)
    -- The BCG mark is dark ink; invert it for the black field.
-@@ -3756,7 +3989,7 @@ local function modalAmount()
+@@ -3756,7 +4046,7 @@ local function modalAmount()
    return p
  end
  
@@ -353,7 +410,7 @@ index 8ef7511d..22444c95 100644
    -- A near-opaque scrim, not a tint.  At 0.82 the header and the wordmark
    -- still read through the settings panel and the screen looked like two
    -- layouts fighting rather than one panel on top ("the settings is covering
-@@ -3769,6 +4002,8 @@ local function modalPanel(m, w, h)
+@@ -3769,6 +4059,8 @@ local function modalPanel(m, w, h)
    local ph = math.floor(math.min(h, m.H - 2 * m.pad))
    local px = math.floor((m.W - pw) / 2)
    local py = math.floor((m.H - ph) / 2)
@@ -362,7 +419,7 @@ index 8ef7511d..22444c95 100644
    modalRect.x, modalRect.y, modalRect.w, modalRect.h = px, py, pw, ph
    if amt < 1 and not modalTransform and love.graphics and love.graphics.push then
      local s = 0.96 + 0.04 * amt
-@@ -3778,7 +4013,11 @@ local function modalPanel(m, w, h)
+@@ -3778,7 +4070,11 @@ local function modalPanel(m, w, h)
      love.graphics.translate(-m.W / 2, -m.H / 2)
      modalTransform = true
    end
@@ -375,7 +432,7 @@ index 8ef7511d..22444c95 100644
    Kit.blockClicks = Transition.active()
    return px, py, pw, ph
  end
-@@ -5526,10 +5765,22 @@ local function buildSettingsModal(imp, m)
+@@ -5526,10 +5822,22 @@ local function buildSettingsModal(imp, m)
    local model = imp._settings
    local SaveData = require("src.core.SaveData")
    local pad, gap = math.floor(18 * m.s), math.floor(8 * m.s)
@@ -399,7 +456,7 @@ index 8ef7511d..22444c95 100644
    Kit.textBold("title", Strings("Settings"), x, cy, PAL.heading)
    local subtitleW = width - m.btnH - gap
    if model.flash then
-@@ -5539,10 +5790,16 @@ local function buildSettingsModal(imp, m)
+@@ -5539,10 +5847,16 @@ local function buildSettingsModal(imp, m)
      Kit.text("small", Strings("Saved automatically"), x,
        cy + Kit.textHeight("title") + math.floor(3 * m.s), PAL.muted)
    end
@@ -417,7 +474,7 @@ index 8ef7511d..22444c95 100644
    local viewH = math.max(0, footerY - gap * 2 - cy)
    local rowW = width - Kit.scrollGutter(m.s)
    local inset = math.floor(12 * m.s)
-@@ -5574,6 +5831,8 @@ local function buildSettingsModal(imp, m)
+@@ -5574,6 +5888,8 @@ local function buildSettingsModal(imp, m)
      item.top = total
      if item.header then
        item.h = Kit.textHeight("button") + (item.hint and Kit.textHeight("micro") + 4 * m.s or 0) + gap * 2
@@ -426,7 +483,7 @@ index 8ef7511d..22444c95 100644
      else
        item.stacked = item.row.choices ~= nil or Kit.textWidth("small", item.label)
          + math.floor(210 * m.s) > inner
-@@ -5604,6 +5863,8 @@ local function buildSettingsModal(imp, m)
+@@ -5604,6 +5920,8 @@ local function buildSettingsModal(imp, m)
            Kit.text("micro", item.hint, x, ry + gap + Kit.textHeight("button") + 4 * m.s, PAL.muted)
          end
        end
@@ -435,7 +492,7 @@ index 8ef7511d..22444c95 100644
      else
        local row, key = item.row, "set-" .. i
        local rowEnabled = not row.safeModeBlocked or not SaveData.isSafeMode(model.opts)
-@@ -5682,7 +5943,11 @@ local function buildSettingsModal(imp, m)
+@@ -5682,7 +6000,11 @@ local function buildSettingsModal(imp, m)
        end
      end
    end
@@ -448,7 +505,7 @@ index 8ef7511d..22444c95 100644
    Theme.stroke(x, footerY - gap, width, 1, PAL.line, 0.25, 1)
    local doneW = math.max(chipWidth(Strings("Done"), m), math.floor(80 * m.s))
    btn(imp, x, footerY, width - doneW - gap, m.btnH, "settings-bug", Strings("Troubleshooting"), {
-@@ -6650,6 +6915,8 @@ end
+@@ -6650,6 +6972,8 @@ end
  -- whether the window is tall enough BEFORE anything draws.  Keep in sync
  -- with buildHeader (rail, logo row, tab row, hairline).
  local function headerHeight(m)
@@ -457,7 +514,7 @@ index 8ef7511d..22444c95 100644
    local _, _, labelH, rows = headerTabMetrics(m)
    return m.railH + m.logoH + math.floor(12 * m.s) + math.floor(6 * m.s)
      + rows * (m.chip + labelH) + (rows - 1) * math.floor(4 * m.s)
-@@ -6661,6 +6928,8 @@ end
+@@ -6661,6 +6985,8 @@ end
  -- pinned Play block used to walk up over the cards on a short window, which
  -- is unusable, and the footer simply lives below the fold until scrolled to.
  local function minPanelHeight(m)
@@ -466,7 +523,7 @@ index 8ef7511d..22444c95 100644
    -- One column stacks the ROM card and the slot card in a single pile, so it
    -- needs more room than the side-by-side layout; two columns only have to
    -- fit the taller of the two.  Both numbers came DOWN sharply when the
-@@ -6869,6 +7138,34 @@ function LauncherView.draw(imp)
+@@ -6869,6 +7195,34 @@ function LauncherView.draw(imp)
      imp:_commitOnlineField()
    end
    imp._onlineFieldHit = nil

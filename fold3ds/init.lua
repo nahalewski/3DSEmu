@@ -527,12 +527,59 @@ local function releaseAll()
   state.arrowHeld, state.padScroll = nil, nil
 end
 
+-- The bottom screen's right-hand column: in the Classic theme, sync /
+-- settings / quit at its top (the launcher's tab row gives them up so all
+-- its tabs fit), then the up / down scroll arrows in what is left.
+local COLUMN_BUTTONS = {
+  { id = "sync", icon = "arrow-left-right" },
+  { id = "gear", icon = "settings" },
+  { id = "quit", icon = "x" },
+}
+local function clusterInColumn()
+  return state.mode == "ds" and state.theme ~= "3ds" and state.kind ~= "game"
+end
+
+local function columnRects(L)
+  local a = L.arrows
+  local top = a.y
+  local buttons = {}
+  if clusterInColumn() then
+    local s = a.w
+    for i, b in ipairs(COLUMN_BUTTONS) do
+      buttons[i] = { id = b.id, icon = b.icon, x = a.x, y = a.y + (i - 1) * s, w = a.w, h = s }
+    end
+    top = a.y + #COLUMN_BUTTONS * s + math.floor(s * 0.2)
+  end
+  local h = a.y + a.h - top
+  local up = { x = a.x, y = top, w = a.w, h = math.floor(h / 2) }
+  local down = { x = a.x, y = top + math.floor(h / 2), w = a.w, h = h - math.floor(h / 2) }
+  return up, down, buttons
+end
+
+local function columnButtonAt(x, y)
+  local L = state.L
+  if not L or state.kind == "game" or not clusterInColumn() then return nil end
+  local _, _, buttons = columnRects(L)
+  for _, b in ipairs(buttons) do
+    if inside(b, x, y) then return b end
+  end
+end
+
+local function pressColumnButton(b)
+  local imp = state.subject
+  if not imp then return end
+  if b.id == "sync" and imp._openSync then imp:_openSync()
+  elseif b.id == "gear" and imp._openSettings then imp:_openSettings()
+  elseif b.id == "quit" and imp._quitApp then imp:_quitApp() end
+end
+
 -- the on-screen scroll arrows at the bottom screen's right edge
 local function arrowAt(x, y)
   local L = state.L
   if not L or state.kind == "game" then return nil end
-  if inside(L.arrowUp, x, y) then return -1 end
-  if inside(L.arrowDown, x, y) then return 1 end
+  local up, down = columnRects(L)
+  if inside(up, x, y) then return -1 end
+  if inside(down, x, y) then return 1 end
   return nil
 end
 
@@ -587,6 +634,8 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
   if b then holdStart(id, b, x, y) return end
   if editingSticker() then Sticker.pressed(id, x, y, state.L.botCut, state.L.topCut) return end
   if homeTouch(id, x, y) then return end
+  local cb = columnButtonAt(x, y)
+  if cb then state.columnDown = cb.id; pressColumnButton(cb) return end
   local dir = arrowAt(x, y)
   if dir then arrowStart(id, dir) return end
   if topScreenTap(x, y) then return end
@@ -645,6 +694,8 @@ local function onMousePressed(x, y, button, istouch, presses)
     if b then holdStart("mouse", b, x, y) return end
     if editingSticker() then Sticker.pressed("mouse", x, y, state.L.botCut, state.L.topCut) return end
     if homeTouch("mouse", x, y) then return end
+    local cb = columnButtonAt(x, y)
+    if cb then state.columnDown = cb.id; pressColumnButton(cb) return end
     local dir = arrowAt(x, y)
     if dir then arrowStart("mouse", dir) return end
     if topScreenTap(x, y) then return end
@@ -1022,10 +1073,24 @@ local function drawArrows(L)
       lg.polygon("fill", cx - sz, cy - sz * 0.5, cx + sz, cy - sz * 0.5, cx, cy + sz * 0.7)
     end
   end
-  tri(L.arrowUp, -1)
-  tri(L.arrowDown, 1)
+  local up, down, buttons = columnRects(L)
+  tri(up, -1)
+  tri(down, 1)
   lg.setColor(ink[1], ink[2], ink[3], 0.10)
-  lg.rectangle("fill", a.x + 4, a.y + math.floor(a.h / 2), a.w - 8, 1)
+  lg.rectangle("fill", a.x + 4, down.y, a.w - 8, 1)
+  -- sync / settings / quit, when the column carries them
+  if #buttons > 0 then
+    local okI, Icons = pcall(require, "src.ui.kit.Icons")
+    for _, b in ipairs(buttons) do
+      local s = math.floor(b.w * 0.5)
+      if okI then
+        Icons.draw(b.icon, b.x + (b.w - s) / 2, b.y + (b.h - s) / 2, s,
+          { ink[1] * 255, ink[2] * 255, ink[3] * 255 }, 0.9)
+      end
+      lg.setColor(ink[1], ink[2], ink[3], 0.10)
+      lg.rectangle("fill", b.x + 4, b.y + b.h - 1, b.w - 8, 1)
+    end
+  end
 end
 
 local function drawToast(r)
@@ -1206,6 +1271,7 @@ function backend:update(dt)
     if ok and type(LV) == "table" then
       LV.fold = state.mode == "ds" or nil
       LV.foldNoHeader = homeActive() or nil
+      LV.foldClusterOut = (state.mode == "ds" and state.theme ~= "3ds") or nil
       LV.foldSticker = LV.foldSticker or {
         has = Sticker.has, open = Sticker.open, remove = Sticker.remove,
         count = Sticker.count, putBack = Sticker.putBack,
