@@ -29,6 +29,7 @@ A.ITEMS = {
   { id = "az_settings", name = "Emulation Settings", sub = "Every Azahar setting", url = "settings?menu=config" },
   { id = "az_graphics", name = "Graphics", sub = "Renderer, resolution, shaders, filtering", url = "settings?menu=Renderer" },
   { id = "az_screens", name = "Full / Native Screens", sub = "Switch 3DS games between full screens and native size", url = "screens?mode=toggle" },
+  { id = "az_inshell", name = "Play in the Shell", sub = "3DS games on the shell's screens, or in Azahar's own", url = "inshell?toggle" },
   { id = "az_layout", name = "Screen Layout", sub = "Where the two 3DS screens go", url = "settings?menu=Layout" },
   { id = "az_controls", name = "Controls", sub = "Buttons, controllers and hotkeys", url = "settings?menu=Controls" },
   { id = "az_audio", name = "Sound", sub = "Output, volume and the microphone", url = "settings?menu=Audio" },
@@ -99,7 +100,7 @@ local function parse(text)
         name = (f[3] ~= "" and f[3]) or "3DS game",
         sub = (f[4] ~= "" and f[4]) or "Nintendo 3DS",
         regions = f[5], hasIcon = f[6] == "1", installed = f[7] == "1",
-        tdb = f[9] ~= "" and f[9] or nil, hasCart = f[10] == "1",
+        tdb = f[9] ~= "" and f[9] or nil, hasCart = f[10] == "1", system = "3ds",
         file = f[11] ~= "" and f[11] or nil, titleId = f[12],
       }
       games[#games].nointro = noIntro(games[#games].tdb)
@@ -197,6 +198,7 @@ end
 
 -- open something in Azahar (false on a desktop, which has no Azahar)
 function A.open(url)
+  if url == "inshell?toggle" then return A.toggleShell() end
   if not (love.system and love.system.openURL) then return false end
   if love.system.getOS and love.system.getOS() ~= "Android" then return false end
   return love.system.openURL(SCHEME .. url) and true or false
@@ -211,7 +213,180 @@ function A.initial(name)
   return c ~= "" and c or "?"
 end
 
-function A.play(t) return t and t.key and A.open("play?key=" .. t.key) end
+---------------------------------------------------------------- in the shell
+-- A 3DS game plays INSIDE the 3DS shell (fold3ds.emuplay): Azahar's core
+-- runs in this process (Fold3dsShell.kt) and its frames come here through
+-- FoldBridge ("3ds.*").  The frame is one buffer, the top screen above the
+-- touch screen (400s x 480s); its address is read through LuaJIT's FFI and
+-- copied into two ImageData.  If the core can't start in the shell, the game
+-- opens in Azahar's own full screen instead, as before.
+local ffi = require("ffi")
+local SHELL_CFG = "fold3ds_azahar.cfg"
+local play = { tile = nil, serial = -1, data = {}, img = {}, menu = false, sel = 1,
+  toast = nil, dirs = {}, checkAt = 0 }
+
+local function bridge(cmd, arg)
+  local f = love.system and love.system.foldCamera
+  if not f then return nil end
+  local ok, out = pcall(f, "call", cmd, arg or "")
+  return ok and out or nil
+end
+
+local function say(text) play.toast = { text = text, at = love.timer.getTime() } end
+
+-- play in the shell (1, the default) or in Azahar's own screen (0)
+function A.inShell()
+  local ok, text = pcall(love.filesystem.read, SHELL_CFG)
+  return not (ok and type(text) == "string" and text:match("shell=0"))
+end
+
+function A.setInShell(on)
+  pcall(love.filesystem.write, SHELL_CFG, "shell=" .. (on and "1" or "0") .. "\n")
+end
+
+function A.toggleShell()
+  A.setInShell(not A.inShell())
+  say(A.inShell() and "3DS games play in the shell" or "3DS games open in Azahar's own screen")
+  return true
+end
+
+function A.play(t)
+  if not (t and t.key) then return end
+  if A.inShell() then
+    local r = bridge("3ds.start", t.key)
+    if r == "ok" then
+      play.tile, play.serial, play.menu, play.sel, play.dirs = t, -1, false, 1, {}
+      return true
+    end
+    if r == "error:setup" then return A.open("setup") end
+  end
+  return A.open("play?key=" .. t.key)
+end
+
+function A.running()
+  if not play.tile then return nil end
+  -- the core ended by itself (an error, the game quit): back to the menu
+  local now = love.timer.getTime()
+  if now >= play.checkAt then
+    play.checkAt = now + 0.5
+    if bridge("3ds.state") == "stopped" then play.tile = nil end
+  end
+  return play.tile
+end
+
+-- the newest frame into the two screens' images
+local function copyFrame()
+  local info = bridge("3ds.frame")
+  local hi, lo, w, h, serial, s = (info or ""):match("^(%d+):(%d+):(%d+):(%d+):(%d+):(%d+)$")
+  if not hi then return end
+  serial = tonumber(serial)
+  if serial == play.serial or serial == 0 then return end
+  play.serial = serial
+  w, h, s = tonumber(w), tonumber(h), tonumber(s)
+  local addr = ffi.cast("uint64_t", tonumber(hi)) * 4294967296ULL + ffi.cast("uint64_t", tonumber(lo))
+  local src = ffi.cast("const uint8_t*", addr)
+  local tw, th, bw = 400 * s, 240 * s, 320 * s
+  for i, size in ipairs({ { tw, th }, { bw, th } }) do
+    if not play.data[i] then
+      play.data[i] = love.image.newImageData(size[1], size[2])
+    end
+  end
+  -- the top screen: whole rows of the frame; the touch screen: the left
+  -- 320s of each row below it
+  local top = ffi.cast("uint8_t*", play.data[1]:getFFIPointer())
+  ffi.copy(top, src, tw * th * 4)
+  local bot = ffi.cast("uint8_t*", play.data[2]:getFFIPointer())
+  for y = 0, th - 1 do
+    ffi.copy(bot + y * bw * 4, src + (th + y) * w * 4, bw * 4)
+  end
+  for i = 1, 2 do
+    if play.img[i] then
+      play.img[i]:replacePixels(play.data[i])
+    else
+      play.img[i] = love.graphics.newImage(play.data[i])
+      play.img[i]:setFilter("linear", "linear")
+    end
+  end
+end
+
+function A.update() if play.tile then copyFrame() end end
+
+function A.screen(i) return play.img[(i or 0) + 1] end
+
+function A.screenSize() return 400, 240 end
+
+-- the circle pad from the shell's directions
+local function stick()
+  local d = play.dirs
+  local x = (d.right and 1 or 0) - (d.left and 1 or 0)
+  local y = (d.down and 1 or 0) - (d.up and 1 or 0)
+  bridge("3ds.stick", x .. "|" .. y)
+end
+
+local MENU = { { "Resume", "resume" }, { "Save State", "save" }, { "Load State", "load" }, { "Close Game", "close" } }
+
+local function setMenu(open)
+  play.menu = open
+  play.sel = 1
+  bridge(open and "3ds.pause" or "3ds.resume")
+end
+
+function A.press(btn)
+  if not play.tile then return end
+  if btn == "home" then setMenu(not play.menu) return end
+  if play.menu then
+    if btn == "up" then play.sel = math.max(1, play.sel - 1)
+    elseif btn == "down" then play.sel = math.min(#MENU, play.sel + 1)
+    elseif btn == "a" then A.menuDo(MENU[play.sel][2])
+    elseif btn == "b" then setMenu(false) end
+    return
+  end
+  if btn == "up" or btn == "down" or btn == "left" or btn == "right" then
+    play.dirs[btn] = true
+    stick()
+    return
+  end
+  bridge("3ds.key", btn .. "|1")
+end
+
+function A.release(btn)
+  if not play.tile or play.menu or btn == "home" then return end
+  if btn == "up" or btn == "down" or btn == "left" or btn == "right" then
+    play.dirs[btn] = nil
+    stick()
+    return
+  end
+  bridge("3ds.key", btn .. "|0")
+end
+
+function A.touch(phase, u, v)
+  if play.tile and not play.menu then bridge("3ds.touch", ("%s|%.4f|%.4f"):format(phase, u, v)) end
+end
+
+function A.menu()
+  local rows = {}
+  for i, m in ipairs(MENU) do rows[i] = { m[1], m[2] } end
+  return { open = play.menu, rows = rows, sel = play.sel }
+end
+
+function A.menuDo(id)
+  if id == "resume" then setMenu(false)
+  elseif id == "save" then bridge("3ds.save", "1"); say("Saved"); setMenu(false)
+  elseif id == "load" then bridge("3ds.load", "1"); say("Loaded"); setMenu(false)
+  elseif id == "close" then A.stop() end
+end
+
+function A.stop()
+  bridge("3ds.stop")
+  play.tile, play.menu, play.dirs = nil, false, {}
+end
+
+function A.toast()
+  local t = play.toast
+  if t and love.timer.getTime() - t.at < 2.5 then return t.text end
+  return nil
+end
+
 function A.manual(t) return t and t.key and A.open("manual?key=" .. t.key) end
 
 -- on the HOME menu (fold3ds.emus): Azahar's folder, its set-up and
@@ -232,6 +407,18 @@ A.provider = {
   cart = function(t) return A.cart(t) end,
   open = function(url) return A.open(url) end,
   play = function(t) return A.play(t) end,
+  -- in the shell (fold3ds.emuplay)
+  running = function() return A.running() end,
+  update = function(dt) return A.update(dt) end,
+  screen = function(i) return A.screen(i) end,
+  screenSize = function(sys) return A.screenSize(sys) end,
+  press = function(btn) return A.press(btn) end,
+  release = function(btn) return A.release(btn) end,
+  touch = function(phase, u, v) return A.touch(phase, u, v) end,
+  menu = function() return A.menu() end,
+  menuDo = function(id) return A.menuDo(id) end,
+  stop = function() return A.stop() end,
+  toast = function() return A.toast() end,
   manual = function(t) return A.manual(t) end,
   init = function() return A.init() end,
   poll = function(time) return A.poll(time) end,

@@ -248,6 +248,7 @@ ICONS = {
     "az_settings": ((120, 130, 146), g_settings),
     "az_graphics": ((132, 84, 214), g_graphics),
     "az_layout": ((22, 160, 170), g_layout),
+    "az_screens": ((40, 140, 220), g_layout),
     "az_controls": ((56, 168, 72), g_controls),
     "az_audio": ((238, 130, 30), g_audio),
     "az_system": ((40, 120, 226), g_system),

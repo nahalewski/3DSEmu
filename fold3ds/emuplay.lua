@@ -227,17 +227,19 @@ local function hitAt(x, y)
   end
 end
 
-function EP.press(btn)
+-- src: which control it came from -- "stick" (the Circle Pad), "pad" (the
+-- D-pad), nil (a button or a gamepad); a 3DS game tells the two apart
+function EP.press(btn, src)
   local p = EP.active()
   if not p then return false end
-  if p.press then pcall(p.press, btn) end
+  if p.press then pcall(p.press, btn, src) end
   return true
 end
 
-function EP.release(btn)
+function EP.release(btn, src)
   local p = EP.active()
   if not p then return false end
-  if p.release then pcall(p.release, btn) end
+  if p.release then pcall(p.release, btn, src) end
   return true
 end
 

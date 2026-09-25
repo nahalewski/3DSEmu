@@ -90,12 +90,25 @@ public final class FoldBridge {
             if (cmd.equals("zip")) return zip(arg);
             if (cmd.equals("unzip")) return unzip(arg);
             if (cmd.startsWith("dp.")) return FoldPlay.call(cmd.substring(3), arg);
+            // a 3DS game in the shell: Azahar's side (the app module, found by name)
+            if (cmd.startsWith("3ds.")) return threeDs(cmd.substring(4), arg);
             if (cmd.equals("fetch") || cmd.startsWith("files.") || cmd.equals("external")) return FoldFetch.call(cmd, arg);
         } catch (Throwable e) {
             Log.d(TAG, cmd + ": " + e);
             return "error:" + e.getMessage();
         }
         return "error:unknown " + cmd;
+    }
+
+    private static java.lang.reflect.Method threeDsCall;
+
+    private static String threeDs(String cmd, String arg) throws Exception {
+        if (threeDsCall == null) {
+            Class<?> c = Class.forName("org.citra.citra_emu.fold3ds.Fold3dsShell");
+            threeDsCall = c.getMethod("call", String.class, String.class);
+        }
+        Object r = threeDsCall.invoke(null, cmd, arg);
+        return r == null ? "" : r.toString();
     }
 
     // ------------------------------------------------------------ steps

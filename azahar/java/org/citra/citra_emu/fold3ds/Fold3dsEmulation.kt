@@ -83,6 +83,11 @@ object Fold3dsEmulation {
         p.edit().putString(PREF_APPLIED, stamp).apply()
     }
 
+    // another layout was written (the 3DS shell's): the next launch applies again
+    fun forgetApplied(context: Context) {
+        prefs(context).edit().remove(PREF_APPLIED).apply()
+    }
+
     private fun set(setting: IntSetting, value: Int) {
         setting.int = value
         SettingsFile.saveFile(SettingsFile.FILE_NAME_CONFIG, setting)
