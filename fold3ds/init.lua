@@ -250,6 +250,7 @@ local function homeActive()
 end
 
 local skipBoot   -- the boot screen (defined with the drawing)
+local coverTouch -- a touch on the cover screen (defined with the drawing)
 
 -- the Camera applet owns both screens while it is open (launcher only)
 local function cameraOn()
@@ -746,7 +747,7 @@ end
 local function onTouchPressed(id, x, y, dx, dy, pr)
   if M.debug then print("fold3ds touchpressed enter mode=" .. tostring(state.mode)) end
   if state.mode ~= "ds" then
-    if state.mode == "lid" then Sticker.coverPressed(id, x, y) return end
+    if state.mode == "lid" then coverTouch("pressed", id, x, y) return end
     return orig.touchpressed and orig.touchpressed(id, x, y, dx, dy, pr)
   end
   if state.L and shoulderZone(state.L, x, y) then state.shoulderSeen = state.time end
@@ -780,7 +781,7 @@ end
 
 local function onTouchMoved(id, x, y, dx, dy, pr)
   if state.mode ~= "ds" then
-    if state.mode == "lid" then Sticker.coverMoved(id, x, y) return end
+    if state.mode == "lid" then coverTouch("moved", id, x, y) return end
     return orig.touchmoved and orig.touchmoved(id, x, y, dx, dy, pr)
   end
   if state.volDrag == id then volumeFromY(state.L, y) return end
@@ -800,7 +801,7 @@ end
 
 local function onTouchReleased(id, x, y, dx, dy, pr)
   if state.mode ~= "ds" then
-    if state.mode == "lid" then Sticker.coverReleased(id, x, y) return end
+    if state.mode == "lid" then coverTouch("released", id, x, y) return end
     return orig.touchreleased and orig.touchreleased(id, x, y, dx, dy, pr)
   end
   if state.volDrag == id then state.volDrag = nil return end
@@ -823,7 +824,7 @@ end
 -- mouse twin of a touch just gets the same coordinate change
 local function onMousePressed(x, y, button, istouch, presses)
   if state.mode ~= "ds" then
-    if state.mode == "lid" then if not istouch then Sticker.coverPressed("mouse", x, y) end return end
+    if state.mode == "lid" then if not istouch then coverTouch("pressed", "mouse", x, y) end return end
     return orig.mousepressed and orig.mousepressed(x, y, button, istouch, presses)
   end
   if not istouch and button == 1 and skipBoot() then return end
@@ -851,7 +852,7 @@ end
 
 local function onMouseMoved(x, y, dx, dy, istouch)
   if state.mode ~= "ds" then
-    if state.mode == "lid" then if not istouch then Sticker.coverMoved("mouse", x, y) end return end
+    if state.mode == "lid" then if not istouch then coverTouch("moved", "mouse", x, y) end return end
     return orig.mousemoved and orig.mousemoved(x, y, dx, dy, istouch)
   end
   if state.volDrag == "mouse" then volumeFromY(state.L, y) return end
@@ -868,7 +869,7 @@ end
 
 local function onMouseReleased(x, y, button, istouch, presses)
   if state.mode ~= "ds" then
-    if state.mode == "lid" then if not istouch then Sticker.coverReleased("mouse", x, y) end return end
+    if state.mode == "lid" then if not istouch then coverTouch("released", "mouse", x, y) end return end
     return orig.mousereleased and orig.mousereleased(x, y, button, istouch, presses)
   end
   if state.volDrag == "mouse" and not istouch then state.volDrag = nil return end
@@ -1616,7 +1617,26 @@ local function drawWall(file, w, h)
   return true
 end
 
+-- the sticker maker on the cover screen: the lid on one side, the tools on
+-- the other (side by side on a wide cover, stacked on a tall one)
+local function coverEditRects(W, H)
+  if W >= H then
+    local pw = math.floor(W * 0.4)
+    return { x = 0, y = 0, w = pw, h = H }, { x = pw, y = 0, w = W - pw, h = H }
+  end
+  local ph = math.floor(H * 0.42)
+  return { x = 0, y = 0, w = W, h = ph }, { x = 0, y = ph, w = W, h = H - ph }
+end
+
 local function drawLid(W, H)
+  if Sticker.editing() then
+    local prev, tools = coverEditRects(W, H)
+    lg.setColor(0.08, 0.08, 0.09, 1)
+    lg.rectangle("fill", 0, 0, W, H)
+    Sticker.drawPreview(prev, drawLidIn)
+    Sticker.drawEditor(tools)
+    return
+  end
   lg.setColor(0.16, 0.16, 0.17, 1)
   lg.rectangle("fill", 0, 0, W, H)
   -- the black wallpaper behind the closed lid, turned with it
@@ -1631,6 +1651,23 @@ local function drawLid(W, H)
   end
   lg.pop()
   drawLidIn(0, 0, W, H, portrait, true)
+  Sticker.eyeGlint(state.time)
+end
+
+-- a touch on the cover: the sticker maker while it is open there, else the
+-- stickers themselves (the right camera lens opens the maker)
+coverTouch = function(phase, id, x, y)
+  if Sticker.editing() then
+    local prev, tools = coverEditRects(state.W or real.getWidth(), state.H or real.getHeight())
+    if phase == "pressed" then Sticker.pressed(id, x, y, tools, prev)
+    elseif phase == "moved" then Sticker.moved(id, x, y)
+    else Sticker.released(id) end
+    return
+  end
+  if phase == "pressed" then
+    if Sticker.coverPressed(id, x, y) == "eye" then Sfx.play("open", true) end
+  elseif phase == "moved" then Sticker.coverMoved(id, x, y)
+  else Sticker.coverReleased(id, x, y) end
 end
 
 local function drawFrame()

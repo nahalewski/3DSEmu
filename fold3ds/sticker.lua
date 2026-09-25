@@ -496,10 +496,41 @@ local function toBox(x, y)
   return (dx * L.vy - L.vx * dy) / det, (L.ux * dy - dx * L.uy) / det, L.bw, L.bh
 end
 
+-- the lid's right camera lens (fractions of the lid box): a tap there
+-- opens the sticker maker right on the cover screen
+local EYE = { 898 / 1390, 45 / 757, 0.04 }
+function S.onEye(x, y)
+  local bx, by, bw, bh = toBox(x, y)
+  if not bx then return false end
+  local dx, dy = bx / bw - EYE[1], (by / bh - EYE[2]) * bh / bw
+  return dx * dx + dy * dy <= EYE[3] * EYE[3]
+end
+
+-- the lens's glint (drawn over the cover now and then, so it is found)
+function S.eyeGlint(t)
+  local L = lastBox
+  if not L then return end
+  local k = (t % 6) / 6
+  if k > 0.2 then return end
+  local a = math.sin(k / 0.2 * math.pi)
+  local ex, ey = EYE[1] * L.bw, EYE[2] * L.bh
+  local sx = L.x0 + L.ux * ex + L.vx * ey
+  local sy = L.y0 + L.uy * ex + L.vy * ey
+  local unit = math.sqrt(L.ux * L.ux + L.uy * L.uy)
+  lg.setColor(1, 1, 1, 0.45 * a)
+  lg.circle("line", sx, sy, unit * L.bw * 0.022 * (1 + k * 2))
+  lg.setColor(1, 1, 1, 0.8 * a)
+  lg.circle("fill", sx - unit * L.bw * 0.005, sy - unit * L.bw * 0.005, unit * L.bw * 0.004)
+end
+
 -- a finger on the cover screen (real window coordinates)
 function S.coverPressed(id, x, y)
   local bx, by, bw, bh = toBox(x, y)
   if not bx then return end
+  if not grab and S.onEye(x, y) then
+    S.open()
+    return "eye"
+  end
   if grab and grab.held and not twist and id ~= grab.id then
     -- a second finger: twist the sticker in hand
     twist = { id = id, a0 = math.atan2(by - grab.by, bx - grab.bx), rot0 = grab.st.rot }
