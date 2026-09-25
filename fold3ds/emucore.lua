@@ -550,9 +550,16 @@ function E.colour(t)
 end
 
 -- the top screen's 3D cart for a game (fold3ds.cart3d's skin)
+-- a DS card's own label, cropped from its photo (fold3ds/cartart/<code>.png,
+-- by the game code in its header), else the box art
+local function cardLabel(t)
+  if t.sys ~= "ds" or not t.code or #t.code ~= 4 then return nil end
+  return img("fold3ds/cartart/" .. t.code .. ".png")
+end
+
 function E.cartSkin(t)
   local shape = t.sys == "ds" and "ds" or t.sys == "gba" and "gba" or "gb"
-  return { shape = shape, cart = true, color = E.colour(t), labelImage = E.boxArt(t),
+  return { shape = shape, cart = true, color = E.colour(t), labelImage = cardLabel(t) or E.boxArt(t),
     noLabel = true, cacheKey = t.key }
 end
 
