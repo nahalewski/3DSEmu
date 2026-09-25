@@ -103,6 +103,10 @@ upstream's own Android build script.
 Needs the Android SDK (platform 36, build-tools 36, NDK 25.2.9519653) and
 a JDK; see upstream's `mobile/ANDROID.md`.
 
+GitHub Actions builds it too (`.github/workflows/build-apk.yml`): every push
+to `main` attaches the APK to a GitHub Release.  It is signed with
+`ci/debug.keystore`, a fixed debug key, so each build installs over the last.
+
 ## Desktop testing
 
 With LÖVE 11.5 installed, from the prepared tree
