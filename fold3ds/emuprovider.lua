@@ -27,6 +27,7 @@ return function(spec)
   function p.open(url) return Core.open(url) end
   function p.play(t) return Core.play(t) end
   function p.init() Core.init() end
+  function p.transferEntries(t) return Core.transferEntries(t) end
   function p.poll(time) Core.poll(time); Core.takePicked() end
   -- for the UI: the running game and its screens, input, menu and pages
   function p.running() local t = Core.current() return mine(t) and t or nil end
