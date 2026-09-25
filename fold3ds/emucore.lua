@@ -422,11 +422,15 @@ end
 
 function E.rescan() st.scanned = false; st.images = {} end
 
+local takeInbox   -- Download Play's arrivals (below)
+
 -- a look at the games folder now and then (a game copied in joins the grid)
 function E.poll(time)
   if FAKE or time < st.scanAt then return end
   st.scanAt = time + 5
   if core() then
+    pickRoot()
+    takeInbox()
     local before = #st.games
     scan()
     if #st.games ~= before then st.images = {} end
@@ -766,6 +770,20 @@ function E.update(dt)
     -- fast forward: only a frame's worth of sound
     if n == 1 or not run.fast then pushAudio(lib) else lib.ec_audio(run.abuf, CHUNK * 4) end
   end
+  -- the sound sets the pace: a frame more when its queue runs short, one
+  -- less when it fills (the phone's refresh and the console's never quite
+  -- agree, and a starved queue crackles)
+  if run.source and not run.fast then
+    local queued = 8 - run.source:getFreeBufferCount()
+    if queued < 2 and n < 8 then
+      lib.ec_set_keys(run.keys)
+      lib.ec_run_frame()
+      pushAudio(lib)
+      n = n + 1
+    elseif queued > 6 then
+      run.acc = run.acc - 1 / fps
+    end
+  end
   if n > 0 then pullScreens(lib) end
 end
 
@@ -1030,10 +1048,73 @@ end
 -- the No-Intro name a game's border and box art are filed under
 function E.borderName(t) return t and t.nointro end
 
+---------------------------------------------------------------- Download Play
+-- A game travels with its save and its save state: FoldBridge.zip entries
+-- ("/path=>entry") into emu_inbox/, which the other phone's FoldBridge.unzip
+-- puts in its save folder, and E.poll moves into this user folder.
+
+local INBOX = "emu_inbox"
+
+local function exists(p)
+  local f = io.open(p, "rb")
+  if f then f:close() return true end
+  return false
+end
+
+function E.transferEntries(t)
+  if not t or not t.file then return {} end
+  pickRoot()
+  local out = {}
+  local name = t.file:match("[^/]+$")
+  out[#out + 1] = t.file .. "=>" .. INBOX .. "/games/" .. name
+  for _, f in ipairs({ { saveFile(t), "saves" }, { stateFile(t), "states" } }) do
+    if exists(f[1]) then out[#out + 1] = f[1] .. "=>" .. INBOX .. "/" .. f[2] .. "/" .. f[1]:match("[^/]+$") end
+  end
+  return out
+end
+
+-- files that came by Download Play: into games/, saves/, states/ (a file
+-- already there is kept as <name>.bak)
+takeInbox = function()
+  local lib = core()
+  if not lib or not love.filesystem.getInfo(INBOX) then return end
+  local base = love.filesystem.getSaveDirectory() .. "/" .. INBOX
+  local moved = 0
+  for _, sub in ipairs({ "games", "saves", "states" }) do
+    for _, name in ipairs(list(base .. "/" .. sub)) do
+      if name:sub(-1) ~= "/" then
+        local src, dest = base .. "/" .. sub .. "/" .. name, path(sub, name)
+        if exists(dest) then os.rename(dest, dest .. ".bak") end
+        if lib.ec_copy(src, dest) == 1 then lib.ec_remove(src); moved = moved + 1 end
+      end
+    end
+  end
+  if moved > 0 then E.rescan() end
+end
+
 ---------------------------------------------------------------- setup
 
 function E.init()
-  if core() then pickRoot() end
+  if not core() then return end
+  pickRoot()
+  -- the game's save to its file when the app closes or goes to the
+  -- background (Android may end it there without a quit)
+  if not E.hooked then
+    E.hooked = true
+    local quit, focus = love.quit, love.focus
+    love.quit = function(...)
+      E.stop()
+      if quit then return quit(...) end
+    end
+    love.focus = function(f, ...)
+      if not f and run.t then
+        local lib = core()
+        if lib then lib.ec_flush() end
+        run.menu = true          -- back to a paused game
+      end
+      if focus then return focus(f, ...) end
+    end
+  end
 end
 
 function E.loadError() return loadError end

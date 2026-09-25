@@ -1,0 +1,56 @@
+# Copies Eden's Android sources (git.eden-emu.dev, which the cloud sessions
+# cannot reach) to the eden-src branch, so the Eden integration can be read
+# and planned there: src/android whole, the top CMakeLists, .gitmodules, the
+# externals' names, and the commit it came from (COMMIT).  Source only, no
+# keys or firmware.  Runs by hand or when this file changes.
+name: Fetch Eden sources
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Eden branch, tag or commit (default master)
+        required: false
+  push:
+    branches: [main]
+    paths: ['.github/workflows/fetch-eden.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Clone Eden
+        run: |
+          ref="${{ github.event.inputs.ref }}"
+          git clone --filter=blob:limit=2m https://git.eden-emu.dev/eden-emu/eden.git eden
+          if [ -n "$ref" ]; then git -C eden checkout -q "$ref"; fi
+          git -C eden log -1 --format='%H %cd %s' > COMMIT
+          cat COMMIT
+
+      - name: The parts to read
+        run: |
+          mkdir -p out
+          cp COMMIT out/
+          cp -r eden/src/android out/android
+          cp eden/CMakeLists.txt out/ 2>/dev/null || true
+          cp eden/.gitmodules out/ 2>/dev/null || true
+          cp -r eden/CMakeModules out/ 2>/dev/null || true
+          cp eden/cpmfile.json out/ 2>/dev/null || true
+          (cd eden && ls externals; ls src) > out/tree.txt 2>&1 || true
+          (cd eden && git submodule status) > out/submodules.txt 2>&1 || true
+          du -sh eden out
+
+      - name: Push to eden-src
+        run: |
+          cd out
+          git init -q
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout -q -b eden-src
+          git add -A
+          git commit -q -m "Eden sources: $(cat COMMIT)"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" eden-src
