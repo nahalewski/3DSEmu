@@ -1067,16 +1067,39 @@ local function drawTop3DS(r, banner)
   local fw = (batW - bh * 0.26) * math.max(0.05, math.min(1, pct))
   lg.rectangle("fill", bx + batW - bh * 0.13 - fw, cy - bh * 0.25, fw, bh * 0.5, bh * 0.08, bh * 0.08)
   local t = os.date("*t")
-  local days = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" }
-  local stamp = ("%d/%d (%s) %d:%02d"):format(t.month, t.day, days[t.wday], t.hour, t.min)
-  local dw = f:getWidth(stamp) + bh
-  local dx = bx - bh * 0.4 - dw
-  col3({ 244, 245, 247 })
-  lg.rectangle("fill", dx, cy - bh / 2, dw, bh, bh * 0.4, bh * 0.4)
-  col3({ 200, 203, 210 })
-  lg.rectangle("line", dx, cy - bh / 2, dw, bh, bh * 0.4, bh * 0.4)
-  col3({ 60, 62, 68 })
-  lg.printf(stamp, dx, cy - f:getHeight() / 2, dw, "center")
+  if state.steps and state.steps >= 0 then
+    -- the pedometer, as the 3DS shows it: footprints, today's steps, the time
+    local label = ("%d Steps"):format(state.steps)
+    local clock = ("%d:%02d"):format(t.hour, t.min)
+    local fw2 = bh * 1.25
+    local dw = fw2 + f:getWidth(label) + bh * 0.7 + f:getWidth(clock) + bh * 0.6
+    local dx = bx - bh * 0.4 - dw
+    col3({ 96, 98, 104 })
+    lg.rectangle("fill", dx, cy - bh / 2, dw, bh, bh * 0.4, bh * 0.4)
+    col3({ 150, 152, 158 })
+    lg.rectangle("line", dx, cy - bh / 2, dw, bh, bh * 0.4, bh * 0.4)
+    -- two footprints
+    lg.setColor(1, 1, 1, 1)
+    for k = 0, 1 do
+      local fx, fy = dx + bh * (0.42 + k * 0.34), cy + (k == 0 and bh * 0.05 or -bh * 0.05)
+      lg.ellipse("fill", fx, fy - bh * 0.1, bh * 0.11, bh * 0.17)
+      lg.ellipse("fill", fx, fy + bh * 0.2, bh * 0.08, bh * 0.07)
+    end
+    lg.setFont(f)
+    lg.print(label, dx + fw2, cy - f:getHeight() / 2)
+    lg.print(clock, dx + fw2 + f:getWidth(label) + bh * 0.7, cy - f:getHeight() / 2)
+  else
+    local days = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" }
+    local stamp = ("%d/%d (%s) %d:%02d"):format(t.month, t.day, days[t.wday], t.hour, t.min)
+    local dw = f:getWidth(stamp) + bh
+    local dx = bx - bh * 0.4 - dw
+    col3({ 244, 245, 247 })
+    lg.rectangle("fill", dx, cy - bh / 2, dw, bh, bh * 0.4, bh * 0.4)
+    col3({ 200, 203, 210 })
+    lg.rectangle("line", dx, cy - bh / 2, dw, bh, bh * 0.4, bh * 0.4)
+    col3({ 60, 62, 68 })
+    lg.printf(stamp, dx, cy - f:getHeight() / 2, dw, "center")
+  end
   -- the wallpaper panel: pale tiles on grey
   lg.stencil(function() lg.rectangle("fill", P.x, P.y, P.w, P.h, P.h * 0.05, P.h * 0.05) end, "replace", 1)
   lg.setStencilTest("greater", 0)
@@ -1523,6 +1546,13 @@ function backend:update(dt)
     if n ~= 0 then setVolume((state.volume or 1) + n / 10) end
   end
   if state.volSaveAt and state.time >= state.volSaveAt then state.volSaveAt = nil; saveSettings() end
+  -- today's steps for the top screen (every few seconds, 3DS theme only)
+  if Theme3DS.active and state.time >= (state.stepsAt or 0) then
+    state.stepsAt = state.time + 3
+    local fake = os.getenv("POKEPORT_FOLD_FAKESTEPS")
+    local n = fake and tonumber(fake) or tonumber(bridge("steps") or "")
+    state.steps = n
+  end
   if M.debug and dbgFrames < 3 then dbgFrames = dbgFrames + 1 io.stdout:setvbuf("no") print("fold3ds update mode=" .. tostring(state.mode) .. " kind=" .. tostring(state.kind)) end
   if M.driverTick then M.driverTick() end
   local mode = detectMode()

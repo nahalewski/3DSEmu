@@ -1,7 +1,20 @@
 package org.love2d.android;
 
+import android.Manifest;
+import android.app.Activity;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.os.Build;
 import android.util.Log;
 import android.view.KeyEvent;
+
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import androidx.annotation.Keep;
 
@@ -15,6 +28,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
+import org.libsdl.app.SDLActivity;
+
 /**
  * The foldable layer's odds and ends, reached from Lua as
  * love.system.foldCamera("call", command, argument) -> string:
@@ -25,6 +40,8 @@ import java.util.zip.ZipOutputStream;
  *   zip          "<root>|<out.zip>|<rel>;<rel>..."   zip files / folders
  *   unzip        "<zip>|<root>|<backup dir>"  unpack (saves and mods only),
  *                            moving any file it replaces into the backup
+ *   steps                    today's steps from the phone's step counter
+ *                            ("-1" none / not allowed, "-2" asking)
  *   dp.*                     Download Play (FoldPlay)
  */
 @Keep
@@ -66,6 +83,7 @@ public final class FoldBridge {
                     return Integer.toString(n);
                 }
             }
+            if (cmd.equals("steps")) return steps();
             if (cmd.equals("zip")) return zip(arg);
             if (cmd.equals("unzip")) return unzip(arg);
             if (cmd.startsWith("dp.")) return FoldPlay.call(cmd.substring(3), arg);
@@ -74,6 +92,65 @@ public final class FoldBridge {
             return "error:" + e.getMessage();
         }
         return "error:unknown " + cmd;
+    }
+
+    // ------------------------------------------------------------ steps
+    // The hardware step counter counts since the phone started; today's
+    // steps are the count less its value when the day began (kept in its
+    // own preferences, apart from the Pokewalker bridge's).
+
+    private static final String STEP_PREFS = "fold3ds_steps";
+    private static boolean listening = false, asked = false;
+    private static volatile long counter = -1;
+
+    private static String steps() {
+        Context c = SDLActivity.getContext();
+        if (!(c instanceof Activity)) return "-1";
+        final Activity a = (Activity) c;
+        if (Build.VERSION.SDK_INT >= 29 && ContextCompat.checkSelfPermission(a,
+                Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED) {
+            if (asked) return "-1";
+            asked = true;
+            a.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    ActivityCompat.requestPermissions(a,
+                        new String[]{ Manifest.permission.ACTIVITY_RECOGNITION }, 7303);
+                }
+            });
+            return "-2";
+        }
+        if (!listening) {
+            SensorManager m = (SensorManager) a.getSystemService(Context.SENSOR_SERVICE);
+            Sensor s = m == null ? null : m.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
+            if (s == null) return "-1";
+            listening = m.registerListener(new SensorEventListener() {
+                @Override
+                public void onSensorChanged(SensorEvent e) {
+                    if (e.values.length > 0) counter = (long) e.values[0];
+                }
+
+                @Override
+                public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+            }, s, SensorManager.SENSOR_DELAY_UI);
+            if (!listening) return "-1";
+        }
+        long now = counter;
+        if (now < 0) return "0";
+        SharedPreferences p = a.getSharedPreferences(STEP_PREFS, Context.MODE_PRIVATE);
+        String today = new java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(new java.util.Date());
+        long base = p.getLong("base", -1);
+        long shown = p.getLong("shown", 0);
+        if (!today.equals(p.getString("day", "")) || base < 0) {
+            base = now;
+            shown = 0;
+        } else if (now < base) {
+            // the phone restarted and its counter began again: keep today's
+            base = now - shown;
+        }
+        shown = now - base;
+        p.edit().putString("day", today).putLong("base", base).putLong("shown", shown).apply();
+        return Long.toString(shown);
     }
 
     // ------------------------------------------------------------ zip

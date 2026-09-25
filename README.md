@@ -96,6 +96,12 @@ upstream's own Android build script.
 * **L / R on the HOME menu**: the L-camera and camera-R buttons sit in
   the top screen's lower corners (3DS theme); L, R or a tap on either
   opens the Camera, as on the 3DS.  (ZL / ZR still resize the icons.)
+* **Steps**: the 3DS theme's top screen status bar shows today's steps
+  in the 3DS pedometer's grey pill (footprints, "8692 Steps", the time),
+  from the phone's step counter (`FoldBridge` "steps", counted from the
+  start of the day, separate from the Pokewalker mod's bridge).  Android
+  asks for Physical activity permission once; without it the date shows
+  instead.  `POKEPORT_FOLD_FAKESTEPS=<n>` fakes it on a desktop.
 * **Volume slider**: the VOL slider on the top half's left edge moves:
   drag it (top loud, bottom off) and it sets the app's volume.  The
   phone's volume keys move it too, without Android's volume popup
