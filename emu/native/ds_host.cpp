@@ -21,6 +21,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <dlfcn.h>
 #include <sys/stat.h>
 
 #include "Args.h"
@@ -556,8 +557,18 @@ float Addon_MotionQuery(MotionQueryType type, void*)
     return type == MotionAccelerationZ ? 9.80665f : 0.0f;
 }
 
-DynamicLibrary* DynamicLibrary_Load(const char*) { return nullptr; }
-void DynamicLibrary_Unload(DynamicLibrary*) {}
-void* DynamicLibrary_LoadFunction(DynamicLibrary*, const char*) { return nullptr; }
+// the JIT's fast memory asks for libandroid.so's ASharedMemory_create
+DynamicLibrary* DynamicLibrary_Load(const char* lib)
+{
+    return (DynamicLibrary*)dlopen(lib, RTLD_NOW | RTLD_LOCAL);
+}
+void DynamicLibrary_Unload(DynamicLibrary* lib)
+{
+    if (lib) dlclose(lib);
+}
+void* DynamicLibrary_LoadFunction(DynamicLibrary* lib, const char* name)
+{
+    return lib ? dlsym(lib, name) : nullptr;
+}
 
 } // namespace melonDS::Platform
