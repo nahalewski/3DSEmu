@@ -331,7 +331,7 @@ index 8ef7511d..36c25db5 100644
    local importLabel = imp:_modsImportButtonLabel()
    local importW = Kit.textWidth("small", importLabel) + math.floor(24 * m.s)
  
-@@ -3180,6 +3414,81 @@ local function buildSkinsPanel(imp, x, y, w, availH, m)
+@@ -3180,6 +3414,129 @@ local function buildSkinsPanel(imp, x, y, w, availH, m)
        action = function() imp:chooseSkin() end })
    cy = cy + bh + gap
  

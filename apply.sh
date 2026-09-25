@@ -23,7 +23,7 @@ git checkout -q -- main.lua scripts/build_android.sh src/import/LauncherView.lua
 # the Android picker's "image" kind (the cover sticker), and the camera bridge
 # (love.system.foldCamera -> FoldCamera / FoldRecorder / FoldBridge / FoldPlay:
 # the Camera applet, the volume slider's keys, Download Play)
-for p in "$HERE"/patches/*.patch; do git apply "$p"; done
+for p in "$HERE"/patches/*.patch; do git apply --recount "$p" || git apply "$p"; done
 cp "$HERE"/android/*.java mobile/android/love/src/main/java/org/love2d/android/
 # FoldBridge's "hinge" reads Jetpack WindowManager's FoldingFeature (where the fold
 # is, flat/half-open) - the 3DS XL hinge. Added once; build.gradle is reset above.
