@@ -9,10 +9,13 @@ their set-up / add-games tiles.  Same style as the Azahar icons
 """
 import make_azahar_icons as az
 from make_azahar_icons import (W, base, glyph_layer, finish, folder_icon, g_layout, g_multiplayer,
-                               g_system, g_audio, g_controls, g_gamedir, g_about, g_add, g_core)
+                               g_system, g_audio, g_controls, g_gamedir, g_about, g_add, g_core,
+                               g_settings, g_graphics, g_debug, g_install, g_drivers, g_storage,
+                               g_sysfiles, g_log, g_network)
 
 DS = (72, 84, 104)        # the DS's steel grey
 VC = (96, 70, 176)        # Virtual Console purple
+NX = (230, 30, 40)        # Switch red
 
 ICONS = {
     "nds_screen": (DS, g_layout), "nds_profile": (DS, g_multiplayer), "nds_system": (DS, g_system),
@@ -21,6 +24,13 @@ ICONS = {
     "vc_screen": (VC, g_layout), "vc_system": (VC, g_core), "vc_audio": (VC, g_audio),
     "vc_controls": (VC, g_controls), "vc_folder": (VC, g_gamedir), "vc_about": (VC, g_about),
     "vc_add": (VC, g_add),
+    # Eden (the Switch emulator)
+    "eden_settings": (NX, g_settings), "eden_system": (NX, g_system), "eden_graphics": (NX, g_graphics),
+    "eden_postfx": (NX, g_graphics), "eden_audio": (NX, g_audio), "eden_controls": (NX, g_controls),
+    "eden_overlay": (NX, g_controls), "eden_stats": (NX, g_log), "eden_applets": (NX, g_core),
+    "eden_paths": (NX, g_storage), "eden_debug": (NX, g_debug), "eden_gamedir": (NX, g_gamedir),
+    "eden_keys": (NX, g_sysfiles), "eden_install": (NX, g_install), "eden_drivers": (NX, g_drivers),
+    "eden_about": (NX, g_about), "eden_setup": (NX, g_system), "eden_add": (NX, g_add),
 }
 
 
@@ -44,6 +54,15 @@ def mark_vc(d):
     d.ellipse([280, 304, 298, 322], fill=c)
 
 
+def mark_switch(d):
+    # a small Switch on the folder: the screen between its two Joy-Con
+    c = (0, 0, 0, 0)
+    d.rounded_rectangle([160, 236, 352, 364], radius=24, fill=W)
+    d.rectangle([196, 250, 316, 350], fill=c)
+    d.ellipse([172, 262, 186, 276], fill=c)
+    d.ellipse([326, 318, 340, 332], fill=c)
+
+
 def main():
     for name, (color, draw) in ICONS.items():
         img = base(color)
@@ -52,6 +71,7 @@ def main():
         finish(img, layer, name)
     folder_icon("melonds", mark_ds)
     folder_icon("vc", mark_vc)
+    folder_icon("eden", mark_switch)
     print("wrote %d icons to %s" % (len(ICONS) + 2, az.OUT))
 
 
