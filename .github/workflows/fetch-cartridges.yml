@@ -1,4 +1,4 @@
-name: Fetch cartridge art
+name: Fetch cartridge art and HOME Menu sprites
 
 # Collects cartridge photos (and the rest of each game's art, just in case)
 # for the 3D cartridges on the 3DS theme's top screen, and commits them to
@@ -148,6 +148,51 @@ jobs:
               open("art/gametdb/ECLP.html", "wb").write(get("https://www.gametdb.com/3DS/ECLP", 60))
           except Exception as e:
               log.append("GAMETDB PAGE FAILED\t%s" % e)
+          # ---- The Spriters Resource: 3DS System / BIOS sheets (the HOME Menu
+          # and friends), all but the sound and Mii ones
+          os.makedirs("art/spriters", exist_ok=True)
+          base = "https://www.spriters-resource.com"
+          try:
+              page = get(base + "/3ds/systembios/", 60).decode("utf-8", "replace")
+              log.append("SPRITERS STATUS\tok\t%d bytes" % len(page))
+              links = re.findall(r'href="(/3ds/systembios/(?:sheet|asset)/(\d+)/?)"[^>]*>(.*?)</a>', page, re.S)
+              seen = set()
+              for href, sid, inner in links:
+                  if sid in seen:
+                      continue
+                  seen.add(sid)
+                  title = re.sub(r"<[^>]+>", " ", inner)
+                  title = re.sub(r"\s+", " ", title).strip()
+                  if re.search(r"sound|mii", title, re.I):
+                      log.append("SPRITERS SKIP\t%s\t%s" % (sid, title))
+                      continue
+                  try:
+                      sheet = get(base + href, 60).decode("utf-8", "replace")
+                      t2 = re.findall(r"<title>([^<]*)", sheet)
+                      if t2 and re.search(r"sound|mii", t2[0], re.I):
+                          log.append("SPRITERS SKIP\t%s\t%s" % (sid, t2[0]))
+                          continue
+                      srcs = set(re.findall(r'(?:src|href)="((?:https://www\.spriters-resource\.com)?/(?:resources/sheets|media/assets|download)/[^"]+)"', sheet))
+                      got = 0
+                      for src in srcs:
+                          url = src if src.startswith("http") else base + src
+                          try:
+                              body = get(url, 120)
+                              ext = ".zip" if body[:2] == b"PK" else ".png" if body[:4] == b"\x89PNG" else ".gif" if body[:3] == b"GIF" else ".bin"
+                              name = re.sub(r"[^A-Za-z0-9._-]+", "_", "%s__%s__%s" % (sid, (t2[0] if t2 else title)[:60], url.rstrip("/").rsplit("/", 1)[-1]))
+                              if not name.endswith(ext):
+                                  name += ext
+                              open(os.path.join("art/spriters", name), "wb").write(body)
+                              got += 1
+                          except Exception:
+                              pass
+                          time.sleep(0.3)
+                      log.append("SPRITERS\t%s\t%s\t%d files" % (sid, t2[0] if t2 else title, got))
+                  except Exception as e:
+                      log.append("SPRITERS FAILED\t%s\t%s" % (sid, e))
+                  time.sleep(0.5)
+          except Exception as e:
+              log.append("SPRITERS STATUS\tfailed\t%s" % e)
           open("art/INDEX.tsv", "w").write("\n".join(log) + "\n")
           PY
           find art -type f | wc -l
