@@ -1,0 +1,1 @@
+bebc19da3253f13ceb5abfe8560cdbdc32ea7d8a Fri Sep 25 07:54:49 2026 +0200 [common] Use `std::make_unique_for_overwrite<T>` in ScratchBuffer, remove polyfill (#4432)
