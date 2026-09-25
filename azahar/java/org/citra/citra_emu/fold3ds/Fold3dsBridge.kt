@@ -16,6 +16,10 @@
 //   state<TAB>ready | setup          (setup: Azahar's folder is not chosen yet)
 //   game<TAB>key<TAB>title<TAB>company<TAB>regions<TAB>icon 0|1<TAB>installed 0|1<TAB>system 0|1
 //       <TAB>GameTDB id (e.g. ECLP, or empty)<TAB>cart 0|1
+//       <TAB>the game file's path (a cartridge dump; empty when installed)
+//       <TAB>title id (16 hex digits)
+//   userdir<TAB>Azahar's folder, gamesdir<TAB>the 3DS games folder (paths, for
+//   Download Play: a game goes to the same place on the other phone)
 //
 // The other direction (the shell opening a game, a settings page, a tool)
 // is Fold3dsLinkActivity.
@@ -42,6 +46,7 @@ import java.nio.IntBuffer
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.serialization.json.Json
+import org.citra.citra_emu.NativeLibrary
 import org.citra.citra_emu.features.settings.model.Settings
 import org.citra.citra_emu.model.Game
 import org.citra.citra_emu.utils.CitraDirectoryUtils
@@ -147,6 +152,14 @@ object Fold3dsBridge {
         val entries = ArrayList<Entry>()
         val ok = ready(context)
         if (ok) {
+            // no games folder chosen: the Azahar folder is it (Download Play
+            // puts cartridge dumps in its games/), no picker needed
+            val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+            if (prefs.getString(GameHelper.KEY_GAME_PATH, "").isNullOrEmpty()) {
+                prefs.edit()
+                    .putString(GameHelper.KEY_GAME_PATH, PermissionsHandler.citraDirectory.toString())
+                    .apply()
+            }
             val games = GameHelper.getGames()
                 .filter { it.valid && (!it.isSystemTitle || it.isVisibleSystemTitle) }
                 .sortedBy { it.title.lowercase() }
@@ -175,6 +188,11 @@ object Fold3dsBridge {
         val icons = HashMap<String, Bitmap>()
         val carts = HashMap<String, File>()
         out.append(if (ready) "state\tready\n" else "state\tsetup\n")
+        if (ready) {
+            val user = nativeOrEmpty { NativeLibrary.getUserDirectory() }
+            out.append("userdir\t").append(user).append('\n')
+            out.append("gamesdir\t").append(gamesDir(context, user)).append('\n')
+        }
         for (e in entries) {
             if (e.icon != null) icons[e.key] = e.icon
             val cart = e.tdb?.let { cartFile(context, it) }?.takeIf { it.exists() }
@@ -189,6 +207,8 @@ object Fold3dsBridge {
                 .append('\t').append(if (g.isSystemTitle) "1" else "0")
                 .append('\t').append(e.tdb ?: "")
                 .append('\t').append(if (cart != null) "1" else "0")
+                .append('\t').append(if (g.isInstalled) "" else clean(gameFile(g)))
+                .append('\t').append("%016x".format(g.titleId))
                 .append('\n')
         }
         val text = out.toString().toByteArray(Charsets.UTF_8)
@@ -198,6 +218,34 @@ object Fold3dsBridge {
             } catch (e: Exception) {
                 Log.w(TAG, "could not write the library into $save", e)
             }
+        }
+    }
+
+    private fun nativeOrEmpty(f: () -> String): String = try {
+        f()
+    } catch (e: Exception) {
+        ""
+    }
+
+    // the 3DS games folder as a path: the one chosen, or games/ in Azahar's
+    // folder when that folder is the Azahar folder itself
+    private fun gamesDir(context: Context, user: String): String {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val chosen = prefs.getString(GameHelper.KEY_GAME_PATH, "") ?: ""
+        if (chosen.isEmpty() || chosen == PermissionsHandler.citraDirectory.toString()) {
+            return if (user.isEmpty()) "" else "$user/games"
+        }
+        return nativeOrEmpty { NativeLibrary.getNativePath(Uri.parse(chosen)) }
+    }
+
+    // a cartridge dump's path (the document Azahar found it as)
+    private fun gameFile(game: Game): String {
+        val raw = game.description
+        return when {
+            raw.startsWith("!") -> raw.substring(1)
+            raw.startsWith("/") -> raw
+            raw.startsWith("content://") -> nativeOrEmpty { NativeLibrary.getNativePath(Uri.parse(raw)) }
+            else -> ""
         }
     }
 

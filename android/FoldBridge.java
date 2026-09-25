@@ -24,6 +24,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -163,9 +164,18 @@ public final class FoldBridge {
         out.getParentFile().mkdirs();
         int count = 0;
         ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(out));
+        // 3DS games are gigabytes: pack fast rather than small
+        zos.setLevel(Deflater.BEST_SPEED);
         try {
             for (String rel : p[2].split(";")) {
                 if (rel.length() == 0 || rel.contains("..")) continue;
+                // "/absolute/path=>entry/name": a file or folder outside the
+                // save folder (a 3DS game, its title folder in Azahar's)
+                int arrow = rel.indexOf("=>");
+                if (arrow > 0) {
+                    count += add(zos, root, new File(rel.substring(0, arrow)), rel.substring(arrow + 2));
+                    continue;
+                }
                 count += add(zos, root, new File(root, rel), rel);
             }
         } finally {
@@ -194,30 +204,58 @@ public final class FoldBridge {
         return 1;
     }
 
-    // only what Download Play carries: saves and mods, nothing else
+    // only what Download Play carries into the save folder: saves, mods and
+    // the game's ROM (imported on arrival)
     private static boolean allowed(String name) {
         if (name.contains("..") || name.startsWith("/") || name.contains("\\")) return false;
         if (name.startsWith("saves/") || name.startsWith("mods/")) return true;
+        if (name.matches("downloadplay/rom/[A-Za-z0-9_.-]+\\.(gb|gbc|gba)")) return true;
         return name.matches("save(_[a-z0-9_]+)?\\.lua(\\.bak)?");
     }
 
+    // a 3DS game's files, to the same place in this phone's Azahar folder
+    // (azahar/sdmc/Nintendo 3DS/...: the installed title, its update, DLC and
+    // save data) or into its 3DS games folder (games3ds/<file>: a cartridge
+    // dump); null when the entry is not one of those
+    private static File azaharDest(String name, String azahar, String games) {
+        if (name.contains("..") || name.contains("\\")) return null;
+        if (name.startsWith("azahar/sdmc/Nintendo 3DS/") && azahar.length() > 0) {
+            return new File(azahar, name.substring("azahar/".length()));
+        }
+        if (name.matches("games3ds/[^/]+\\.(3ds|cci|cxi|3dsx|z3ds|zcci|zcxi|z3dsx)") && games.length() > 0) {
+            return new File(games, name.substring("games3ds/".length()));
+        }
+        return null;
+    }
+
+    private static boolean inside(File dest, File dir) throws IOException {
+        return dest.getCanonicalPath().startsWith(dir.getCanonicalPath() + File.separator);
+    }
+
+    // zip|save folder|backup folder[|Azahar's folder|3DS games folder]
     private static String unzip(String arg) throws IOException {
-        String[] p = arg.split("\\|", 3);
+        String[] p = arg.split("\\|", 5);
         if (p.length < 3) return "error:bad arguments";
         File root = new File(p[1]);
         File backup = new File(p[2]);
-        int count = 0, skipped = 0;
+        String azahar = p.length > 3 ? p[3] : "";
+        String games = p.length > 4 ? p[4] : "";
+        int count = 0, skipped = 0, threeDs = 0;
         ZipInputStream zis = new ZipInputStream(new FileInputStream(p[0]));
         try {
             ZipEntry e;
             while ((e = zis.getNextEntry()) != null) {
                 String name = e.getName();
                 if (e.isDirectory()) continue;
-                if (!allowed(name)) { skipped++; continue; }
-                File dest = new File(root, name);
-                if (!dest.getCanonicalPath().startsWith(root.getCanonicalPath() + File.separator)) {
-                    skipped++;
-                    continue;
+                File dest = azaharDest(name, azahar, games);
+                if (dest != null) {
+                    File base = name.startsWith("azahar/") ? new File(azahar) : new File(games);
+                    if (!inside(dest, base)) { skipped++; continue; }
+                    threeDs++;
+                } else {
+                    if (!allowed(name)) { skipped++; continue; }
+                    dest = new File(root, name);
+                    if (!inside(dest, root)) { skipped++; continue; }
                 }
                 if (dest.isFile()) {
                     File keep = new File(backup, name);
@@ -236,7 +274,7 @@ public final class FoldBridge {
         } finally {
             zis.close();
         }
-        return "ok:" + count + ":" + skipped;
+        return "ok:" + count + ":" + skipped + ":" + threeDs;
     }
 
     static void copy(InputStream in, OutputStream out) throws IOException {

@@ -144,7 +144,7 @@ local function allTiles(imp)
     sub = "3DS emulator settings and tools" }
   ids[#ids + 1] = Azahar.FOLDER
   if Azahar.status() == "setup" then
-    byId.ctr_setup = { id = "ctr_setup", url = "azahar?open=library", name = "Set Up 3DS",
+    byId.ctr_setup = { id = "ctr_setup", url = "setup", name = "Set Up 3DS",
       sub = "Choose Azahar's folder to play 3DS games" }
     ids[#ids + 1] = "ctr_setup"
   end
@@ -237,6 +237,7 @@ end
 local function closeFolder()
   if not st.folder then return end
   st.folder = nil
+  st.folderAt = now()
   st.sel, st.scroll, st.vel = st.mainSel or 1, st.mainScroll or 0, 0
   st.disp = {}
 end
@@ -247,6 +248,7 @@ local function openTile(imp, t)
   if t.folder then
     Sfx.play("open")
     st.folder = t
+    st.folderAt = now()
     st.mainSel, st.mainScroll = st.sel, st.scroll
     st.sel, st.scroll, st.vel = 2, 0, 0
     st.disp = {}
@@ -895,6 +897,9 @@ function H.released(imp, id, x, y)
   st.vel = 0
   if tc.moved then return true end
   local tiles = H.tiles(imp)
+  -- right after a folder opens or closes, a tile under the finger is not
+  -- opened by the same tap arriving twice
+  if tc.kind == "tile" and now() - (st.folderAt or -10) < 0.35 then return true end
   if tc.kind == "tile" then
     if st.sel == tc.idx then openTile(imp, tiles[tc.idx])
     else st.sel = tc.idx; Sfx.play("select"); selectTile(imp, tiles[tc.idx]) end
