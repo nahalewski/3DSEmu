@@ -1,0 +1,54 @@
+diff --git a/fold3ds/cart3d.lua b/fold3ds/cart3d.lua
+index 3b347c4..9c02075 100644
+--- a/fold3ds/cart3d.lua
++++ b/fold3ds/cart3d.lua
+@@ -15,6 +15,11 @@
+ -- Labels: fold3ds/labels/<version>.png (<version>_jp.png for the Japanese
+ -- carts, C.region "jp"), else the launcher's; either is
+ -- cropped to fill the label, not squeezed.
++--
++-- Any other game (fold3ds.emu: DS and Virtual Console) passes a skin:
++-- { shape = "ds" | "gba" | "gb", color = { r, g, b [, a] }, cart = true,
++--   labelImage = <Image>, cacheKey = <its key> } -- a DS card or a Game Boy
++-- / Advance cart in that colour with that label.
+ local C = {}
+ 
+ local lg = love.graphics
+@@ -72,6 +77,17 @@ end
+ -- Units: the cart is 1 wide; y runs down; z runs away from the viewer.
+ 
+ local function model(gba)
++  if gba == "ds" then
++    -- a DS game card: 35 x 33 x 3.8 mm, its top-right corner cut, the grip
++    -- ridges along its top, the label filling the rest of the front
++    local w, h, d = 1, 1.06, 0.115
++    local cut = 0.07
++    return { w = w, h = h, d = d, cut = cut,
++      outline = { { -0.5, -h / 2 }, { 0.5 - cut, -h / 2 }, { 0.5, -h / 2 + cut }, { 0.5, h / 2 }, { -0.5, h / 2 } },
++      labelRect = { -0.42, -h / 2 + 0.2, 0.84, h - 0.2 - 0.07 },
++      ridges = { -h / 2 + 0.05, -h / 2 + 0.085, -h / 2 + 0.12 },
++      notches = { h / 2 - 0.3, 0.06 } }
++  end
+   if gba then
+     -- 57 x 35 x 7.5 mm: the top edge gently arched, the corners rounded
+     local w, h, d = 1, 0.614, 0.13
+@@ -208,7 +224,7 @@ function C.draw(r, version, t, skin)
+     shown.version, shown.since = key, t
+   end
+   local gba = (skin and skin.shape == "gba") or (not skin and isGba(version))
+-  local M = model(gba)
++  local M = model((skin and skin.shape == "ds") and "ds" or gba)
+   -- a custom cart keeps its own colour; the stock carts wear the real one
+   local color = (skin and skin.cart and skin.color) or (C.region == "jp" and SHELL_JP[version])
+     or SHELL[version] or (skin and skin.color) or { 180, 180, 190 }
+@@ -329,7 +345,9 @@ function C.draw(r, version, t, skin)
+     local rr, gg, bb = lit(color, fnx, fny, fnz, 0.55)
+     lg.setColor(rr * 0.6, gg * 0.6, bb * 0.6, math.max(alpha, 0.9))
+     poly(frontRect(P, L[1] - 0.025, L[2] - 0.025, L[3] + 0.05, L[4] + 0.05, zf - 0.002))
+-    local img = label(version, skin and skin.labelPath)
++    -- a game's own label (the HOME menu's DS and Virtual Console games:
++    -- skin.labelImage, its box art), else the recomp game's
++    local img = (skin and skin.labelImage) or (not (skin and skin.noLabel) and label(version, skin and skin.labelPath))
+     local shade = 0.72 + 0.28 * math.max(0, -(fnx * LX + fny * LY + fnz * LZ))
+     if img then
+       -- the art filling the recess: cropped to its shape, never squeezed

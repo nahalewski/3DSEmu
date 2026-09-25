@@ -21,6 +21,11 @@ B="$HERE/build"
 AZAHAR_REPO="${AZAHAR_REPO:-https://github.com/azahar-emu/azahar.git}"
 AZAHAR_COMMIT="${AZAHAR_COMMIT:-56d99197957f9c89609def36514319d961ce01eb}"
 TASK="${FOLD3DS_GRADLE_TASK:-assembleVanillaRelWithDebInfoLite}"
+# the HOME menu's own DS and Virtual Console cores (emu/)
+MELONDS_REPO="${MELONDS_REPO:-https://github.com/rafaelvcaetano/melonDS-android-lib.git}"
+MELONDS_COMMIT="${MELONDS_COMMIT:-431ab4bd0003c4356e25fce89640ae1004579b9b}"
+SKYEMU_REPO="${SKYEMU_REPO:-https://github.com/skylersaleh/SkyEmu.git}"
+SKYEMU_COMMIT="${SKYEMU_COMMIT:-01516d6798e3652b583e6a366085bb51c43b528d}"
 
 say() { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
 
@@ -70,6 +75,27 @@ cp "$GAME_LOVE" "$APP/assets/game.love"
 ln -sfn "$LOVE_MODULE" "$A/src/android/love"
 # liblove for arm64 only, like the rest of the APK
 sed -i "s/abiFilters 'armeabi-v7a', 'arm64-v8a'/abiFilters 'arm64-v8a'/" "$LOVE_MODULE/build.gradle"
+
+# ---------------------------------------------------------------- 2b. emucore
+# The HOME menu's own emulators (emu/): the melonDS core for DS games and
+# SkyEmu's cores for GB / GBC / GBA, as libemucore.so in a :emucore module
+# that the app depends on (fold3ds/emu.lua loads it with LuaJIT's FFI).
+say "emucore: melonDS $MELONDS_COMMIT, SkyEmu $SKYEMU_COMMIT"
+checkout "$MELONDS_REPO" "$MELONDS_COMMIT" "$B/melonds"
+checkout "$SKYEMU_REPO" "$SKYEMU_COMMIT" "$B/skyemu"
+EMU="$A/src/android/emucore"
+rm -rf "$EMU"
+mkdir -p "$EMU/src/main"
+cp "$HERE/emu/android/AndroidManifest.xml" "$EMU/src/main/"
+sed -e "s|@MELONDS_DIR@|$B/melonds|" -e "s|@SKYEMU_DIR@|$B/skyemu|" \
+    -e "s|@SKYEMU_COMMIT@|${SKYEMU_COMMIT:0:7}|" -e "s|@NATIVE_DIR@|$HERE/emu/native|" \
+    "$HERE/emu/android/build.gradle.kts" > "$EMU/build.gradle.kts"
+grep -q 'include(":emucore")' "$A/src/android/settings.gradle.kts" \
+  || printf '\n// fold3ds: the DS and Virtual Console cores (emu/)\ninclude(":emucore")\n' >> "$A/src/android/settings.gradle.kts"
+grep -q 'project(":emucore")' "$A/src/android/app/build.gradle.kts" \
+  || sed -i 's|    implementation(project(":love"))|&\n    implementation(project(":emucore"))|' "$A/src/android/app/build.gradle.kts"
+grep -q 'project(":emucore")' "$A/src/android/app/build.gradle.kts" \
+  || { echo "could not add :emucore to Azahar's app" >&2; exit 1; }
 
 # ---------------------------------------------------------------- 3. the APK
 SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"

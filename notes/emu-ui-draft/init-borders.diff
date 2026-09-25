@@ -1,0 +1,124 @@
+diff --git a/fold3ds/init.lua b/fold3ds/init.lua
+index cbf809f..4b6b57a 100644
+--- a/fold3ds/init.lua
++++ b/fold3ds/init.lua
+@@ -20,10 +20,11 @@
+ --     bottom-screen launcher, and the mod index API to list the community
+ --     catalog in FIND.
+ --
+--- In game the top screen has three shapes, cycled by a tap on the C-stick
+--- above X: the Game Boy's own 10:9 screen at a whole pixel scale, wide
+--- (the whole screen opening), and full (the whole top panel, over the
+--- Game Boy Color frame).  START's menu and the SELECT mod manager draw on
++-- In game the whole top panel is the game's (the shell's printed Game Boy
++-- Color frame is covered), in two shapes cycled by a tap on the C-stick
++-- above X: BORDER, the game's picture inside a border for its own system
++-- (Game Boy, Game Boy Color, Game Boy Advance, DS: fold3ds.borders), and
++-- FULL SCREEN, the picture as large as the panel holds.  START's menu and the SELECT mod manager draw on
+ -- the bottom screen while the world stays on top.
+ --
+ -- POKEPORT_FOLD=ds|lid|off forces a mode on the desktop for testing.
+@@ -51,6 +52,7 @@ local Activity = require("fold3ds.activity")
+ local Notes = require("fold3ds.notes")
+ local Friends = require("fold3ds.friends")
+ local Azahar = require("fold3ds.azahar")
++local Borders = require("fold3ds.borders")
+ 
+ local DIR = "fold3ds/"
+ -- shell art (full size); cut = the screen opening in the art's pixels
+@@ -115,7 +117,7 @@ local state = {
+   idle = { manifest = nil, sheets = {} },
+   oriented = false,
+   time = 0,
+-  screenMode = nil,      -- gbc | wide | full (the game's top screen shape)
++  screenMode = nil,      -- border | full (the game's top screen shape)
+   theme = "3ds",         -- the bottom-screen launcher's look: always the 3DS HOME menu
+   shoulders = true,      -- L / ZL / R / ZR shown at the sides
+   sounds = true,         -- the HOME menu's sound effects in the menus
+@@ -126,8 +128,8 @@ local state = {
+   split = nil,           -- this frame's in-game menu split { full, top, menus }
+ }
+ 
+-local MODES = { "gbc", "wide", "full" }
+-local MODE_NAMES = { gbc = "GAME BOY COLOR  -  10:9", wide = "WIDESCREEN", full = "FULL SCREEN" }
++local MODES = { "border", "full" }
++local MODE_NAMES = { border = "BORDER", full = "FULL SCREEN" }
+ local SETTINGS_FILE = "fold3ds.cfg"
+ -- the community mod index (the catalog at gen1recomp.com/mod), and the copy
+ -- of its feed shipped in the APK so the list is there before any network
+@@ -149,7 +151,8 @@ local function loadSettings()
+   local ok, text = pcall(love.filesystem.read, SETTINGS_FILE)
+   text = ok and type(text) == "string" and text or ""
+   local mode = text:match("screen=(%a+)")
+-  state.screenMode = (mode == "gbc" or mode == "wide" or mode == "full") and mode or "gbc"
++  -- the old shapes inside the Game Boy Color frame are the border now
++  state.screenMode = mode == "full" and "full" or "border"
+   -- the 3DS theme is the only one now (the Classic look is gone)
+   state.theme = "3ds"
+   state.shoulders = text:match("shoulders=(%d)") ~= "0"
+@@ -239,11 +242,18 @@ local function layout(W, H)
+   return L
+ end
+ 
+--- where the game draws on the top screen, by the chosen shape
++-- the running recomp game's system (its border) and version
++local function gameSystem()
++  local ok, GV = pcall(require, "src.core.GameVersion")
++  local v = ok and GV.get and GV.get() or "red"
++  return Borders.versionSystem(v), v
++end
++
++-- where the game draws on the top screen, by the chosen shape: the whole
++-- panel, or the screen inside its system's border
+ local function gameRect(L)
+   if state.screenMode == "full" then return L.topFull end
+-  if state.screenMode == "wide" then return L.topCut end
+-  return L.topGbc
++  return Borders.gameRect(L.topFull, (gameSystem()), dpi())
+ end
+ 
+ -- the 3DS theme's HOME menu is up (the grid, or a tile opened from it)
+@@ -2000,7 +2010,6 @@ local function drawFrame()
+     lg.setColor(0, 0, 0, 1)
+     lg.rectangle("fill", L.topCut.x, L.topCut.y, L.topCut.w, L.topCut.h)
+     lg.setColor(1, 1, 1, 1)
+-    if canvas and state.screenMode ~= "full" then lg.draw(canvas, gr.x, gr.y) end
+     local menus = state.canvases.menus
+     if state.menusShown and menus then
+       lg.setColor(0, 0, 0, 1)
+@@ -2053,12 +2062,19 @@ local function drawFrame()
+   shellStickers(L.top.img, L.top.x, L.top.y, L.top.sc, 1, "shell")
+   drawVolume(L)
+   if state.kind ~= "game" and not Sticker.editing() then innerEyeGlint(L, state.time) end
+-  -- FULL: the game covers the whole top panel, Game Boy Color frame included
+-  if state.kind == "game" and state.screenMode == "full" and canvas then
+-    lg.setColor(0, 0, 0, 1)
+-    lg.rectangle("fill", gr.x, gr.y, gr.w, gr.h)
++  -- the game covers the whole top panel, the printed Game Boy Color frame
++  -- included: FULL SCREEN, or its picture inside its system's border
++  if state.kind == "game" and canvas then
++    local sys = gameSystem()
++    if state.screenMode == "full" then
++      lg.setColor(0, 0, 0, 1)
++      lg.rectangle("fill", L.topFull.x, L.topFull.y, L.topFull.w, L.topFull.h)
++    else
++      Borders.drawBack(L.topFull, sys)
++    end
+     lg.setColor(1, 1, 1, 1)
+     lg.draw(canvas, gr.x, gr.y)
++    if state.screenMode ~= "full" then Borders.drawFront(L.topFull, sys) end
+   end
+   lg.draw(L.bottom.img, L.bottom.x, L.bottom.y, 0, L.bottom.sc, L.bottom.sc)
+   shellStickers(L.bottom.img, L.bottom.x, L.bottom.y, L.bottom.sc, 2, "shell")
+@@ -2213,6 +2229,11 @@ function backend:beginFrame(kind, subject)
+   if changed then releaseAll() end
+   -- back from a game: the HOME menu's grid, as on a 3DS
+   if changed and kind == "launcher" then Home.goHome(nil, true) end
++  -- into a game: its own border (fetched now, the first time)
++  if changed and kind == "game" then
++    local sys, v = gameSystem()
++    Borders.setGame(sys, Borders.versionName(v))
++  end
+   -- the menu's chime the first time it comes up
+   -- the first time the menu comes up on the open 3DS: the boot screen
+   if kind == "launcher" and not state.chimed and state.mode == "ds" then

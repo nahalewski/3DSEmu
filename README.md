@@ -92,6 +92,29 @@ the gen1recomp-only APK with `apply.sh`.)
 Desktop testing of the HOME menu works as below.  `POKEPORT_FOLD_FAKEAZAHAR=1` adds
 three made-up 3DS games to the grid.
 
+## DS and Virtual Console (`emu/`, `fold3ds/emucore.lua`)
+
+DS games on the melonDS core (melonDS-android-lib) and Game Boy / Game Boy
+Color / Game Boy Advance games on SkyEmu's cores, shown as the Virtual
+Console, play inside the 3DS shell.  The cores are one native library,
+`libemucore.so` (`emu/native`, the `:emucore` Gradle module `build.sh`
+adds), which `fold3ds/emucore.lua` drives through LuaJIT's FFI;
+`fold3ds/melonds.lua` and `fold3ds/vc.lua` are their providers for
+`fold3ds/emus.lua` (tiles, a settings folder each).
+
+* **The folder**, as Azahar keeps its own: `<phone storage>/Omnindo/` with
+  `config/settings.ini`, `games/` (put `.nds`, `.gb`, `.gbc`, `.gba` here),
+  `saves/`, `states/` and `bios/` (optional `bios7.bin`, `bios9.bin`,
+  `firmware.bin`; `SkyEmu/gb_bios.bin`, `gbc_bios.bin`, `gba_bios.bin`).
+* **Names and art**: `fold3ds/emudb/` maps a dump's CRC32 (GB / GBC / GBA)
+  or a DS game's code to its No-Intro name (`tools/make_emudb.py`, from
+  `tools/romdb`).  Box art (libretro-thumbnails), DS covers and cards
+  (GameTDB) and each game's border (The Bezel Project) are downloaded on
+  the phone when first needed; none are shipped.
+* Desktop: `emu/native` builds with CMake
+  (`-DMELONDS_DIR=... -DSKYEMU_DIR=...`); `EMUCORE_LIB=/path/libemucore.so`
+  points the Lua side at it.
+
 ## gen1recomp Fold on its own (`apply.sh`)
 
 gen1recomp on a foldable phone, as a 3DS.  This is upstream
