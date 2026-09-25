@@ -13,8 +13,9 @@
 --   p.menu() -> { open, rows = {{label, id}}, sel }, p.menuDo(id)
 --   p.boxArt(t) -> Image, p.stop()
 --
--- The top screen: the game covers the whole top panel (not the printed
--- Game Boy Color frame) inside a border for its system.
+-- The screens: FULL SCREEN stretches the game over the whole screen (the
+-- 3DS top panel, the bottom screen); NATIVE keeps its own shape at whole
+-- pixels.  The C-stick switches.
 local EP = {}
 
 local lg = love.graphics
@@ -84,65 +85,31 @@ end
 
 ---------------------------------------------------------------- the top screen
 
--- full: the whole top panel (the game covers it).  fullScreen: the picture
--- as large as the panel holds; else inside a border for its system
-function EP.drawTop(full, fullScreen)
-  local p, t = EP.active()
-  if not p then return end
-  local sys = system(p, t)
-  local S = SYSTEMS[sys]
-  lg.push("all")
-  lg.setScissor(full.x, full.y, full.w, full.h)
-  if fullScreen then
-    lg.setColor(0, 0, 0, 1)
-    lg.rectangle("fill", full.x, full.y, full.w, full.h)
-    local img = screenImage(p, 0)
-    if img then
-      local x, y, w, h = fit(full, img:getWidth(), img:getHeight())
-      lg.setColor(1, 1, 1, 1)
-      lg.draw(img, x, y, 0, w / img:getWidth(), h / img:getHeight())
-    end
-    lg.pop()
-    return
-  end
-  col(S.frame)
-  lg.rectangle("fill", full.x, full.y, full.w, full.h)
-  -- the frame's inner bevel
-  lg.setColor(1, 1, 1, 0.08)
-  lg.rectangle("fill", full.x, full.y, full.w, full.h * 0.5)
-  -- the screen's dark bezel, then the screen
-  local textH = S.text and full.h * 0.12 or 0
-  local area = { x = full.x + full.w * 0.04, y = full.y + full.h * 0.05, w = full.w * 0.92,
-    h = full.h * 0.9 - textH }
-  local sw, sh = S.w, S.h
-  if p.screenSize then
-    local ok, w, h = pcall(p.screenSize, sys)
-    if ok and w and h then sw, sh = w, h end
-  end
-  local bx, by, bw, bh = fit({ x = area.x + area.w * 0.08, y = area.y + area.h * 0.06,
-    w = area.w * 0.84, h = area.h * 0.88 }, sw, sh)
-  local pad = math.max(4, bh * 0.07)
-  col(S.bezel)
-  lg.rectangle("fill", bx - pad * 1.6, by - pad, bw + pad * 3.2, bh + pad * 2, pad, pad)
-  if S.dot then
-    -- the power lamp on the bezel
-    col(S.dot)
-    lg.circle("fill", bx - pad * 0.8, by + bh * 0.35, pad * 0.28)
-  end
+-- draw a screen image into r: stretched over all of it (fullScreen, the
+-- whole wide screen), or native (its own shape, whole pixels when that
+-- fills most of it, black around)
+local function drawScreen(img, r, fullScreen)
   lg.setColor(0, 0, 0, 1)
-  lg.rectangle("fill", bx, by, bw, bh)
-  local img = screenImage(p, 0)
-  if img then
-    lg.setColor(1, 1, 1, 1)
-    lg.draw(img, bx, by, 0, bw / img:getWidth(), bh / img:getHeight())
+  lg.rectangle("fill", r.x, r.y, r.w, r.h)
+  if not img then return r end
+  local x, y, w, h
+  if fullScreen then
+    x, y, w, h = r.x, r.y, r.w, r.h
+  else
+    x, y, w, h = fit(r, img:getWidth(), img:getHeight())
   end
-  if S.text then
-    local f = ctx.font(textH * 0.5)
-    lg.setFont(f)
-    col(S.ink)
-    lg.printf(S.text, full.x, by + bh + pad + (full.y + full.h - by - bh - pad - f:getHeight()) / 2,
-      full.w, "center")
-  end
+  lg.setColor(1, 1, 1, 1)
+  lg.draw(img, x, y, 0, w / img:getWidth(), h / img:getHeight())
+  return { x = x, y = y, w = w, h = h }
+end
+
+-- the top screen: the whole top panel
+function EP.drawTop(r, fullScreen)
+  local p = EP.active()
+  if not p then return end
+  lg.push("all")
+  lg.setScissor(r.x, r.y, r.w, r.h)
+  drawScreen(screenImage(p, 0), r, fullScreen)
   lg.pop()
 end
 
@@ -178,7 +145,7 @@ local function drawMenu(r, m)
   end
 end
 
-function EP.drawBottom(r)
+function EP.drawBottom(r, fullScreen)
   local p, t = EP.active()
   st.hits = {}
   st.screenRect = nil
@@ -188,15 +155,15 @@ function EP.drawBottom(r)
   lg.setScissor(r.x, r.y, r.w, r.h)
   if sys == "nds" then
     -- the DS touch screen, as large as fits
-    lg.setColor(0, 0, 0, 1)
-    lg.rectangle("fill", r.x, r.y, r.w, r.h)
-    local S = SYSTEMS.nds
-    local x, y, w, h = fit(r, S.w, S.h)
-    st.screenRect = { x = x, y = y, w = w, h = h }
     local img = screenImage(p, 1)
     if img then
-      lg.setColor(1, 1, 1, 1)
-      lg.draw(img, x, y, 0, w / img:getWidth(), h / img:getHeight())
+      st.screenRect = drawScreen(img, r, fullScreen)
+    else
+      local S = SYSTEMS.nds
+      lg.setColor(0, 0, 0, 1)
+      lg.rectangle("fill", r.x, r.y, r.w, r.h)
+      local x, y, w, h = fit(r, S.w, S.h)
+      st.screenRect = { x = x, y = y, w = w, h = h }
     end
   else
     -- Virtual Console: the box art, the title, and the game's buttons

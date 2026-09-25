@@ -127,8 +127,8 @@ local state = {
   split = nil,           -- this frame's in-game menu split { full, top, menus }
 }
 
-local MODES = { "full", "gbc", "wide" }
-local MODE_NAMES = { gbc = "GAME BOY COLOR  -  10:9", wide = "WIDESCREEN", full = "FULL SCREEN" }
+local MODES = { "full", "gbc" }
+local MODE_NAMES = { gbc = "NATIVE", full = "FULL SCREEN" }
 local SETTINGS_FILE = "fold3ds.cfg"
 -- the community mod index (the catalog at gen1recomp.com/mod), and the copy
 -- of its feed shipped in the APK so the list is there before any network
@@ -150,7 +150,7 @@ local function loadSettings()
   local ok, text = pcall(love.filesystem.read, SETTINGS_FILE)
   text = ok and type(text) == "string" and text or ""
   local mode = text:match("screen=(%a+)")
-  state.screenMode = (mode == "gbc" or mode == "wide" or mode == "full") and mode or "full"
+  state.screenMode = mode == "gbc" and "gbc" or "full"
   -- full screen is the default now: a shape saved before that is dropped
   if not text:match("screenv=2") then state.screenMode = "full" end
   -- the 3DS theme is the only one now (the Classic look is gone)
@@ -193,8 +193,31 @@ local function detectMode()
   return "ds"
 end
 
+-- the top shell with its whole dark panel cut out: the panel is the top
+-- screen (the printed Game Boy Color frame is gone), as on a 3DS
+local function topShell()
+  if state.images.topShell == nil then
+    state.images.topShell = false
+    local ok, data = pcall(love.image.newImageData, DIR .. TOP.file)
+    if ok and data then
+      local x0, y0, w, h = TOP.full[1], TOP.full[2], TOP.full[3], TOP.full[4]
+      local r = 14      -- the panel's rounded corners
+      data:mapPixel(function(x, y, cr, cg, cb, ca)
+        local dx = math.max(x0 + r - x, 0, x - (x0 + w - 1 - r))
+        local dy = math.max(y0 + r - y, 0, y - (y0 + h - 1 - r))
+        if dx * dx + dy * dy <= r * r then return cr, cg, cb, 0 end
+        return cr, cg, cb, ca
+      end, x0, y0, w, h)
+      local img = lg.newImage(data)
+      img:setFilter("linear", "linear")
+      state.images.topShell = img
+    end
+  end
+  return state.images.topShell or image(TOP.file)
+end
+
 local function layout(W, H)
-  local top, bottom = image(TOP.file), image(BOTTOM.file)
+  local top, bottom = topShell(), image(BOTTOM.file)
   if not top or not bottom then return nil end
   local topH = math.floor(H / 2)
   local botH = H - topH
@@ -202,8 +225,10 @@ local function layout(W, H)
   local tw, th = top:getDimensions()
   local sc = math.min(W / tw, topH / th)
   L.top = { x = math.floor((W - tw * sc) / 2), y = topH - th * sc, sc = sc, img = top }
-  L.topCut = { x = math.floor(L.top.x + TOP.cut[1] * sc), y = math.floor(L.top.y + TOP.cut[2] * sc),
-               w = math.floor(TOP.cut[3] * sc), h = math.floor(TOP.cut[4] * sc) }
+  -- the top screen: the whole panel (it was the opening in the printed
+  -- Game Boy Color frame)
+  L.topCut = { x = math.floor(L.top.x + TOP.full[1] * sc), y = math.floor(L.top.y + TOP.full[2] * sc),
+               w = math.floor(TOP.full[3] * sc), h = math.floor(TOP.full[4] * sc) }
   local bw, bh = bottom:getDimensions()
   local sb = math.min(W / bw, botH / bh)
   L.bottom = { x = math.floor((W - bw * sb) / 2), y = topH, sc = sb, img = bottom }
@@ -245,7 +270,6 @@ end
 -- where the game draws on the top screen, by the chosen shape
 local function gameRect(L)
   if state.screenMode == "full" then return L.topFull end
-  if state.screenMode == "wide" then return L.topCut end
   return L.topGbc
 end
 
@@ -2036,9 +2060,9 @@ local function drawFrame()
       drawIdle(L.botCut)
     end
   elseif emuOn() then
-    -- a DS / Virtual Console game in the shell: its top screen goes over
-    -- the whole top panel after the shell (below); its bottom screen here
-    EmuPlay.drawBottom(L.botCut)
+    -- a DS / Virtual Console game in the shell: both screens
+    EmuPlay.drawTop(L.topCut, state.screenMode ~= "gbc")
+    EmuPlay.drawBottom(L.botCut, state.screenMode ~= "gbc")
   elseif cameraOn() then
     -- the Camera applet: the picture on top, the controls below
     Camera.drawTop(L.topCut)
@@ -2082,8 +2106,6 @@ local function drawFrame()
   shellStickers(L.top.img, L.top.x, L.top.y, L.top.sc, 1, "shell")
   drawVolume(L)
   if state.kind ~= "game" and not Sticker.editing() then innerEyeGlint(L, state.time) end
-  -- an emulated game covers the whole top panel, inside its system's border
-  if emuOn() then EmuPlay.drawTop(L.topFull, state.screenMode == "full") end
   -- FULL: the game covers the whole top panel, Game Boy Color frame included
   if state.kind == "game" and state.screenMode == "full" and canvas then
     lg.setColor(0, 0, 0, 1)
