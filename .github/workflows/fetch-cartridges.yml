@@ -40,12 +40,19 @@ jobs:
               xmlname = [n for n in z.namelist() if n.lower().endswith("metadata.xml")][0]
               root = ET.fromstring(z.read(xmlname))
               platforms = {"Nintendo Game Boy", "Nintendo Game Boy Color", "Nintendo Game Boy Advance"}
-              want = re.compile(r"pok[eé]mon|pocket monsters", re.I)
+              # every release, the Japanese ones too (Pocket Monsters Aka / Midori /
+              # Ao / Pikachu / Kin / Gin / Crystal, FireRed / LeafGreen), however
+              # the database spells or scripts them
+              want = re.compile(r"pok[eé]mon|pocket ?monsters?|poketto|ポケットモンスター|ポケモン", re.I)
               games = {}
+              alt = {}
+              for a in root.iter("GameAlternateName"):
+                  alt.setdefault(a.findtext("DatabaseID"), []).append(a.findtext("AlternateName") or "")
               for g in root.iter("Game"):
                   name = (g.findtext("Name") or "")
+                  names = [name] + alt.get(g.findtext("DatabaseID"), [])
                   plat = (g.findtext("Platform") or "")
-                  if plat in platforms and want.search(name):
+                  if plat in platforms and any(want.search(n) for n in names):
                       games[g.findtext("DatabaseID")] = (name, plat)
               print(len(games), "games")
               for gid, (name, plat) in sorted(games.items(), key=lambda kv: kv[1]):
