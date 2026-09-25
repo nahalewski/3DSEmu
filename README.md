@@ -170,7 +170,14 @@ upstream's own Android build script.
   or X / Y), and every change animates the icons from their old slots to
   their new ones.  Hold an icon until it lifts to drag it somewhere else;
   size and order are remembered.  Tap to select, tap again or A to open;
-  Manual opens a game's manage page.  An opened icon shows its page
+  Manual opens a game's electronic manual on the bottom screen, as the
+  3DS does: pages written for each recomp game (getting started, the
+  controls on the Fold, the adventure, battles, what is only in that
+  version, and gen1recomp's options, rulesets, mods, online play and
+  saves; `fold3ds/manualtext.lua`), a Contents list, the contents on the
+  top screen with the chapter being read lifted out, and Game Options for
+  the game's manage page.  Scans of your own printed manual go in front
+  of them (`fold3ds/manuals/<version>/`).  An opened icon shows its page
   (light theme: white panels, HOME-menu blue selection) under a back bar;
   back, B or HOME returns to the menu.  The top screen is the 3DS's
   too: the status bar (signal, Internet, the play coins, date and time,

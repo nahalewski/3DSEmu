@@ -49,6 +49,7 @@ local Dlplay = require("fold3ds.dlplay")
 local Eshop = require("fold3ds.eshop")
 local Activity = require("fold3ds.activity")
 local Notes = require("fold3ds.notes")
+local Manual = require("fold3ds.manual")
 local Friends = require("fold3ds.friends")
 local EmuPlay = require("fold3ds.emuplay")
 local EmuPage = require("fold3ds.emupage")
@@ -303,8 +304,9 @@ local function actOn()
   return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Activity.isOpen()
 end
 
--- the Friend List and Game Notes, each owning both screens while open
-local APPS = { friends = Friends, gamenotes = Notes }
+-- the Friend List, Game Notes and a game's manual, each owning both screens
+-- while open
+local APPS = { friends = Friends, gamenotes = Notes, manual = Manual }
 local function appOn()
   if not (state.mode == "ds" and state.kind ~= "game" and state.L ~= nil) then return nil end
   for id, m in pairs(APPS) do
@@ -2579,8 +2581,10 @@ function M.install()
   Eshop.init({ font = font, subject = function() return state.subject end,
     region = function() return Cart3D.region end })
   Home.init({ font = font, openCamera = Camera.open, drawCameraIcon = Camera.drawIcon, openDlplay = Dlplay.open, openEshop = Eshop.open,
-    openActivity = Activity.open, openApp = function(id) if APPS[id] then APPS[id].open() end end })
+    openActivity = Activity.open, openApp = function(id) if APPS[id] then APPS[id].open() end end,
+    openManual = Manual.open })
   Notes.init({ font = font, setCanvas = real.setCanvas })
+  Manual.init({ font = font })
   EmuPlay.init({ font = font })
   EmuPage.init({ font = font, icon = function(id) return image("icons3ds/" .. id .. ".png") end })
   do
