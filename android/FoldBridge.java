@@ -44,6 +44,8 @@ import org.libsdl.app.SDLActivity;
  *   steps                    today's steps from the phone's step counter
  *                            ("-1" none / not allowed, "-2" asking)
  *   dp.*                     Download Play (FoldPlay)
+ *   fetch, files.*, external downloads and shared storage for the HOME
+ *                            menu's emulators (FoldFetch)
  */
 @Keep
 public final class FoldBridge {
@@ -88,6 +90,7 @@ public final class FoldBridge {
             if (cmd.equals("zip")) return zip(arg);
             if (cmd.equals("unzip")) return unzip(arg);
             if (cmd.startsWith("dp.")) return FoldPlay.call(cmd.substring(3), arg);
+            if (cmd.equals("fetch") || cmd.startsWith("files.") || cmd.equals("external")) return FoldFetch.call(cmd, arg);
         } catch (Throwable e) {
             Log.d(TAG, cmd + ": " + e);
             return "error:" + e.getMessage();
