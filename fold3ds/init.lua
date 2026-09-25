@@ -44,6 +44,7 @@ local Theme3DS = require("fold3ds.theme3ds")
 local Home = require("fold3ds.home3ds")
 local Sfx = require("fold3ds.sfx")
 local Cart3D = require("fold3ds.cart3d")
+local Camera = require("fold3ds.camera")
 
 local DIR = "fold3ds/"
 -- shell art (full size); cut = the screen opening in the art's pixels
@@ -235,6 +236,11 @@ end
 -- the 3DS theme's HOME menu is up (the grid, or a tile opened from it)
 local function homeActive()
   return state.mode == "ds" and state.theme == "3ds" and state.kind ~= "game"
+end
+
+-- the Camera applet owns both screens while it is open (launcher only)
+local function cameraOn()
+  return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Camera.isOpen()
 end
 
 local function virtualRect()
@@ -434,6 +440,10 @@ end
 
 local function press(btn, src)
   if Sticker.editing() and state.kind ~= "game" then Sticker.button(btn) return end
+  if cameraOn() then
+    if Camera.button(btn) == "exit" then Camera.close() end
+    return
+  end
   if btn == "cstick" then cycleScreen() return end
   if state.kind == "game" then
     if btn == "select" and selectOpensMods(state.subject) then return end
@@ -483,6 +493,7 @@ end
 local function release(btn, src)
   if btn == "cstick" then return end
   if Sticker.editing() and state.kind ~= "game" then return end
+  if cameraOn() then return end
   if src == "pad" and (btn == "up" or btn == "down") then state.padScroll = nil end
   if state.kind == "game" and GAME_TRIGGER[btn] then
     local g = state.subject
@@ -645,6 +656,7 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
   if M.debug then print("fold3ds buttonAt -> " .. tostring(b and b.name)) end
   if b then holdStart(id, b, x, y) return end
   if editingSticker() then Sticker.pressed(id, x, y, state.L.botCut, state.L.topCut) return end
+  if cameraOn() then Camera.pressed(id, x, y) return end
   if homeTouch(id, x, y) then return end
   local cb = columnButtonAt(x, y)
   if cb then state.columnDown = cb.id; pressColumnButton(cb) return end
@@ -670,6 +682,7 @@ local function onTouchMoved(id, x, y, dx, dy, pr)
   end
   if state.held[id] then holdMove(id, x, y) return end
   if editingSticker() then Sticker.moved(id, x, y) return end
+  if cameraOn() then Camera.moved(id, x, y) return end
   if Home.moved(state.subject, id, x, y) then return end
   if state.vtouch[id] then
     local lx, ly = toVirtual(x, y)
@@ -685,6 +698,7 @@ local function onTouchReleased(id, x, y, dx, dy, pr)
   end
   if state.held[id] then holdEnd(id) return end
   if editingSticker() then Sticker.released(id) return end
+  if cameraOn() then if Camera.released(id, x, y) == "exit" then Camera.close() end return end
   if Home.released(state.subject, id, x, y) then return end
   if state.arrowHeld and state.arrowHeld.id == id then arrowEnd(id) return end
   if state.vtouch[id] then
@@ -705,6 +719,7 @@ local function onMousePressed(x, y, button, istouch, presses)
     local b = buttonAt(x, y)
     if b then holdStart("mouse", b, x, y) return end
     if editingSticker() then Sticker.pressed("mouse", x, y, state.L.botCut, state.L.topCut) return end
+    if cameraOn() then Camera.pressed("mouse", x, y) return end
     if homeTouch("mouse", x, y) then return end
     local cb = columnButtonAt(x, y)
     if cb then state.columnDown = cb.id; pressColumnButton(cb) return end
@@ -723,6 +738,7 @@ local function onMouseMoved(x, y, dx, dy, istouch)
   end
   if state.held.mouse then holdMove("mouse", x, y) return end
   if editingSticker() then if not istouch then Sticker.moved("mouse", x, y) end return end
+  if cameraOn() then if not istouch then Camera.moved("mouse", x, y) end return end
   if not istouch and Home.moved(state.subject, "mouse", x, y) then return end
   local lx, ly = toVirtual(x, y)
   if orig.mousemoved then return orig.mousemoved(lx, ly, dx, dy, istouch) end
@@ -735,6 +751,10 @@ local function onMouseReleased(x, y, button, istouch, presses)
   end
   if state.held.mouse and not istouch then holdEnd("mouse") return end
   if editingSticker() then if not istouch then Sticker.released("mouse") end return end
+  if cameraOn() then
+    if not istouch and Camera.released("mouse", x, y) == "exit" then Camera.close() end
+    return
+  end
   if not istouch and Home.released(state.subject, "mouse", x, y) then return end
   if not istouch and state.arrowHeld and state.arrowHeld.id == "mouse" then arrowEnd("mouse") return end
   local lx, ly = toVirtual(x, y)
@@ -1226,6 +1246,10 @@ local function drawFrame()
     else
       drawIdle(L.botCut)
     end
+  elseif cameraOn() then
+    -- the Camera applet: the picture on top, the controls below
+    Camera.drawTop(L.topCut)
+    Camera.drawBottom(L.botCut)
   elseif Sticker.editing() then
     -- the cover sticker editor: the cover on top, the tools below
     Sticker.drawPreview(L.topCut, drawLidIn)
@@ -1266,6 +1290,7 @@ function backend:update(dt)
   state.time = state.time + (dt or 0)
   Home.tick(dt)   -- the play meter runs whenever the app does
   Sticker.tick(dt) -- and wears the re-stuck stickers
+  Camera.update(dt, cameraOn())
   if M.debug and dbgFrames < 3 then dbgFrames = dbgFrames + 1 io.stdout:setvbuf("no") print("fold3ds update mode=" .. tostring(state.mode) .. " kind=" .. tostring(state.kind)) end
   if M.driverTick then M.driverTick() end
   local mode = detectMode()
@@ -1585,7 +1610,8 @@ function M.install()
   M.installed = true
   loadSettings()
   Sticker.init({ setCanvas = real.setCanvas, font = font })
-  Home.init({ font = font })
+  Camera.init({ font = font })
+  Home.init({ font = font, openCamera = Camera.open, drawCameraIcon = Camera.drawIcon })
   seedModIndex()
   wrapSettings()
   -- the virtual window: size, mode, safe area, pointer queries

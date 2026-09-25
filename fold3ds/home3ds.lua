@@ -1,7 +1,8 @@
 -- The 3DS theme's HOME menu, as the 3DS draws its bottom screen:
 --
---   * the applet bar across the top -- Settings, Mods, Find, Online, Skins,
---     Import, Save Sync, Exit -- with the two icon-size buttons on its right;
+--   * the applet bar across the top -- Camera, Settings, Mods, Find, Online,
+--     Skins, Import, Save Sync, Exit -- with the two icon-size buttons on its
+--     right;
 --   * the icon grid: one tile per game, laid out in columns (down, then
 --     across) on one strip that scrolls sideways under a finger (with a
 --     flick's momentum) or the d-pad;
@@ -50,6 +51,7 @@ local GAME_LETTERS = {
 }
 -- the applet bar (always there, not rearranged)
 local APPLETS = {
+  { id = "camera", name = "Camera", camera = true },
   { id = "settings", name = "Settings", icon = "settings", color = { 70, 140, 220 }, modal = "settings" },
   { id = "mods", name = "Mods", icon = "puzzle", color = { 236, 176, 30 }, tab = "mods" },
   { id = "find", name = "Find Mods", icon = "search", color = { 246, 130, 40 }, tab = "find" },
@@ -195,6 +197,10 @@ local function openTile(imp, t)
   Sfx.play("open")
   if t.exit then
     if imp._quitApp then imp:_quitApp() end
+    return
+  end
+  if t.camera then
+    if ctx.openCamera then ctx.openCamera() end
     return
   end
   st.open = t
@@ -418,6 +424,8 @@ function H.draw(r, imp, time)
       local iw, ih = img:getDimensions()
       lg.setColor(1, 1, 1, 1)
       lg.draw(img, ix, iy, 0, s / iw, s / ih)
+    elseif a.camera and ctx.drawCameraIcon then
+      ctx.drawCameraIcon(ix, iy, s)
     else
       local okI, Icons = pcall(require, "src.ui.kit.Icons")
       if okI then Icons.draw(a.icon, ix, iy, s, a.color, 1) end

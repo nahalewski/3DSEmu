@@ -79,6 +79,24 @@ upstream's own Android build script.
   wait in SKINS (*Put the fallen ones back*).  Stickers keep their
   proportions, stay on the lid's flat face and are cut to the shell's
   shape.
+* **Camera (3DS theme)**: the orange camera icon at the front of the
+  HOME menu's applet bar opens the 3DS Camera.  The phone's live camera
+  picture fills the top screen inside white corner brackets (yellow while
+  the self-timer counts down, green as the shutter fires, with a white
+  flash and a shutter click).  On the bottom screen: Shoot (or A, L, R),
+  Photos, Settings, zoom + / - (or up / down, up to 4x), the rear / front
+  camera switch (or X), and the modes Auto, Multi (four shots half a
+  second apart in one 2x2 picture) and Self-Timer (3 s).  Photos shows the
+  pictures newest first, ten to a page (swipe or left / right), the chosen
+  one big on the top screen, with info and delete (tap the bin twice).
+  Settings: camera, shutter sound, grid lines, and whether a copy goes to
+  the phone's gallery (Pictures/Gen1Recomp).  Pictures are saved as
+  `photos/HNI_0001.png`, ... in the save folder, exactly what the top
+  screen shows.  Android asks for camera permission the first time.  The
+  camera stops while the phone is folded or the applet is closed.  Native side:
+  `android/FoldCamera.java` (Camera2) and `patches/android-camera.patch`
+  (`love.system.foldCamera` in liblove, YUV to RGBA straight into an
+  ImageData; the CAMERA permission).
 * **Menu sounds**: the 3DS HOME menu's own sound effects
   (`fold3ds/sounds/`, trimmed) on the menus -- tiles, the applet bar,
   resizing, lifting and dropping icons, scrolling, HOME, back, launcher
@@ -127,7 +145,8 @@ With LÖVE 11.5 installed, from the prepared tree
 
 `POKEPORT_FOLD_TEST` runs `fold3ds/dev/driver.lua` (not shipped): a
 script of `frame:action:arg` items separated by `;`, for example
-`40:touch:422,714;70:shot:/tmp/a.png;100:quit`.
+`40:touch:422,714;70:shot:/tmp/a.png;100:quit`.  `POKEPORT_FOLD_FAKECAM=1`
+gives the Camera applet a moving test picture.
 
 ## Credits
 

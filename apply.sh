@@ -12,11 +12,16 @@ fi
 cd "$HERE/build/gen1recomp"
 git fetch -q origin "$UPSTREAM_COMMIT" 2>/dev/null || true
 git checkout -q "$UPSTREAM_COMMIT"
+J=mobile/android/love/src/jni/love/src
 git checkout -q -- main.lua scripts/build_android.sh src/import/LauncherView.lua \
-  mobile/android/love/src/jni/love/src/modules/system/System.cpp
+  $J/modules/system/System.cpp $J/modules/system/wrap_System.cpp \
+  $J/common/android.h $J/common/android.cpp \
+  mobile/android/app/src/main/AndroidManifest.xml mobile/android/app/proguard-rules.pro
 # the launcher's compact bottom-screen layout (active only under LauncherView.fold),
-# and the Android picker's "image" kind (the cover sticker)
+# the Android picker's "image" kind (the cover sticker), and the camera bridge
+# (love.system.foldCamera -> FoldCamera.java, the Camera applet)
 for p in "$HERE"/patches/*.patch; do git apply "$p"; done
+cp "$HERE/android/FoldCamera.java" mobile/android/love/src/main/java/org/love2d/android/FoldCamera.java
 # the layer
 rm -rf fold3ds && cp -r "$HERE/fold3ds" fold3ds
 # the community mod catalog (gen1recomp.com/mod) as of this build: shipped so
