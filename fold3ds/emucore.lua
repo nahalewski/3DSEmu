@@ -771,13 +771,13 @@ end
 
 ---------------------------------------------------------------- input
 
--- the in-game menu (HOME): its rows
+-- the in-game menu (HOME): its rows (the screen's shape is the UI's own,
+-- on the C-stick)
 local MENU = {
   { id = "resume", label = "Resume" },
   { id = "save", label = "Save State" },
   { id = "load", label = "Load State" },
   { id = "reset", label = "Reset" },
-  { id = "screen", label = "Screen Shape" },
   { id = "close", label = "Close Game" },
 }
 
