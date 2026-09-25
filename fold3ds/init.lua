@@ -127,7 +127,7 @@ local state = {
   split = nil,           -- this frame's in-game menu split { full, top, menus }
 }
 
-local MODES = { "gbc", "wide", "full" }
+local MODES = { "full", "gbc", "wide" }
 local MODE_NAMES = { gbc = "GAME BOY COLOR  -  10:9", wide = "WIDESCREEN", full = "FULL SCREEN" }
 local SETTINGS_FILE = "fold3ds.cfg"
 -- the community mod index (the catalog at gen1recomp.com/mod), and the copy
@@ -150,7 +150,9 @@ local function loadSettings()
   local ok, text = pcall(love.filesystem.read, SETTINGS_FILE)
   text = ok and type(text) == "string" and text or ""
   local mode = text:match("screen=(%a+)")
-  state.screenMode = (mode == "gbc" or mode == "wide" or mode == "full") and mode or "gbc"
+  state.screenMode = (mode == "gbc" or mode == "wide" or mode == "full") and mode or "full"
+  -- full screen is the default now: a shape saved before that is dropped
+  if not text:match("screenv=2") then state.screenMode = "full" end
   -- the 3DS theme is the only one now (the Classic look is gone)
   state.theme = "3ds"
   state.shoulders = text:match("shoulders=(%d)") ~= "0"
@@ -163,7 +165,7 @@ local function loadSettings()
 end
 
 local function saveSettings()
-  pcall(love.filesystem.write, SETTINGS_FILE, "screen=" .. tostring(state.screenMode)
+  pcall(love.filesystem.write, SETTINGS_FILE, "screen=" .. tostring(state.screenMode) .. "\nscreenv=2"
     .. "\ntheme=" .. tostring(state.theme) .. "\nshoulders=" .. (state.shoulders and "1" or "0")
     .. "\nsounds=" .. (state.sounds and "1" or "0")
     .. ("\nvolume=%.2f"):format(state.volume or 1) .. "\nvolkeys=" .. (state.volKeys and "1" or "0")
@@ -549,7 +551,12 @@ end
 
 local function press(btn, src)
   if skipBoot() then return end
-  if emuOn() then EmuPlay.press(btn) return end
+  if emuOn() then
+    -- the C-stick is the screen's shape here too (full screen / border)
+    if btn == "cstick" then cycleScreen() return end
+    EmuPlay.press(btn)
+    return
+  end
   if Sticker.editing() and state.kind ~= "game" then Sticker.button(btn) return end
   if cameraOn() then
     if Camera.button(btn) == "exit" then Camera.close() end
@@ -2076,7 +2083,7 @@ local function drawFrame()
   drawVolume(L)
   if state.kind ~= "game" and not Sticker.editing() then innerEyeGlint(L, state.time) end
   -- an emulated game covers the whole top panel, inside its system's border
-  if emuOn() then EmuPlay.drawTop(L.topFull) end
+  if emuOn() then EmuPlay.drawTop(L.topFull, state.screenMode == "full") end
   -- FULL: the game covers the whole top panel, Game Boy Color frame included
   if state.kind == "game" and state.screenMode == "full" and canvas then
     lg.setColor(0, 0, 0, 1)

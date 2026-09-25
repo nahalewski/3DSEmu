@@ -84,14 +84,27 @@ end
 
 ---------------------------------------------------------------- the top screen
 
--- full: the whole top panel (the game covers it); the border drawn inside
-function EP.drawTop(full)
+-- full: the whole top panel (the game covers it).  fullScreen: the picture
+-- as large as the panel holds; else inside a border for its system
+function EP.drawTop(full, fullScreen)
   local p, t = EP.active()
   if not p then return end
   local sys = system(p, t)
   local S = SYSTEMS[sys]
   lg.push("all")
   lg.setScissor(full.x, full.y, full.w, full.h)
+  if fullScreen then
+    lg.setColor(0, 0, 0, 1)
+    lg.rectangle("fill", full.x, full.y, full.w, full.h)
+    local img = screenImage(p, 0)
+    if img then
+      local x, y, w, h = fit(full, img:getWidth(), img:getHeight())
+      lg.setColor(1, 1, 1, 1)
+      lg.draw(img, x, y, 0, w / img:getWidth(), h / img:getHeight())
+    end
+    lg.pop()
+    return
+  end
   col(S.frame)
   lg.rectangle("fill", full.x, full.y, full.w, full.h)
   -- the frame's inner bevel
