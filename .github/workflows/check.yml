@@ -1,0 +1,58 @@
+# Fast sanity checks on every push and pull request, separate from the APK
+# build: every .lua file compiles under LuaJIT (what LÖVE runs), every .py
+# file compiles, no merge conflict markers were committed, and romdb opens.
+# Takes seconds, so a broken merge shows up long before the build would.
+name: Check
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install LuaJIT
+        run: sudo apt-get install -y -qq luajit
+
+      - name: Lua compiles
+        run: |
+          fail=0
+          while IFS= read -r -d '' f; do
+            luajit -b "$f" /dev/null || { echo "::error file=$f::does not compile"; fail=1; }
+          done < <(git ls-files -z '*.lua')
+          exit $fail
+
+      - name: Python compiles
+        run: |
+          fail=0
+          while IFS= read -r -d '' f; do
+            python3 -c 'import sys; compile(open(sys.argv[1], "rb").read(), sys.argv[1], "exec")' "$f" \
+              || { echo "::error file=$f::does not compile"; fail=1; }
+          done < <(git ls-files -z '*.py')
+          exit $fail
+
+      - name: No conflict markers
+        run: |
+          if git grep -nE '^(<<<<<<<|>>>>>>>)( |$)|^=======$' -- . ':!*.patch' ':!*.diff'; then
+            echo "::error::merge conflict markers committed (listed above)"
+            exit 1
+          fi
+
+      - name: romdb opens
+        run: |
+          python3 - <<'EOF'
+          import sqlite3
+          db = sqlite3.connect("file:tools/romdb/romdb.sqlite?mode=ro", uri=True)
+          assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+          n = db.execute("SELECT count(*) FROM games").fetchone()[0]
+          assert n > 0, "games table is empty"
+          print(f"romdb ok: {n} games")
+          EOF
