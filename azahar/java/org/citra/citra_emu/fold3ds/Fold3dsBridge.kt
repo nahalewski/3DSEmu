@@ -8,10 +8,14 @@
 //
 //   fold3ds_azahar/games.tsv      one line per game, tab separated
 //   fold3ds_azahar/icons/<key>.png  the game's 48x48 icon
+//   fold3ds_azahar/icons/<key>_cart.png  a photo of its game card, from
+//                                 GameTDB (art.gametdb.com/3ds/cart), by the
+//                                 product code in the game's NCCH header
 //
 // games.tsv:
 //   state<TAB>ready | setup          (setup: Azahar's folder is not chosen yet)
 //   game<TAB>key<TAB>title<TAB>company<TAB>regions<TAB>icon 0|1<TAB>installed 0|1<TAB>system 0|1
+//       <TAB>GameTDB id (e.g. ECLP, or empty)<TAB>cart 0|1
 //
 // The other direction (the shell opening a game, a settings page, a tool)
 // is Fold3dsLinkActivity.
@@ -21,11 +25,19 @@ import android.app.Activity
 import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import androidx.lifecycle.Observer
 import androidx.preference.PreferenceManager
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.nio.IntBuffer
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -91,6 +103,26 @@ object Fold3dsBridge {
         }
     }
 
+    // after a CIA install (CiaInstallWorker, unique work "installCiaWork"):
+    // scan again once every queued install has finished
+    fun refreshAfterInstall(context: Context) {
+        val app = context.applicationContext
+        val live = WorkManager.getInstance(app).getWorkInfosForUniqueWorkLiveData("installCiaWork")
+        live.observeForever(object : Observer<List<WorkInfo>> {
+            // the list can first show the last install, already finished:
+            // wait until this one has been seen running
+            var running = false
+
+            override fun onChanged(value: List<WorkInfo>) {
+                if (value.any { !it.state.isFinished }) running = true
+                if (running && value.all { it.state.isFinished }) {
+                    live.removeObserver(this)
+                    refresh(app)
+                }
+            }
+        })
+    }
+
     // the game behind a tile; after a restart (no scan yet) Azahar's own
     // cached list answers
     fun find(context: Context, key: String): Game? {
@@ -109,42 +141,185 @@ object Fold3dsBridge {
         return null
     }
 
+    private class Entry(val key: String, val game: Game, val icon: Bitmap?, val tdb: String?)
+
     private fun scan(context: Context) {
-        val out = StringBuilder()
-        val icons = HashMap<String, Bitmap>()
-        if (!ready(context)) {
-            out.append("state\tsetup\n")
-        } else {
+        val entries = ArrayList<Entry>()
+        val ok = ready(context)
+        if (ok) {
             val games = GameHelper.getGames()
                 .filter { it.valid && (!it.isSystemTitle || it.isVisibleSystemTitle) }
                 .sortedBy { it.title.lowercase() }
             val map = LinkedHashMap<String, Game>()
-            out.append("state\tready\n")
             for (g in games) {
                 val k = key(g)
                 if (map.containsKey(k)) continue
                 map[k] = g
-                val bmp = icon(g)
-                if (bmp != null) icons[k] = bmp
-                out.append("game\t").append(k)
-                    .append('\t').append(clean(g.title))
-                    .append('\t').append(clean(g.company))
-                    .append('\t').append(clean(g.regions))
-                    .append('\t').append(if (bmp != null) "1" else "0")
-                    .append('\t').append(if (g.isInstalled) "1" else "0")
-                    .append('\t').append(if (g.isSystemTitle) "1" else "0")
-                    .append('\n')
+                entries.add(Entry(k, g, icon(g), gameTdbId(context, g)))
             }
             byKey = map
+        }
+        publish(context, ok, entries)
+        // the game cards' photos not fetched yet: fetch them, then say so
+        var fetched = false
+        for (e in entries) {
+            val id = e.tdb ?: continue
+            if (cartFile(context, id).exists() || id in failed) continue
+            if (fetchCart(context, id)) fetched = true else failed.add(id)
+        }
+        if (fetched) publish(context, ok, entries)
+    }
+
+    private fun publish(context: Context, ready: Boolean, entries: List<Entry>) {
+        val out = StringBuilder()
+        val icons = HashMap<String, Bitmap>()
+        val carts = HashMap<String, File>()
+        out.append(if (ready) "state\tready\n" else "state\tsetup\n")
+        for (e in entries) {
+            if (e.icon != null) icons[e.key] = e.icon
+            val cart = e.tdb?.let { cartFile(context, it) }?.takeIf { it.exists() }
+            if (cart != null) carts[e.key] = cart
+            val g = e.game
+            out.append("game\t").append(e.key)
+                .append('\t').append(clean(g.title))
+                .append('\t').append(clean(g.company))
+                .append('\t').append(clean(g.regions))
+                .append('\t').append(if (e.icon != null) "1" else "0")
+                .append('\t').append(if (g.isInstalled) "1" else "0")
+                .append('\t').append(if (g.isSystemTitle) "1" else "0")
+                .append('\t').append(e.tdb ?: "")
+                .append('\t').append(if (cart != null) "1" else "0")
+                .append('\n')
         }
         val text = out.toString().toByteArray(Charsets.UTF_8)
         for (save in saveFolders(context)) {
             try {
-                write(File(save, DIR), text, icons)
+                write(File(save, DIR), text, icons, carts)
             } catch (e: Exception) {
                 Log.w(TAG, "could not write the library into $save", e)
             }
         }
+    }
+
+    // ---------------------------------------------------------------- game cards
+
+    // GameTDB ids whose card photo could not be fetched this run
+    private val failed = HashSet<String>()
+
+    private fun cartFile(context: Context, id: String) =
+        File(File(context.filesDir, "fold3ds_carts"), "$id.png")
+
+    // The game's GameTDB id: the last part of the product code in its NCCH
+    // header (CTR-P-ECLE -> ECLE), read straight from the file -- a cartridge
+    // dump (.3ds / .cci: the NCSD's first partition) or a single NCCH (.cxi,
+    // an installed title's .app).  The header is never encrypted.
+    private fun gameTdbId(context: Context, game: Game): String? {
+        // a game in the games folder: the document it was found as (path is
+        // Azahar's own "!native" form); an installed title: its .app
+        val raw = if (game.isInstalled) null else game.description
+        val uri = try {
+            when {
+                raw.isNullOrEmpty() -> game.launchIntent.data
+                raw.startsWith("!") -> Uri.fromFile(File(raw.substring(1)))
+                raw.startsWith("/") -> Uri.fromFile(File(raw))
+                else -> Uri.parse(raw)
+            }
+        } catch (e: Exception) {
+            null
+        } ?: return null
+        return try {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                val head = readBytes(input, 0x200) ?: return@use null
+                val ncch = when (ascii(head, 0x100, 4)) {
+                    "NCCH" -> head
+                    "NCSD" -> {
+                        val offset = u32(head, 0x120) * 0x200L
+                        if (offset < 0x200 || !skipFully(input, offset - 0x200)) return@use null
+                        readBytes(input, 0x200)
+                    }
+                    else -> null
+                } ?: return@use null
+                if (ascii(ncch, 0x100, 4) != "NCCH") return@use null
+                val code = ascii(ncch, 0x150, 0x10).trimEnd('\u0000', ' ')
+                code.substringAfterLast('-').takeIf { it.matches(Regex("[A-Z0-9]{4}")) }
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun readBytes(input: InputStream, n: Int): ByteArray? {
+        val buf = ByteArray(n)
+        var got = 0
+        while (got < n) {
+            val r = input.read(buf, got, n - got)
+            if (r < 0) return null
+            got += r
+        }
+        return buf
+    }
+
+    private fun skipFully(input: InputStream, n: Long): Boolean {
+        var left = n
+        while (left > 0) {
+            val k = input.skip(left)
+            if (k <= 0) {
+                if (input.read() < 0) return false
+                left -= 1
+            } else {
+                left -= k
+            }
+        }
+        return true
+    }
+
+    private fun ascii(b: ByteArray, at: Int, n: Int): String =
+        String(b, at, n, Charsets.US_ASCII)
+
+    private fun u32(b: ByteArray, at: Int): Long =
+        (b[at].toLong() and 0xff) or ((b[at + 1].toLong() and 0xff) shl 8) or
+            ((b[at + 2].toLong() and 0xff) shl 16) or ((b[at + 3].toLong() and 0xff) shl 24)
+
+    // GameTDB's photo of the game card, in the game's own region's language
+    // first (E USA, P Europe, J Japan, K Korea ...)
+    private fun fetchCart(context: Context, id: String): Boolean {
+        val first = when (id.last()) {
+            'E' -> "US"
+            'J' -> "JA"
+            'K' -> "KO"
+            'D' -> "DE"
+            'F' -> "FR"
+            'S' -> "ES"
+            'I' -> "IT"
+            'H' -> "NL"
+            else -> "EN"
+        }
+        val langs = LinkedHashSet(listOf(first, "EN", "US", "JA", "DE", "FR", "ES", "IT", "NL", "KO"))
+        for (lang in langs) {
+            try {
+                val conn = URL("https://art.gametdb.com/3ds/cart/$lang/$id.png")
+                    .openConnection() as HttpURLConnection
+                conn.connectTimeout = 8000
+                conn.readTimeout = 15000
+                conn.setRequestProperty("User-Agent", "gen1recomp-Fold (3DS HOME menu)")
+                try {
+                    if (conn.responseCode != 200) continue
+                    val bytes = conn.inputStream.use { it.readBytes() }
+                    // only a real picture is kept
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: continue
+                    val f = cartFile(context, id)
+                    f.parentFile?.mkdirs()
+                    val tmp = File(f.parentFile, "$id.part")
+                    tmp.writeBytes(bytes)
+                    return tmp.renameTo(f)
+                } finally {
+                    conn.disconnect()
+                }
+            } catch (e: Exception) {
+                Log.i(TAG, "no card photo for $id in $lang: ${e.message}")
+            }
+        }
+        return false
     }
 
     private fun clean(s: String): String = s.replace(Regex("[\\t\\r\\n]+"), " ").trim()
@@ -174,7 +349,7 @@ object Fold3dsBridge {
         return out
     }
 
-    private fun write(dir: File, list: ByteArray, icons: Map<String, Bitmap>) {
+    private fun write(dir: File, list: ByteArray, icons: Map<String, Bitmap>, carts: Map<String, File>) {
         val iconDir = File(dir, "icons")
         iconDir.mkdirs()
         val keep = HashSet<String>()
@@ -185,6 +360,15 @@ object Fold3dsBridge {
             if (f.exists()) continue
             val tmp = File(iconDir, "$name.part")
             FileOutputStream(tmp).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            tmp.renameTo(f)
+        }
+        for ((k, src) in carts) {
+            val name = "${k}_cart.png"
+            keep.add(name)
+            val f = File(iconDir, name)
+            if (f.exists() && f.length() == src.length()) continue
+            val tmp = File(iconDir, "$name.part")
+            src.copyTo(tmp, overwrite = true)
             tmp.renameTo(f)
         }
         iconDir.listFiles()?.forEach { if (it.name !in keep) it.delete() }

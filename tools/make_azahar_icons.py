@@ -232,6 +232,17 @@ def g_about(d):
     d.rounded_rectangle([230, 226, 282, 364], radius=14, fill=W)
 
 
+def g_add(d):
+    # a game card with a plus
+    d.rounded_rectangle([130, 96, 330, 400], radius=26, fill=W)
+    d.rectangle([150, 96, 310, 132], fill=(0, 0, 0, 0))
+    d.rounded_rectangle([160, 170, 300, 330], radius=12, fill=(0, 0, 0, 0))
+    d.ellipse([262, 262, 432, 432], fill=W)
+    c = (206, 32, 40, 255)
+    d.rectangle([336, 292, 358, 402], fill=c)
+    d.rectangle([292, 336, 402, 358], fill=c)
+
+
 ICONS = {
     "az_library": ((214, 44, 52), g_library),
     "az_settings": ((120, 130, 146), g_settings),
@@ -256,6 +267,8 @@ ICONS = {
     "az_about": ((50, 130, 220), g_about),
     # the tile that stands in for the 3DS games until Azahar is set up
     "ctr_setup": ((206, 32, 40), g_system),
+    # Add 3DS Games: install CIA files / choose the games folder
+    "ctr_add": ((206, 32, 40), g_add),
 }
 
 

@@ -59,6 +59,7 @@ local GAME_LETTERS = {
 local APPLETS = {
   { id = "camera", name = "Camera", camera = true },
   { id = "downloadplay", name = "Download Play", dlplay = true },
+  { id = "eshop", name = "Nintendo eShop", eshop = true },
   { id = "settings", name = "Settings", icon = "settings", color = { 70, 140, 220 }, modal = "settings" },
   { id = "mods", name = "Mods", icon = "puzzle", color = { 236, 176, 30 }, tab = "mods" },
   { id = "find", name = "Find Mods", icon = "search", color = { 246, 130, 40 }, tab = "find" },
@@ -148,6 +149,13 @@ local function allTiles(imp)
   end
   for _, g in ipairs(Azahar.games()) do
     if not byId[g.id] then byId[g.id] = g; ids[#ids + 1] = g.id end
+  end
+  -- adding 3DS games from here: install CIA files or choose the games
+  -- folder; they join the grid when Azahar is done
+  if Azahar.status() == "ready" then
+    byId.ctr_add = { id = "ctr_add", url = "add_games", name = "Add 3DS Games",
+      sub = "Install CIA files or choose your games folder" }
+    ids[#ids + 1] = "ctr_add"
   end
   return byId, ids
 end
@@ -259,6 +267,10 @@ local function openTile(imp, t)
     if ctx.openDlplay then ctx.openDlplay() end
     return
   end
+  if t.eshop then
+    if ctx.openEshop then ctx.openEshop() end
+    return
+  end
   st.open = t
   if t.game or t.tab then
     if imp._switchTab then imp:_switchTab(t.tab or t.id) end
@@ -275,6 +287,14 @@ local function manual(imp, t)
   if not imp or not t or not t.game then return end
   openTile(imp, t)
   imp._gameManage = t.id
+end
+
+-- open an applet on the bar by its id (the eShop's Open goes to Mods)
+function H.openApplet(imp, id)
+  for _, a in ipairs(APPLETS) do
+    if a.id == id then openTile(imp, a) return true end
+  end
+  return false
 end
 
 function H.goHome(imp, quiet)

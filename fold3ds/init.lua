@@ -46,6 +46,7 @@ local Sfx = require("fold3ds.sfx")
 local Cart3D = require("fold3ds.cart3d")
 local Camera = require("fold3ds.camera")
 local Dlplay = require("fold3ds.dlplay")
+local Eshop = require("fold3ds.eshop")
 local Azahar = require("fold3ds.azahar")
 
 local DIR = "fold3ds/"
@@ -152,6 +153,7 @@ local function loadSettings()
   state.sounds = text:match("sounds=(%d)") ~= "0"
   state.volume = tonumber(text:match("volume=([%d%.]+)")) or 1
   state.volKeys = text:match("volkeys=(%d)") ~= "0"
+  Cart3D.region = text:match("carts=(%a+)") == "jp" and "jp" or "intl"
   if love.audio then love.audio.setVolume(state.volume) end
   Sfx.enabled = state.sounds
 end
@@ -160,7 +162,8 @@ local function saveSettings()
   pcall(love.filesystem.write, SETTINGS_FILE, "screen=" .. tostring(state.screenMode)
     .. "\ntheme=" .. tostring(state.theme) .. "\nshoulders=" .. (state.shoulders and "1" or "0")
     .. "\nsounds=" .. (state.sounds and "1" or "0")
-    .. ("\nvolume=%.2f"):format(state.volume or 1) .. "\nvolkeys=" .. (state.volKeys and "1" or "0") .. "\n")
+    .. ("\nvolume=%.2f"):format(state.volume or 1) .. "\nvolkeys=" .. (state.volKeys and "1" or "0")
+    .. "\ncarts=" .. Cart3D.region .. "\n")
 end
 
 -- physical pixels per LOVE unit (Android runs high-DPI: a unit is several pixels)
@@ -250,6 +253,17 @@ local skipBoot   -- the boot screen (defined with the drawing)
 -- the Camera applet owns both screens while it is open (launcher only)
 local function cameraOn()
   return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Camera.isOpen()
+end
+
+-- the eShop owns both screens while it is open (launcher only)
+local function esOn()
+  return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Eshop.isOpen()
+end
+
+-- the eShop's answers: "exit" closes it, "mods" goes on to the Mods applet
+local function eshopDone(r)
+  if r == "exit" then Eshop.close()
+  elseif r == "mods" then Eshop.close(); Home.openApplet(state.subject, "mods") end
 end
 
 -- Download Play owns both screens while it is open (launcher only)
@@ -518,6 +532,7 @@ local function press(btn, src)
     if Dlplay.button(btn) == "exit" then Dlplay.close() end
     return
   end
+  if esOn() then eshopDone(Eshop.button(btn)) return end
   if btn == "cstick" then cycleScreen() return end
   if state.kind == "game" then
     if btn == "select" and selectOpensMods(state.subject) then return end
@@ -569,7 +584,7 @@ end
 local function release(btn, src)
   if btn == "cstick" then return end
   if Sticker.editing() and state.kind ~= "game" then return end
-  if cameraOn() or dlOn() then return end
+  if cameraOn() or dlOn() or esOn() then return end
   if src == "pad" and (btn == "up" or btn == "down") then state.padScroll = nil end
   if state.kind == "game" and GAME_TRIGGER[btn] then
     local g = state.subject
@@ -736,6 +751,7 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
   if editingSticker() then Sticker.pressed(id, x, y, state.L.botCut, state.L.topCut) return end
   if cameraOn() then Camera.pressed(id, x, y) return end
   if dlOn() then Dlplay.pressed(id, x, y) return end
+  if esOn() then Eshop.pressed(id, x, y) return end
   if homeTouch(id, x, y) then return end
   local cb = columnButtonAt(x, y)
   if cb then state.columnDown = cb.id; pressColumnButton(cb) return end
@@ -764,6 +780,7 @@ local function onTouchMoved(id, x, y, dx, dy, pr)
   if editingSticker() then Sticker.moved(id, x, y) return end
   if cameraOn() then Camera.moved(id, x, y) return end
   if dlOn() then Dlplay.moved(id, x, y) return end
+  if esOn() then Eshop.moved(id, x, y) return end
   if Home.moved(state.subject, id, x, y) then return end
   if state.vtouch[id] then
     local lx, ly = toVirtual(x, y)
@@ -782,6 +799,7 @@ local function onTouchReleased(id, x, y, dx, dy, pr)
   if editingSticker() then Sticker.released(id) return end
   if cameraOn() then if Camera.released(id, x, y) == "exit" then Camera.close() end return end
   if dlOn() then if Dlplay.released(id, x, y) == "exit" then Dlplay.close() end return end
+  if esOn() then eshopDone(Eshop.released(id, x, y)) return end
   if Home.released(state.subject, id, x, y) then return end
   if state.arrowHeld and state.arrowHeld.id == id then arrowEnd(id) return end
   if state.vtouch[id] then
@@ -808,6 +826,7 @@ local function onMousePressed(x, y, button, istouch, presses)
     if editingSticker() then Sticker.pressed("mouse", x, y, state.L.botCut, state.L.topCut) return end
     if cameraOn() then Camera.pressed("mouse", x, y) return end
     if dlOn() then Dlplay.pressed("mouse", x, y) return end
+    if esOn() then Eshop.pressed("mouse", x, y) return end
     if homeTouch("mouse", x, y) then return end
     local cb = columnButtonAt(x, y)
     if cb then state.columnDown = cb.id; pressColumnButton(cb) return end
@@ -829,6 +848,7 @@ local function onMouseMoved(x, y, dx, dy, istouch)
   if editingSticker() then if not istouch then Sticker.moved("mouse", x, y) end return end
   if cameraOn() then if not istouch then Camera.moved("mouse", x, y) end return end
   if dlOn() then if not istouch then Dlplay.moved("mouse", x, y) end return end
+  if esOn() then if not istouch then Eshop.moved("mouse", x, y) end return end
   if not istouch and Home.moved(state.subject, "mouse", x, y) then return end
   local lx, ly = toVirtual(x, y)
   if orig.mousemoved then return orig.mousemoved(lx, ly, dx, dy, istouch) end
@@ -848,6 +868,10 @@ local function onMouseReleased(x, y, button, istouch, presses)
   end
   if dlOn() then
     if not istouch and Dlplay.released("mouse", x, y) == "exit" then Dlplay.close() end
+    return
+  end
+  if esOn() then
+    if not istouch then eshopDone(Eshop.released("mouse", x, y)) end
     return
   end
   if not istouch and Home.released(state.subject, "mouse", x, y) then return end
@@ -1004,6 +1028,16 @@ local function drawTopTile(P, t)
   -- the shadow
   lg.setColor(0.2, 0.24, 0.3, 0.16 - bob / P.h)
   lg.ellipse("fill", cx, P.y + P.h * 0.9, P.h * 0.26, P.h * 0.05)
+  local photo = t.ctr and Azahar.cart(t)
+  if photo then
+    -- the game card itself (GameTDB's photo), floating, with a slow sway
+    local iw, ih = photo:getDimensions()
+    local k = math.min(P.h * 0.9 / ih, P.w * 0.6 / iw)
+    local sway = math.sin(time * 0.9) * 0.05
+    lg.setColor(1, 1, 1, 1)
+    lg.draw(photo, cx, cy + bob, sway, k, k, iw / 2, ih / 2)
+    return
+  end
   if t.ctr then
     -- a 3DS game card: grey, the ridge on top, the label below it
     local w, h = P.h * 0.6, P.h * 0.68
@@ -1076,7 +1110,7 @@ local function drawTop3DS(r, banner)
   lg.rectangle("fill", r.x, r.y, r.w, r.h)
   local P, sh, nh, pad = topPanel(r)
   local bannerH = math.floor(r.h * 0.34)
-  if banner then P.h = r.h - sh - bannerH - 2 * pad end
+  if banner == "dlplay" then P.h = r.h - sh - bannerH - 2 * pad end
   -- status bar
   local cy = r.y + pad * 0.6 + sh / 2
   local bh = sh * 0.7
@@ -1172,6 +1206,13 @@ local function drawTop3DS(r, banner)
     end
   end
   lg.setStencilTest()
+  if banner == "eshop" then
+    -- the eShop: its own page below the status bar
+    Eshop.drawTop({ x = r.x, y = P.y, w = r.w, h = r.y + r.h - P.y - nh * 0.2 })
+    drawLR(r, nh * 0.72, pad)
+    lg.pop()
+    return
+  end
   if banner == "dlplay" then
     -- Download Play: its banner turning under the panel, its news in it
     local msg = Dlplay.topMessage()
@@ -1562,8 +1603,12 @@ local function drawFrame()
   elseif dlOn() then
     drawTop3DS(L.topCut, "dlplay")
     Dlplay.drawBottom(L.botCut)
+  elseif esOn() then
+    drawTop3DS(L.topCut, "eshop")
+    Eshop.drawBottom(L.botCut)
   elseif homeActive() and Home.showing() then
-    if Theme3DS.active then drawTop3DS(L.topCut, Home.barFocus() == "downloadplay" and "dlplay" or nil)
+    local focus = Home.barFocus()
+    if Theme3DS.active then drawTop3DS(L.topCut, focus == "downloadplay" and "dlplay" or focus == "eshop" and "eshop" or nil)
     else drawTopIdle(L.topCut) end
     Home.draw(L.botCut, state.subject, state.time)
   else
@@ -1603,6 +1648,7 @@ function backend:update(dt)
   Sticker.tick(dt) -- and wears the re-stuck stickers
   Camera.update(dt, cameraOn())
   Dlplay.update(dt)
+  Eshop.update(dt)
   -- the volume keys move the slider (and are kept from Android's volume)
   if state.volKeysSent ~= state.volKeys then
     state.volKeysSent = state.volKeys
@@ -1665,6 +1711,15 @@ function backend:update(dt)
       }
       -- no THEME card in SKINS: the 3DS look is the only one
       LV.foldTheme = nil
+      -- the top screen cartridges: EN or JP artwork
+      LV.foldArtwork = LV.foldArtwork or {
+        get = function() return Cart3D.region end,
+        set = function(v)
+          Cart3D.region = v == "jp" and "jp" or "intl"
+          Sfx.play("button")
+          saveSettings()
+        end,
+      }
     end
   end
   -- the 3DS look dresses the launcher on the fold's bottom screen
@@ -1964,8 +2019,10 @@ function M.install()
   loadSettings()
   Sticker.init({ setCanvas = real.setCanvas, font = font })
   Camera.init({ font = font })
-  Dlplay.init({ font = font })
-  Home.init({ font = font, openCamera = Camera.open, drawCameraIcon = Camera.drawIcon, openDlplay = Dlplay.open })
+  Dlplay.init({ font = font, subject = function() return state.subject end })
+  Eshop.init({ font = font, subject = function() return state.subject end,
+    region = function() return Cart3D.region end })
+  Home.init({ font = font, openCamera = Camera.open, drawCameraIcon = Camera.drawIcon, openDlplay = Dlplay.open, openEshop = Eshop.open })
   seedModIndex()
   wrapSettings()
   -- the virtual window: size, mode, safe area, pointer queries

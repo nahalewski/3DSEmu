@@ -1,5 +1,5 @@
 diff --git a/src/import/LauncherView.lua b/src/import/LauncherView.lua
-index 8ef7511d..05c8ea2b 100644
+index 8ef7511d..36c25db5 100644
 --- a/src/import/LauncherView.lua
 +++ b/src/import/LauncherView.lua
 @@ -156,6 +156,8 @@ local function armMouse(imp, x, y)
@@ -331,7 +331,7 @@ index 8ef7511d..05c8ea2b 100644
    local importLabel = imp:_modsImportButtonLabel()
    local importW = Kit.textWidth("small", importLabel) + math.floor(24 * m.s)
  
-@@ -3180,6 +3414,61 @@ local function buildSkinsPanel(imp, x, y, w, availH, m)
+@@ -3180,6 +3414,81 @@ local function buildSkinsPanel(imp, x, y, w, availH, m)
        action = function() imp:chooseSkin() end })
    cy = cy + bh + gap
  
@@ -352,6 +352,26 @@ index 8ef7511d..05c8ea2b 100644
 +    btn(imp, x + gap * 2 + half, by, half, bh, "skins-theme-3ds", Strings("3DS"), {
 +      kind = current == "3ds" and "accent" or "ghost", font = "small",
 +      action = function() theme.set("3ds") end })
++    cy = cy + cardH + gap
++  end
++
++  -- FOLD: the top screen cartridges' artwork -- the English-language
++  -- releases or the Japanese ones (labels, and Japan's grey carts)
++  local art = LauncherView.fold and LauncherView.foldArtwork
++  if art then
++    local th = Kit.textHeight("small")
++    local cardH = gap * 3 + th + math.floor(4 * m.s) + bh
++    Kit.card(x, cy, w, cardH)
++    Kit.caption(x + gap, cy + gap, "CARTRIDGE ARTWORK")
++    local by = cy + gap * 2 + th + math.floor(4 * m.s)
++    local half = (w - gap * 3) * 0.5
++    local current = art.get()
++    btn(imp, x + gap, by, half, bh, "skins-art-en", Strings("EN"), {
++      kind = current == "intl" and "accent" or "ghost", font = "small",
++      action = function() art.set("intl") end })
++    btn(imp, x + gap * 2 + half, by, half, bh, "skins-art-jp", Strings("JP"), {
++      kind = current == "jp" and "accent" or "ghost", font = "small",
++      action = function() art.set("jp") end })
 +    cy = cy + cardH + gap
 +  end
 +
@@ -393,7 +413,7 @@ index 8ef7511d..05c8ea2b 100644
    if imp._skinNotice then
      cy = cy + Kit.textWrapped("small", imp._skinNotice.text, x, cy, w,
        imp._skinNotice.ok and PAL.green or PAL.red, 2) + gap
-@@ -3633,6 +3922,8 @@ end
+@@ -3633,6 +3942,8 @@ end
  -- competing with the panel for a short window's height, so the mark and the
  -- link share one line and the trust warning is capped at a single line.
  local function footerHeight(imp, m)
@@ -402,7 +422,7 @@ index 8ef7511d..05c8ea2b 100644
    -- Top pad + mark/update row + optional notes wrap row + gap + the FULL
    -- wrapped trust message + bottom pad.  The message wraps to as many lines
    -- as it needs: truncating a trust warning defeats its purpose, and the
-@@ -3647,6 +3938,7 @@ local function footerHeight(imp, m)
+@@ -3647,6 +3958,7 @@ local function footerHeight(imp, m)
  end
  
  local function buildFooter(imp, m, y)
@@ -410,7 +430,7 @@ index 8ef7511d..05c8ea2b 100644
    Theme.fill(m.x, y, m.w, 1, PAL.line, Theme.A.hairline)
    local cy = y + math.floor(8 * m.s)
    -- The BCG mark is dark ink; invert it for the black field.
-@@ -3756,7 +4048,7 @@ local function modalAmount()
+@@ -3756,7 +4068,7 @@ local function modalAmount()
    return p
  end
  
@@ -419,7 +439,7 @@ index 8ef7511d..05c8ea2b 100644
    -- A near-opaque scrim, not a tint.  At 0.82 the header and the wordmark
    -- still read through the settings panel and the screen looked like two
    -- layouts fighting rather than one panel on top ("the settings is covering
-@@ -3769,6 +4061,8 @@ local function modalPanel(m, w, h)
+@@ -3769,6 +4081,8 @@ local function modalPanel(m, w, h)
    local ph = math.floor(math.min(h, m.H - 2 * m.pad))
    local px = math.floor((m.W - pw) / 2)
    local py = math.floor((m.H - ph) / 2)
@@ -428,7 +448,7 @@ index 8ef7511d..05c8ea2b 100644
    modalRect.x, modalRect.y, modalRect.w, modalRect.h = px, py, pw, ph
    if amt < 1 and not modalTransform and love.graphics and love.graphics.push then
      local s = 0.96 + 0.04 * amt
-@@ -3778,7 +4072,11 @@ local function modalPanel(m, w, h)
+@@ -3778,7 +4092,11 @@ local function modalPanel(m, w, h)
      love.graphics.translate(-m.W / 2, -m.H / 2)
      modalTransform = true
    end
@@ -441,7 +461,7 @@ index 8ef7511d..05c8ea2b 100644
    Kit.blockClicks = Transition.active()
    return px, py, pw, ph
  end
-@@ -5526,10 +5824,22 @@ local function buildSettingsModal(imp, m)
+@@ -5526,10 +5844,22 @@ local function buildSettingsModal(imp, m)
    local model = imp._settings
    local SaveData = require("src.core.SaveData")
    local pad, gap = math.floor(18 * m.s), math.floor(8 * m.s)
@@ -465,7 +485,7 @@ index 8ef7511d..05c8ea2b 100644
    Kit.textBold("title", Strings("Settings"), x, cy, PAL.heading)
    local subtitleW = width - m.btnH - gap
    if model.flash then
-@@ -5539,10 +5849,16 @@ local function buildSettingsModal(imp, m)
+@@ -5539,10 +5869,16 @@ local function buildSettingsModal(imp, m)
      Kit.text("small", Strings("Saved automatically"), x,
        cy + Kit.textHeight("title") + math.floor(3 * m.s), PAL.muted)
    end
@@ -483,7 +503,7 @@ index 8ef7511d..05c8ea2b 100644
    local viewH = math.max(0, footerY - gap * 2 - cy)
    local rowW = width - Kit.scrollGutter(m.s)
    local inset = math.floor(12 * m.s)
-@@ -5574,6 +5890,8 @@ local function buildSettingsModal(imp, m)
+@@ -5574,6 +5910,8 @@ local function buildSettingsModal(imp, m)
      item.top = total
      if item.header then
        item.h = Kit.textHeight("button") + (item.hint and Kit.textHeight("micro") + 4 * m.s or 0) + gap * 2
@@ -492,7 +512,7 @@ index 8ef7511d..05c8ea2b 100644
      else
        item.stacked = item.row.choices ~= nil or Kit.textWidth("small", item.label)
          + math.floor(210 * m.s) > inner
-@@ -5604,6 +5922,8 @@ local function buildSettingsModal(imp, m)
+@@ -5604,6 +5942,8 @@ local function buildSettingsModal(imp, m)
            Kit.text("micro", item.hint, x, ry + gap + Kit.textHeight("button") + 4 * m.s, PAL.muted)
          end
        end
@@ -501,7 +521,7 @@ index 8ef7511d..05c8ea2b 100644
      else
        local row, key = item.row, "set-" .. i
        local rowEnabled = not row.safeModeBlocked or not SaveData.isSafeMode(model.opts)
-@@ -5682,7 +6002,11 @@ local function buildSettingsModal(imp, m)
+@@ -5682,7 +6022,11 @@ local function buildSettingsModal(imp, m)
        end
      end
    end
@@ -514,7 +534,7 @@ index 8ef7511d..05c8ea2b 100644
    Theme.stroke(x, footerY - gap, width, 1, PAL.line, 0.25, 1)
    local doneW = math.max(chipWidth(Strings("Done"), m), math.floor(80 * m.s))
    btn(imp, x, footerY, width - doneW - gap, m.btnH, "settings-bug", Strings("Troubleshooting"), {
-@@ -6650,6 +6974,8 @@ end
+@@ -6650,6 +6994,8 @@ end
  -- whether the window is tall enough BEFORE anything draws.  Keep in sync
  -- with buildHeader (rail, logo row, tab row, hairline).
  local function headerHeight(m)
@@ -523,7 +543,7 @@ index 8ef7511d..05c8ea2b 100644
    local _, _, labelH, rows = headerTabMetrics(m)
    return m.railH + m.logoH + math.floor(12 * m.s) + math.floor(6 * m.s)
      + rows * (m.chip + labelH) + (rows - 1) * math.floor(4 * m.s)
-@@ -6661,6 +6987,8 @@ end
+@@ -6661,6 +7007,8 @@ end
  -- pinned Play block used to walk up over the cards on a short window, which
  -- is unusable, and the footer simply lives below the fold until scrolled to.
  local function minPanelHeight(m)
@@ -532,7 +552,7 @@ index 8ef7511d..05c8ea2b 100644
    -- One column stacks the ROM card and the slot card in a single pile, so it
    -- needs more room than the side-by-side layout; two columns only have to
    -- fit the taller of the two.  Both numbers came DOWN sharply when the
-@@ -6869,6 +7197,34 @@ function LauncherView.draw(imp)
+@@ -6869,6 +7217,34 @@ function LauncherView.draw(imp)
      imp:_commitOnlineField()
    end
    imp._onlineFieldHit = nil
