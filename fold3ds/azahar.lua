@@ -331,7 +331,10 @@ local function setMenu(open)
   bridge(open and "3ds.pause" or "3ds.resume")
 end
 
-function A.press(btn)
+-- src: "stick" the shell's Circle Pad, "pad" its D-pad, nil a gamepad or keys
+local DIRS = { up = true, down = true, left = true, right = true }
+
+function A.press(btn, src)
   if not play.tile then return end
   if btn == "home" then setMenu(not play.menu) return end
   if play.menu then
@@ -341,7 +344,7 @@ function A.press(btn)
     elseif btn == "b" then setMenu(false) end
     return
   end
-  if btn == "up" or btn == "down" or btn == "left" or btn == "right" then
+  if DIRS[btn] and src == "stick" then
     play.dirs[btn] = true
     stick()
     return
@@ -349,9 +352,9 @@ function A.press(btn)
   bridge("3ds.key", btn .. "|1")
 end
 
-function A.release(btn)
+function A.release(btn, src)
   if not play.tile or play.menu or btn == "home" then return end
-  if btn == "up" or btn == "down" or btn == "left" or btn == "right" then
+  if DIRS[btn] and src == "stick" then
     play.dirs[btn] = nil
     stick()
     return
@@ -412,8 +415,8 @@ A.provider = {
   update = function(dt) return A.update(dt) end,
   screen = function(i) return A.screen(i) end,
   screenSize = function(sys) return A.screenSize(sys) end,
-  press = function(btn) return A.press(btn) end,
-  release = function(btn) return A.release(btn) end,
+  press = function(btn, src) return A.press(btn, src) end,
+  release = function(btn, src) return A.release(btn, src) end,
   touch = function(phase, u, v) return A.touch(phase, u, v) end,
   menu = function() return A.menu() end,
   menuDo = function(id) return A.menuDo(id) end,
