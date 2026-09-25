@@ -87,7 +87,7 @@ end
 
 ---------------------------------------------------------------- files
 
-local FIELDS = { "cx", "cy", "cw", "ch", "round", "size", "px", "py", "rot", "worn", "surf" }
+local FIELDS = { "cx", "cy", "cw", "ch", "round", "size", "px", "py", "rot", "worn", "surf", "shape" }
 
 local function encode(st)
   local out = { ("id=%d"):format(st.id) }
@@ -189,6 +189,63 @@ local function roundRect(mode, x, y, w, h, r)
   lg.rectangle(mode, x, y, w, h, r, r, 24)
 end
 
+-- Sticker shapes: 1 rectangle (rounded by `round`), 2 square, 3 circle,
+-- 4 triangle, 5 a slime splat.  Square and circle keep a square crop.
+local SHAPES = { "Rectangle", "Square", "Circle", "Triangle", "Splat" }
+S.SHAPES = SHAPES
+local function squareShape(shape) return shape == 2 or shape == 3 end
+
+-- the splat's outline, 0..1 around its centre: a blob with a few drips
+-- and droplets thrown off it (fixed, so every splat sticker is the same)
+local SPLAT = nil
+local function splatPoints()
+  if SPLAT then return SPLAT end
+  SPLAT = { body = {}, drops = {} }
+  local n = 48
+  for i = 0, n - 1 do
+    local a = i / n * math.pi * 2
+    local r = 0.36 + 0.035 * math.sin(a * 3 + 0.7) + 0.025 * math.sin(a * 5 + 1.9)
+    -- lobes: the splash's arms
+    local lobe = math.max(0, math.cos(a * 7 + 0.4)) ^ 6
+    r = r + lobe * 0.1
+    SPLAT.body[#SPLAT.body + 1] = { 0.5 + math.cos(a) * r, 0.5 + math.sin(a) * r }
+  end
+  SPLAT.drops = { { 0.9, 0.2, 0.045 }, { 0.12, 0.84, 0.05 }, { 0.86, 0.86, 0.035 },
+                  { 0.1, 0.18, 0.03 }, { 0.52, 0.04, 0.03 }, { 0.95, 0.55, 0.028 } }
+  return SPLAT
+end
+
+-- fill the shape in x, y, w, h (r: the rectangle's corner radius); inset
+-- shrinks it about its centre (the picture inside the white edge)
+local function shapeFill(shape, x, y, w, h, r, inset)
+  inset = inset or 0
+  if shape == 3 then
+    lg.ellipse("fill", x + w / 2, y + h / 2, w / 2 - inset, h / 2 - inset, 48)
+  elseif shape == 4 then
+    local k = inset * 1.8
+    lg.polygon("fill", x + w / 2, y + k, x + w - k, y + h - inset, x + k, y + h - inset)
+  elseif shape == 5 then
+    local sp = splatPoints()
+    local sx, sy = (w - 2 * inset), (h - 2 * inset)
+    local pts = {}
+    for _, p in ipairs(sp.body) do
+      pts[#pts + 1] = { x + inset + p[1] * sx, y + inset + p[2] * sy }
+    end
+    -- a fan from the centre (the outline is not convex)
+    local cx, cy = x + w / 2, y + h / 2
+    for i = 1, #pts do
+      local a, b = pts[i], pts[i % #pts + 1]
+      lg.polygon("fill", cx, cy, a[1], a[2], b[1], b[2])
+    end
+    for _, d in ipairs(sp.drops) do
+      local rr = d[3] * math.min(sx, sy) - inset * 0.3
+      if rr > 0 then lg.circle("fill", x + inset + d[1] * sx, y + inset + d[2] * sy, rr, 16) end
+    end
+  else
+    roundRect("fill", x + inset, y + inset, w - 2 * inset, h - 2 * inset, math.max(0, r - inset))
+  end
+end
+
 -- the sticker's silhouette in one colour (its backing, its shadow)
 local function flatShader()
   shaders.flat = shaders.flat or lg.newShader([[
@@ -210,15 +267,18 @@ local function drawSticker(img, c, x, y, w, masked)
   local px, py, pw, ph = x + edge, y + edge, w - 2 * edge, ih - 2 * edge
   local pr = math.max(0, r - edge)
   if masked then lg.setStencilTest("greater", 0) end
+  local shape = math.floor(c.shape or 1)
+  if shape == 2 then r = 0 end
   if c.outline then
     lg.setColor(1, 1, 1, 1)
-    roundRect("fill", x, y, w, ih, r)
+    shapeFill(shape, x, y, w, ih, r, 0)
   end
+  local function inner() shapeFill(shape, x, y, w, ih, r, edge) end
   if masked then
-    lg.stencil(function() roundRect("fill", px, py, pw, ph, pr) end, "increment", 1, true)
+    lg.stencil(inner, "increment", 1, true)
     lg.setStencilTest("greater", 1)
   else
-    lg.stencil(function() roundRect("fill", px, py, pw, ph, pr) end, "replace", 1)
+    lg.stencil(inner, "replace", 1)
     lg.setStencilTest("greater", 0)
   end
   lg.setColor(1, 1, 1, 1)
@@ -272,9 +332,14 @@ local function geometry(st, bw, bh)
   local hx, hy = w / 2 * c + h / 2 * sn, w / 2 * sn + h / 2 * c
   local k = math.min(1, (x1 - x0) / (2 * hx), (y1 - y0) / (2 * hy))
   if k < 1 then w, h, hx, hy = w * k, h * k, hx * k, hy * k end
-  local cx = clamp(st.px * bw, x0 + hx, x1 - hx)
-  local cy = clamp(st.py * bh, y0 + hy, y1 - hy)
-  return cx, cy, w, h
+  local surf = math.floor(st.surf or 0)
+  local wrap = surf == 0 or surf == 1
+  -- the lid and the top shell are one half of the 3DS: a sticker may hang
+  -- over their top / left / right edges (the overhang wraps round onto the
+  -- other side); the hinge side and the bottom shell keep it on
+  local cx = wrap and clamp(st.px * bw, 0, bw) or clamp(st.px * bw, x0 + hx, x1 - hx)
+  local cy = wrap and clamp(st.py * bh, 0, y1 - hy) or clamp(st.py * bh, y0 + hy, y1 - hy)
+  return cx, cy, w, h, hx, hy
 end
 S.geometry = geometry
 
@@ -379,10 +444,83 @@ local lastBox = nil        -- the cover's lid box transform (for touches)
 -- origin ox, oy at scale s (units per lid-box pixel), box bw x bh.  `mask`
 -- draws the shell's own shape (in that same space): whatever hangs off it
 -- is cut away.  `cover`: this is the cover screen itself (touchable).
+-- each surface's box (lid-box pixels), for stickers wrapping between the
+-- lid (0) and the top shell (1); init.lua sets them, drawing updates them
+local BOXES = {}
+function S.setBox(surf, bw, bh) BOXES[surf] = { bw, bh } end
+
+-- The overhang of the other side's stickers, wrapped round the shared
+-- edge onto this one.  The lid is the back of the top shell: in their
+-- pictures (both hinge-down) the top edge is shared with x mirrored, and
+-- the left edge of one is the right edge of the other.  Each wrapped copy
+-- is cut by the shell's shape, so only the part that went round shows.
+local function drawWrapped(ox, oy, s, bw, bh, mask, surf)
+  local other = surf == 0 and 1 or surf == 1 and 0 or nil
+  local ob = other and BOXES[other]
+  if not ob then return end
+  local obw, obh = ob[1], ob[2]
+  local k = bw / obw
+  for _, st in ipairs(list) do
+    local editing = ed and ed.target == st
+    if st.on and not st.fall and not editing and math.floor(st.surf or 0) == other then
+      local cx, cy, w, h, hx, hy = geometry(st, obw, obh)
+      local places = {}
+      if cy - hy < 0 then places[#places + 1] = { (obw - cx) * k, -cy * k, math.pi } end
+      if cx - hx < 0 then places[#places + 1] = { (cx + obw) * k, cy * k, 0 } end
+      if cx + hx > obw then places[#places + 1] = { (cx - obw) * k, cy * k, 0 } end
+      for _, pl in ipairs(places) do
+        lg.stencil(mask or function() lg.rectangle("fill", -1e5, -1e5, 2e5, 2e5) end, "replace", 1)
+        lg.push()
+        lg.translate(ox, oy)
+        lg.scale(s, s)
+        lg.translate(pl[1], pl[2])
+        lg.rotate(st.rot + pl[3])
+        local ww, hh = w * k, h * k
+        lg.setStencilTest("greater", 0)
+        -- its shadow, the sticker, and the crease where it bends round
+        lg.setShader(flatShader())
+        lg.setColor(0, 0, 0, 0.3)
+        lg.draw(st.img, -ww / 2 + ww * 0.02, -hh / 2 + hh * 0.035, 0, ww / st.img:getWidth(), hh / st.img:getHeight())
+        lg.setShader()
+        lg.setColor(0.93, 0.93, 0.93, 1)
+        lg.draw(st.img, -ww / 2, -hh / 2, 0, ww / st.img:getWidth(), hh / st.img:getHeight())
+        lg.setStencilTest()
+        lg.pop()
+        -- the crease: a soft shade just inside the edge it came round
+        lg.push()
+        lg.translate(ox, oy)
+        lg.scale(s, s)
+        lg.stencil(function()
+          lg.push()
+          lg.translate(pl[1], pl[2])
+          lg.rotate(st.rot + pl[3])
+          lg.setShader(flatShader())
+          lg.draw(st.img, -ww / 2, -hh / 2, 0, ww / st.img:getWidth(), hh / st.img:getHeight())
+          lg.setShader()
+          lg.pop()
+        end, "increment", 1, true)
+        lg.setStencilTest("greater", 1)
+        local band = math.max(ww, hh) * 0.08
+        for i = 0, 5 do
+          lg.setColor(0, 0, 0, 0.16 * (1 - i / 6))
+          local d = band * i / 6
+          if pl[3] ~= 0 then lg.rectangle("fill", -1e4, d, 2e4 + bw, band / 6)
+          elseif pl[1] > bw / 2 then lg.rectangle("fill", bw - d - band / 6, -1e4, band / 6, 2e4)
+          else lg.rectangle("fill", d, -1e4, band / 6, 2e4) end
+        end
+        lg.setStencilTest()
+        lg.pop()
+      end
+    end
+  end
+end
+
 function S.drawOnLid(ox, oy, s, bw, bh, mask, cover, surf)
   local t = now()
   surf = surf or 0
+  BOXES[surf] = { bw, bh }
   lg.push("all")
+  drawWrapped(ox, oy, s, bw, bh, mask, surf)
   for _, st in ipairs(list) do
     local editing = ed and ed.target == st
     local held = grab and grab.st == st and grab.held
@@ -433,7 +571,8 @@ function S.drawOnLid(ox, oy, s, bw, bh, mask, cover, surf)
     lg.translate(cx, cy)
     lg.rotate(c.rot)
     lg.setColor(0, 0, 0, 0.3)
-    roundRect("fill", -w / 2 + math.min(w, h) * 0.02, -h / 2 + math.min(w, h) * 0.035, w, h, c.round * math.min(w, h))
+    shapeFill(math.floor(c.shape or 1), -w / 2 + math.min(w, h) * 0.02, -h / 2 + math.min(w, h) * 0.035, w, h,
+      (c.shape or 1) == 2 and 0 or c.round * math.min(w, h), 0)
     drawSticker(ed.img, c, -w / 2, -h / 2, w, mask ~= nil)
     lg.pop()
     lg.setStencilTest()
@@ -702,7 +841,8 @@ end
 local function keepPlacement()
   if not ed or not ed.cfg then return nil end
   local c = ed.cfg
-  return { size = c.size, px = c.px, py = c.py, rot = c.rot, round = c.round, outline = c.outline, surf = c.surf }
+  return { size = c.size, px = c.px, py = c.py, rot = c.rot, round = c.round, outline = c.outline, surf = c.surf,
+    shape = c.shape }
 end
 
 -- A picture from an absolute path (desktop dialogs, the test driver).
@@ -758,7 +898,7 @@ function S.open(which, surf)
         if data then
           ed = { target = st, surf = surf }
           local cfg = { surf = surf }
-          for _, k in ipairs({ "cx", "cy", "cw", "ch", "round", "size", "px", "py", "rot" }) do cfg[k] = st[k] end
+          for _, k in ipairs({ "cx", "cy", "cw", "ch", "round", "size", "px", "py", "rot", "shape" }) do cfg[k] = st[k] end
           cfg.outline = st.outline
           openEditorWith(data, cfg)
           return true
@@ -788,7 +928,7 @@ function S.save()
     nextId = nextId + 1
     list[#list + 1] = st
   end
-  for _, k in ipairs({ "cx", "cy", "cw", "ch", "round", "size", "px", "py", "rot" }) do st[k] = c[k] end
+  for _, k in ipairs({ "cx", "cy", "cw", "ch", "round", "size", "px", "py", "rot", "shape" }) do st[k] = c[k] end
   st.outline = c.outline
   st.surf = ed.surf or 0
   local canvas = bake(ed.img, c)
@@ -811,6 +951,7 @@ local function controls(r)
   local colX = r.x + r.w - colW
   local pad = math.max(3, math.floor(r.h * 0.018))
   local rows = {
+    { id = "shape", label = "Shape", kind = "step" },
     { id = "round", label = "Round", kind = "step" },
     { id = "size", label = "Size", kind = "step" },
     { id = "rot", label = "Turn", kind = "step" },
@@ -858,7 +999,9 @@ function S.drawEditor(r)
     local c = ed.cfg
     local x, y, w, h = ox + c.cx * k, oy + c.cy * k, c.cw * k, c.ch * k
     -- the crop, bright, with its rounded corners
-    lg.stencil(function() roundRect("fill", x, y, w, h, c.round * math.min(w, h)) end, "replace", 1)
+    lg.stencil(function()
+      shapeFill(math.floor(c.shape or 1), x, y, w, h, (c.shape or 1) == 2 and 0 or c.round * math.min(w, h), 0)
+    end, "replace", 1)
     lg.setStencilTest("greater", 0)
     lg.setColor(1, 1, 1, 1)
     lg.draw(ed.img, ox, oy, 0, k, k)
@@ -893,7 +1036,8 @@ function S.drawEditor(r)
       lg.printf("-", row.x, ty, bw, "center")
       lg.printf("+", row.x + row.w - bw, ty, bw, "center")
       local v
-      if row.id == "round" then v = ("%d%%"):format(ed.cfg.round * 200)
+      if row.id == "shape" then v = SHAPES[math.floor(ed.cfg.shape or 1)] or SHAPES[1]
+      elseif row.id == "round" then v = ("%d%%"):format(ed.cfg.round * 200)
       elseif row.id == "size" then v = ("%d%%"):format(ed.cfg.size * 100)
       else v = ("%d°"):format(math.floor(math.deg(ed.cfg.rot or 0) + 0.5) % 360) end
       lg.printf(row.label .. " " .. v, row.x + bw, ty, row.w - 2 * bw, "center")
@@ -933,7 +1077,15 @@ end
 
 local function step(id, dir)
   local c = ed.cfg
-  if id == "round" then c.round = clamp(c.round + dir * 0.05, 0, 0.5)
+  if id == "shape" then
+    c.shape = ((math.floor(c.shape or 1) - 1 + dir) % #SHAPES) + 1
+    if squareShape(c.shape) then
+      -- a square crop, about the old one's centre
+      local side = math.min(c.cw, c.ch)
+      c.cx, c.cy = c.cx + (c.cw - side) / 2, c.cy + (c.ch - side) / 2
+      c.cw, c.ch = side, side
+    end
+  elseif id == "round" then c.round = clamp(c.round + dir * 0.05, 0, 0.5)
   elseif id == "size" then c.size = clamp(c.size + dir * 0.02, (ed.surf or 0) ~= 0 and 0.06 or 0.12, 0.9)
   elseif id == "rot" then c.rot = (c.rot or 0) + dir * math.rad(5) end
 end
@@ -1035,6 +1187,13 @@ function S.moved(id, x, y)
     if d.corner:find("l") then x1 = clamp(x1 + dx, 0, x2 - minS) else x2 = clamp(x2 + dx, x1 + minS, f.iw) end
     if d.corner:find("t") then y1 = clamp(y1 + dy, 0, y2 - minS) else y2 = clamp(y2 + dy, y1 + minS, f.ih) end
     c.cx, c.cy, c.cw, c.ch = x1, y1, x2 - x1, y2 - y1
+    if squareShape(math.floor(c.shape or 1)) then
+      -- square and circle stickers keep a square crop
+      local side = math.min(c.cw, c.ch)
+      if d.corner:find("l") then c.cx = x2 - side end
+      if d.corner:find("t") then c.cy = y2 - side end
+      c.cw, c.ch = side, side
+    end
   end
   return true
 end
