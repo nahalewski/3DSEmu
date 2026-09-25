@@ -43,6 +43,7 @@ local Sticker = require("fold3ds.sticker")
 local Theme3DS = require("fold3ds.theme3ds")
 local Home = require("fold3ds.home3ds")
 local Sfx = require("fold3ds.sfx")
+local Cart3D = require("fold3ds.cart3d")
 
 local DIR = "fold3ds/"
 -- shell art (full size); cut = the screen opening in the art's pixels
@@ -866,8 +867,8 @@ end
 
 -- The 3DS theme's top screen, as the 3DS draws its own: the status bar
 -- (signal, Internet, the play coins, date and time, battery), the tiled
--- wallpaper with the selected game's cartridge on it (the launcher's own
--- 3D cartridge, drawn into state.canvases.topcart), and the game's name.
+-- wallpaper with the selected game's cartridge floating over it (a 3D
+-- Game Boy Color / Advance cart, fold3ds.cart3d), and the game's name.
 local function col3(c, a) lg.setColor(c[1] / 255, c[2] / 255, c[3] / 255, a or 1) end
 
 local function topPanel(r)
@@ -956,14 +957,18 @@ local function drawTop3DS(r)
   end
   lg.setStencilTest()
   -- the selected game's cartridge
-  local c = state.canvases.topcart
-  if c then
-    lg.setColor(1, 1, 1, 1)
-    lg.draw(c, P.x, P.y)
+  local version = launcherVersion()
+  local skin
+  do
+    local ok, LV = pcall(require, "src.import.LauncherView")
+    if ok and type(LV) == "table" and LV.foldCartSkin and state.subject then
+      local ok2, s = pcall(LV.foldCartSkin, state.subject, version)
+      if ok2 then skin = s end
+    end
   end
+  Cart3D.draw(P, version, state.time, skin)
   -- the game's name under the panel
   local imp = state.subject
-  local version = launcherVersion()
   local ok, GV = pcall(require, "src.core.GameVersion")
   local info = ok and GV.info and GV.info(version)
   local ready = imp and imp.ready and imp.ready[version]
@@ -1369,18 +1374,10 @@ function backend:beginFrame(kind, subject)
       subject.stack.states = top
     end
   end
-  -- the 3DS theme's top screen cartridge, painted by the launcher itself
+  -- the 3DS theme draws its own 3D cart on the top screen (fold3ds.cart3d)
   do
     local ok, LV = pcall(require, "src.import.LauncherView")
-    if ok and type(LV) == "table" then
-      if kind ~= "game" and Theme3DS.active then
-        local P = topPanel(state.L.topCut)
-        LV.foldTopCart = { canvas = canvasFor("topcart", { w = math.floor(P.w), h = math.floor(P.h) }),
-                           version = launcherVersion() }
-      else
-        LV.foldTopCart = nil
-      end
-    end
+    if ok and type(LV) == "table" then LV.foldTopCart = nil end
   end
   state.frameCanvas = c
   real.setCanvas(c)
