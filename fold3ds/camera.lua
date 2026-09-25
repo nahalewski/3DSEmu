@@ -3,9 +3,11 @@
 -- the bottom screen holds the controls.
 --
 --   Camera   Shoot (the big button, A, L or R), Photos, Settings, zoom + / -
---            (or up / down), the rear / front camera switch (X), and the
---            modes: Auto, Multi (four shots, half a second apart, in one
---            picture) and Self-Timer (three seconds).
+--            (or up / down), the rear / front camera switch (X), the
+--            filters (the chip, or left / right), and the modes: Auto,
+--            Video (Shoot starts and stops; up to ten minutes, with sound),
+--            Multi (four shots, half a second apart, in one picture) and
+--            Self-Timer (three seconds).
 --   Photos   the pictures taken, newest first, a page of them at a time
 --            (swipe or left / right); the chosen one fills the top screen;
 --            info and delete.
@@ -13,6 +15,9 @@
 --            of every picture goes to the phone's gallery (Pictures /
 --            Gen1Recomp).
 --
+-- Videos are saved as videos/HNV_0001.mp4 (FoldRecorder.java encodes the
+-- frames drawn here, so the filters are in them) and play in the phone's
+-- video player from their gallery copy.
 -- Pictures are saved as photos/HNI_0001.png, ... in the save folder: what
 -- the top screen shows, at the camera's own resolution.  The frames come
 -- from love.system.foldCamera (Android: FoldCamera.java through liblove);
@@ -21,19 +26,25 @@ local C = {}
 
 local lg = love.graphics
 local Sfx = require("fold3ds.sfx")
+local Filters = require("fold3ds.camfilters")
 
 local CFG = "fold3ds_camera.cfg"
 local DIR = "photos"
 local PER_PAGE = 10          -- photos on a page: 5 across, 2 down
 local ZOOM_MAX = 4
 local TIMER = 3
+local VDIR = "videos"
+local REC_FPS = 30
+local REC_MAX = 10 * 60      -- ten minutes, as the 3DS
 
 local ctx
 local st = {
   open = false,
   view = "camera",           -- camera / photos / settings
   facing = 0,                -- 0 rear, 1 front
-  mode = "auto",             -- auto / multi / timer
+  mode = "auto",             -- auto / video / multi / timer
+  filter = "none",           -- camfilters.lua
+  rec = nil,                 -- the video being recorded
   sound = true, gallery = true, grid = false,
   zoom = 1,
   camState = 0,              -- FoldCamera's state; "none" without a camera
@@ -59,6 +70,24 @@ local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 local function col(c, a) lg.setColor(c[1] / 255, c[2] / 255, c[3] / 255, a or 1) end
 local function rrect(mode, x, y, w, h, r) lg.rectangle(mode, x, y, w, h, r, r, 10) end
 
+-- Draw into a canvas.  The scissor is lifted first and put back after:
+-- LÖVE restores it while the canvas is still bound, which would clip
+-- everything drawn on the screen afterwards.
+local function offscreen(canvas, clear, fn)
+  local sx, sy, sw, sh = lg.getScissor()
+  lg.setScissor()
+  lg.push("all")
+  lg.setCanvas(canvas)
+  lg.origin()
+  lg.setShader()
+  lg.setStencilTest()
+  lg.clear(clear[1], clear[2], clear[3], clear[4] or 1)
+  lg.setColor(1, 1, 1, 1)
+  fn()
+  lg.pop()
+  if sx then lg.setScissor(sx, sy, sw, sh) end
+end
+
 ---------------------------------------------------------------- settings
 
 local function loadCfg()
@@ -66,15 +95,16 @@ local function loadCfg()
   text = ok and type(text) == "string" and text or ""
   st.facing = tonumber(text:match("facing=(%d)")) == 1 and 1 or 0
   local m = text:match("mode=(%a+)")
-  if m == "auto" or m == "multi" or m == "timer" then st.mode = m end
+  if m == "auto" or m == "video" or m == "multi" or m == "timer" then st.mode = m end
+  st.filter = Filters.get(text:match("filter=(%a+)") or "none").id
   st.sound = text:match("sound=0") == nil
   st.gallery = text:match("gallery=0") == nil
   st.grid = text:match("grid=1") ~= nil
 end
 
 local function saveCfg()
-  pcall(love.filesystem.write, CFG, ("facing=%d\nmode=%s\nsound=%d\ngallery=%d\ngrid=%d\n"):format(
-    st.facing, st.mode, st.sound and 1 or 0, st.gallery and 1 or 0, st.grid and 1 or 0))
+  pcall(love.filesystem.write, CFG, ("facing=%d\nmode=%s\nfilter=%s\nsound=%d\ngallery=%d\ngrid=%d\n"):format(
+    st.facing, st.mode, st.filter, st.sound and 1 or 0, st.gallery and 1 or 0, st.grid and 1 or 0))
 end
 
 local function toast(text) st.toast = { text = text, at = st.t } end
@@ -102,7 +132,8 @@ local function synth(name)
         local a = math.exp(-t * 180) + 0.8 * (t > 0.085 and math.exp(-(t - 0.085) * 150) or 0)
         v = (love.math.random() * 2 - 1) * a * 0.55
       else
-        v = math.sin(t * 2 * math.pi * 1320) * math.min(1, (len - t) * 60) * 0.35
+        local hz = name == "recStart" and 880 or name == "recStop" and 660 or 1320
+        v = math.sin(t * 2 * math.pi * hz) * math.min(1, (len - t) * 60) * 0.35
       end
       sd:setSample(i, v)
     end
@@ -185,39 +216,57 @@ local function pullFrame()
   end
 end
 
----------------------------------------------------------------- photos
+---------------------------------------------------------------- the album
 
+-- The album: pictures (photos/HNI_####.png) and videos (videos/HNV_####.mp4,
+-- with the first frame as HNV_####.png and the gallery copy's URI in
+-- HNV_####.uri), newest first.
 local function listPhotos()
-  local items = love.filesystem.getDirectoryItems(DIR) or {}
   local out = {}
-  for _, name in ipairs(items) do
-    if name:match("^HNI_%d+%.png$") then out[#out + 1] = name end
+  for _, name in ipairs(love.filesystem.getDirectoryItems(DIR) or {}) do
+    local n = name:match("^(HNI_%d+)%.png$")
+    if n then out[#out + 1] = { name = n, path = DIR .. "/" .. name } end
   end
-  table.sort(out, function(a, b) return a > b end)
+  for _, name in ipairs(love.filesystem.getDirectoryItems(VDIR) or {}) do
+    local n = name:match("^(HNV_%d+)%.mp4$")
+    if n then
+      out[#out + 1] = { name = n, video = true, path = VDIR .. "/" .. n .. ".png",
+        mp4 = VDIR .. "/" .. name, uriPath = VDIR .. "/" .. n .. ".uri" }
+    end
+  end
+  for _, it in ipairs(out) do
+    local info = love.filesystem.getInfo(it.video and it.mp4 or it.path)
+    it.time = info and info.modtime or 0
+    it.size = info and info.size or 0
+  end
+  table.sort(out, function(a, b)
+    if a.time ~= b.time then return a.time > b.time end
+    return a.name > b.name
+  end)
   st.photos = out
   st.sel = clamp(st.sel, 1, math.max(1, #out))
   return out
 end
 
-local function nextName()
+local function nextName(prefix, dir, ext)
   local top = 0
-  for _, name in ipairs(st.photos or listPhotos()) do
-    top = math.max(top, tonumber(name:match("HNI_(%d+)")) or 0)
+  for _, name in ipairs(love.filesystem.getDirectoryItems(dir) or {}) do
+    top = math.max(top, tonumber(name:match("^" .. prefix .. "_(%d+)%." .. ext .. "$")) or 0)
   end
-  return ("HNI_%04d.png"):format(top + 1)
+  return ("%s_%04d"):format(prefix, top + 1)
 end
 
 local function savePicture(imageData)
   love.filesystem.createDirectory(DIR)
-  local name = nextName()
-  local path = DIR .. "/" .. name
+  local name = nextName("HNI", DIR, "png")
+  local path = DIR .. "/" .. name .. ".png"
   local ok, err = pcall(function() imageData:encode("png", path) end)
   if not ok then toast("Couldn't save the picture") print("fold3ds camera: " .. tostring(err)) return end
   if st.gallery and love.system and love.system.exportImage then pcall(love.system.exportImage, path) end
-  st.thumbs[name] = nil
+  st.thumbs[path] = nil
   listPhotos()
   st.sel = 1
-  toast(name:gsub("%.png$", "") .. " saved")
+  toast(name .. " saved")
 end
 
 ---------------------------------------------------------------- drawing the picture
@@ -231,7 +280,7 @@ local function upright()
 end
 
 -- draw the frame upright, filling (cropping) a w x h box at x, y
-local function drawFrame(x, y, w, h, zoom)
+local function drawRaw(x, y, w, h, zoom)
   local img, i = st.image, st.info
   if not img or not i then return false end
   local ew, eh = upright()
@@ -245,6 +294,33 @@ local function drawFrame(x, y, w, h, zoom)
   return true
 end
 
+-- a canvas of this size, kept for reuse
+local canvases = {}
+local function canvasOf(w, h)
+  w, h = math.max(2, math.floor(w)), math.max(2, math.floor(h))
+  local key = w .. "x" .. h
+  if not canvases[key] then
+    canvases[key] = lg.newCanvas(w, h)
+    canvases[key]:setFilter("linear", "linear")
+  end
+  return canvases[key]
+end
+
+-- the frame upright and through the filter, filling a w x h box at x, y
+local function drawFrame(x, y, w, h, zoom)
+  if not st.image or not st.info then return false end
+  local shader = Filters.shader(st.filter, w, h, st.t)
+  if not shader then return drawRaw(x, y, w, h, zoom) end
+  local c = canvasOf(w, h)
+  offscreen(c, { 0, 0, 0 }, function() drawRaw(0, 0, c:getWidth(), c:getHeight(), zoom) end)
+  lg.push("all")
+  lg.setShader(shader)
+  lg.setColor(1, 1, 1, 1)
+  lg.draw(c, x, y, 0, w / c:getWidth(), h / c:getHeight())
+  lg.pop()
+  return true
+end
+
 -- the picture the top screen shows (aspect a), at the camera's resolution
 local function captureCanvas(aspect)
   local ew, eh = upright()
@@ -253,15 +329,7 @@ local function captureCanvas(aspect)
   if ch > eh then ch, cw = eh, eh * aspect end
   cw, ch = math.floor(cw / st.zoom), math.floor(ch / st.zoom)
   local c = lg.newCanvas(cw, ch)
-  lg.push("all")
-  lg.setCanvas(c)
-  lg.origin()
-  lg.setScissor()
-  lg.setShader()
-  lg.clear(0, 0, 0, 1)
-  lg.setColor(1, 1, 1, 1)
-  drawFrame(0, 0, cw, ch, st.zoom)
-  lg.pop()
+  offscreen(c, { 0, 0, 0 }, function() drawFrame(0, 0, cw, ch, st.zoom) end)
   return c
 end
 
@@ -269,18 +337,13 @@ end
 local function composeMulti(shots)
   local w, h = shots[1]:getDimensions()
   local c = lg.newCanvas(w, h)
-  lg.push("all")
-  lg.setCanvas(c)
-  lg.origin()
-  lg.setScissor()
-  lg.clear(1, 1, 1, 1)
-  lg.setColor(1, 1, 1, 1)
-  local g = math.max(2, math.floor(w * 0.006))
-  for k, s in ipairs(shots) do
-    local cx, cy = (k - 1) % 2, math.floor((k - 1) / 2)
-    lg.draw(s, cx * (w / 2) + g / 2, cy * (h / 2) + g / 2, 0, (w / 2 - g) / w, (h / 2 - g) / h)
-  end
-  lg.pop()
+  offscreen(c, { 1, 1, 1 }, function()
+    local g = math.max(2, math.floor(w * 0.006))
+    for k, s in ipairs(shots) do
+      local cx, cy = (k - 1) % 2, math.floor((k - 1) / 2)
+      lg.draw(s, cx * (w / 2) + g / 2, cy * (h / 2) + g / 2, 0, (w / 2 - g) / w, (h / 2 - g) / h)
+    end
+  end)
   return c
 end
 
@@ -304,6 +367,71 @@ local function takeShot(aspect)
   savePicture(c:newImageData())
 end
 
+---------------------------------------------------------------- video
+
+local function recording() return st.rec ~= nil end
+
+local function startRecording()
+  local f = api()
+  if not f and not fake then toast("Video recording works on the phone") return end
+  love.filesystem.createDirectory(VDIR)
+  local name = nextName("HNV", VDIR, "mp4")
+  -- the top screen's shape, 480 lines, sizes the encoder likes (16s)
+  local a = st.topAspect or 5 / 3
+  local h = 480
+  local w = math.floor(h * a / 16 + 0.5) * 16
+  local full = love.filesystem.getSaveDirectory() .. "/" .. VDIR .. "/" .. name .. ".mp4"
+  if not f then
+    -- the desktop test camera: frames drawn and read back, nothing encoded
+    st.rec = { name = name, w = w, h = h, t0 = st.t, next = st.t, frames = 0, stub = true }
+    beep("recStart")
+    return
+  end
+  local ok, s = pcall(f, "recStart", full, w, h, REC_FPS)
+  if not ok or s ~= 1 then toast("The video couldn't start") Sfx.play("cancel") return end
+  st.rec = { name = name, w = w, h = h, t0 = st.t, next = st.t, frames = 0 }
+  beep("recStart")
+end
+
+local function stopRecording(quiet)
+  local r = st.rec
+  if not r then return end
+  st.rec = nil
+  if r.stub then
+    love.filesystem.remove(VDIR .. "/" .. r.name .. ".png")
+    toast(("Test video: %d frames of %dx%d"):format(r.frames, r.w, r.h))
+    return
+  end
+  local f = api()
+  local ok, uri = pcall(f, "recStop", st.gallery)
+  if not ok or uri == nil then
+    love.filesystem.remove(VDIR .. "/" .. r.name .. ".png")
+    if not quiet then toast("Nothing was recorded") end
+    return
+  end
+  if uri ~= "" then pcall(love.filesystem.write, VDIR .. "/" .. r.name .. ".uri", uri) end
+  beep("recStop")
+  listPhotos()
+  st.sel = 1
+  if not quiet then toast(("%s saved (%d:%02d)"):format(r.name, math.floor((st.t - r.t0) / 60), math.floor(st.t - r.t0) % 60)) end
+end
+
+-- during the top screen's drawing: the next frame of the video
+local function recordFrame(aspect)
+  local r = st.rec
+  if not r or st.t < r.next or not st.image then return end
+  r.next = math.max(r.next + 1 / REC_FPS, st.t)
+  local out = lg.newCanvas(r.w, r.h)
+  offscreen(out, { 0, 0, 0 }, function() drawFrame(0, 0, r.w, r.h, st.zoom) end)
+  local data = out:newImageData()
+  out:release()
+  if r.frames == 0 then pcall(function() data:encode("png", VDIR .. "/" .. r.name .. ".png") end) end
+  if not r.stub then pcall(api(), "recFrame", data) end
+  data:release()
+  r.frames = r.frames + 1
+  if st.t - r.t0 >= REC_MAX then stopRecording() end
+end
+
 local function shoot()
   if type(st.camState) == "number" and (st.camState < 0 or st.camState == 0) then
     -- refused, failed or missing: try again
@@ -315,6 +443,10 @@ local function shoot()
     toast(st.camState == "none" and "No camera" or "The camera isn't ready")
     return
   end
+  if st.mode == "video" then
+    if recording() then stopRecording() else startRecording() end
+    return
+  end
   if st.timerAt or st.multi then return end
   if st.mode == "timer" then
     st.timerAt = st.t + TIMER
@@ -323,6 +455,13 @@ local function shoot()
     return
   end
   st.captures = st.captures + 1
+end
+
+local function setFilter(id)
+  st.filter = id
+  saveCfg()
+  toast(Filters.get(id).name)
+  Sfx.play("screen")
 end
 
 ---------------------------------------------------------------- glyphs
@@ -410,6 +549,13 @@ function G.timer(x, y, s, bg)
   col(bg)
   lg.setLineWidth(math.max(1, s * 0.05))
   lg.line(x + s * 0.7, y + s * 0.56, x + s * 0.7, y + s * 0.66, x + s * 0.78, y + s * 0.66)
+end
+function G.video(x, y, s)
+  rrect("fill", x + s * 0.06, y + s * 0.26, s * 0.62, s * 0.5, s * 0.08)
+  lg.polygon("fill", x + s * 0.66, y + s * 0.44, x + s * 0.94, y + s * 0.26, x + s * 0.94, y + s * 0.76, x + s * 0.66, y + s * 0.58)
+end
+function G.play(x, y, s)
+  lg.polygon("fill", x + s * 0.28, y + s * 0.18, x + s * 0.82, y + s * 0.5, x + s * 0.28, y + s * 0.82)
 end
 function G.flip(x, y, s)
   G.camera(x, y, s)
@@ -550,6 +696,17 @@ local function drawCameraControls(r, pad, rowH)
   roundKey("shoot", r.x + r.w * 0.43, cy, big, function(x, y, rad)
     lg.setColor(0.2, 0.2, 0.22, 1)
     lg.circle("line", x, y, rad * 0.72)
+    if st.mode == "video" then
+      -- record: a red dot; recording: a red square
+      lg.setColor(0.86, 0.16, 0.14, 1)
+      if recording() then
+        local q = rad * 0.52
+        lg.rectangle("fill", x - q / 2, y - q / 2, q, q, q * 0.15)
+      else
+        lg.circle("fill", x, y, rad * 0.36)
+      end
+      return
+    end
     local s = rad * 0.9
     col({ 56, 58, 62 })
     G.camera(x - s / 2, y - s / 2, s)
@@ -596,9 +753,24 @@ local function drawCameraControls(r, pad, rowH)
     col(INK)
     lg.printf(("x%.1f"):format(st.zoom), zx - zw * 0.3, zy + zh + pad * 0.3, zw * 1.6, "center")
   end
+  -- the filter: tap its left half for the one before, right for the next
+  local fw, fh = r.w * 0.34, rowH * 0.78
+  local fx, fy = r.x + pad, r.y + pad * 2 + rowH
+  key("filterChip", fx, fy, fw, fh, nil, nil, st.filter ~= "none")
+  st.hits[#st.hits] = nil
+  hit("filterPrev", fx, fy, fw / 2, fh)
+  hit("filterNext", fx + fw / 2, fy, fw / 2, fh)
+  local ff = ctx.font(fh * 0.42)
+  lg.setFont(ff)
+  col(INK)
+  lg.printf(Filters.get(st.filter).name, fx, fy + (fh - ff:getHeight()) / 2, fw, "center")
+  local ah = fh * 0.22
+  lg.polygon("fill", fx + fh * 0.3, fy + fh / 2, fx + fh * 0.3 + ah, fy + fh / 2 - ah, fx + fh * 0.3 + ah, fy + fh / 2 + ah)
+  lg.polygon("fill", fx + fw - fh * 0.3, fy + fh / 2, fx + fw - fh * 0.3 - ah, fy + fh / 2 - ah, fx + fw - fh * 0.3 - ah, fy + fh / 2 + ah)
   -- the modes
-  local modes = { { "auto", "Auto", G.camera }, { "multi", "Multi", G.multi }, { "timer", "Self-Timer", G.timer } }
-  local mw = r.w * 0.2
+  local modes = { { "auto", "Auto", G.camera }, { "video", "Video", G.video },
+                  { "multi", "Multi", G.multi }, { "timer", "Self-Timer", G.timer } }
+  local mw = r.w * 0.19
   local mh = rowH * 1.25
   local gap = pad
   local total = #modes * mw + (#modes - 1) * gap
@@ -613,28 +785,21 @@ local function drawCameraControls(r, pad, rowH)
   end
 end
 
-local function thumb(name)
-  local t = st.thumbs[name]
+local function thumb(path)
+  local t = st.thumbs[path]
   if t ~= nil then return t or nil end
   if st.thumbBudget <= 0 then return nil end
   st.thumbBudget = st.thumbBudget - 1
-  local ok, img = pcall(lg.newImage, DIR .. "/" .. name)
-  if not ok then st.thumbs[name] = false return nil end
+  local ok, img = pcall(lg.newImage, path)
+  if not ok then st.thumbs[path] = false return nil end
   local w, h = img:getDimensions()
   local tw = 200
   local th = math.max(1, math.floor(tw * h / w))
   local c = lg.newCanvas(tw, th)
-  lg.push("all")
-  lg.setCanvas(c)
-  lg.origin()
-  lg.setScissor()
-  lg.clear(0, 0, 0, 1)
-  lg.setColor(1, 1, 1, 1)
-  lg.draw(img, 0, 0, 0, tw / w, th / h)
-  lg.pop()
+  offscreen(c, { 0, 0, 0 }, function() lg.draw(img, 0, 0, 0, tw / w, th / h) end)
   img:release()
   c:setFilter("linear", "linear")
-  st.thumbs[name] = c
+  st.thumbs[path] = c
   return c
 end
 
@@ -661,7 +826,7 @@ local function drawPhotos(r, pad, rowH)
     local f = ctx.font(rowH * 0.36)
     lg.setFont(f)
     col(INK, 0.7)
-    lg.printf("No pictures yet.\nTake one with the camera.", r.x, gy + gh / 2 - f:getHeight(), r.w, "center")
+    lg.printf("No pictures or videos yet.\nTake one with the camera.", r.x, gy + gh / 2 - f:getHeight(), r.w, "center")
   end
   st.page = clamp(st.page, 1, pages())
   local cols, rows = 5, 2
@@ -670,20 +835,32 @@ local function drawPhotos(r, pad, rowH)
   local first = (st.page - 1) * PER_PAGE
   for k = 1, PER_PAGE do
     local i = first + k
-    local name = list[i]
-    if not name then break end
+    local item = list[i]
+    if not item then break end
     local cx = r.x + pad + ((k - 1) % cols) * (cw + pad)
     local cy = gy + pad + math.floor((k - 1) / cols) * (ch + pad)
     col({ 120, 122, 128 }, 0.3)
     rrect("fill", cx, cy + 3, cw, ch, 6)
     lg.setColor(1, 1, 1, 1)
     rrect("fill", cx, cy, cw, ch, 6)
-    local t = thumb(name)
+    local t = thumb(item.path)
     if t then
       local tw, th = t:getDimensions()
       local s = math.min((cw - 8) / tw, (ch - 8) / th)
       lg.setColor(1, 1, 1, 1)
       lg.draw(t, cx + (cw - tw * s) / 2, cy + (ch - th * s) / 2, 0, s, s)
+    end
+    if item.video then
+      -- a video: the film edge and a play mark
+      lg.setColor(0.1, 0.1, 0.12, 0.85)
+      lg.rectangle("fill", cx + 4, cy + 4, cw * 0.12, ch - 8)
+      lg.setColor(1, 1, 1, 0.9)
+      for k2 = 0, 3 do lg.rectangle("fill", cx + 4 + cw * 0.03, cy + 8 + k2 * (ch - 16) / 4, cw * 0.06, (ch - 16) / 8) end
+      local ps = math.min(cw, ch) * 0.34
+      lg.setColor(0, 0, 0, 0.45)
+      lg.circle("fill", cx + cw / 2, cy + ch / 2, ps * 0.62)
+      lg.setColor(1, 1, 1, 0.95)
+      G.play(cx + cw / 2 - ps / 2, cy + ch / 2 - ps / 2, ps)
     end
     if i == st.sel then
       local pulse = 0.75 + 0.25 * math.sin(st.t * 5)
@@ -717,6 +894,7 @@ end
 local function drawSettings(r, pad, rowH)
   local rows = {
     { id = "facing", name = "Camera", value = st.facing == 1 and "Front" or "Rear" },
+    { id = "filter", name = "Filter", value = Filters.get(st.filter).name },
     { id = "sound", name = "Shutter sound", value = st.sound and "On" or "Off" },
     { id = "grid", name = "Grid lines", value = st.grid and "On" or "Off" },
     { id = "gallery", name = "Copy to phone gallery", value = st.gallery and "On" or "Off" },
@@ -837,8 +1015,10 @@ local function drawViewfinder(r)
       lg.rectangle("fill", r.x, r.y + r.h * k / 3, r.w, 1)
     end
   end
-  -- the corner brackets: white; yellow counting down; green as it shoots
+  -- the corner brackets: white; yellow counting down; green as it shoots;
+  -- red while a video records
   local color = { 255, 255, 255, 220 }
+  if recording() then color = { 235, 70, 60 } end
   if st.timerAt then color = { 250, 214, 60 } end
   if st.t - st.flash < 0.5 then color = { 70, 210, 90 } end
   local m = r.h * 0.12
@@ -851,6 +1031,31 @@ local function drawViewfinder(r)
     lg.printf(tostring(left), r.x + 3, r.y + r.h / 2 - f:getHeight() / 2 + 3, r.w, "center")
     lg.setColor(1, 0.86, 0.3, 1)
     lg.printf(tostring(left), r.x, r.y + r.h / 2 - f:getHeight() / 2, r.w, "center")
+  end
+  if recording() then
+    local secs = math.floor(st.t - st.rec.t0)
+    local f = ctx.font(r.h * 0.06)
+    lg.setFont(f)
+    local label = ("REC  %d:%02d"):format(math.floor(secs / 60), secs % 60)
+    local w = f:getWidth(label) + f:getHeight() * 1.6
+    lg.setColor(0, 0, 0, 0.45)
+    rrect("fill", r.x + r.w - w - r.h * 0.03, r.y + r.h * 0.03, w, f:getHeight() * 1.3, f:getHeight() * 0.3)
+    if math.floor(st.t * 2) % 2 == 0 then
+      lg.setColor(0.95, 0.2, 0.15, 1)
+      lg.circle("fill", r.x + r.w - w - r.h * 0.03 + f:getHeight() * 0.7, r.y + r.h * 0.03 + f:getHeight() * 0.65, f:getHeight() * 0.28)
+    end
+    lg.setColor(1, 1, 1, 1)
+    lg.print(label, r.x + r.w - w - r.h * 0.03 + f:getHeight() * 1.2, r.y + r.h * 0.03 + f:getHeight() * 0.15)
+  end
+  if st.filter ~= "none" then
+    local f = ctx.font(r.h * 0.045)
+    lg.setFont(f)
+    local label = Filters.get(st.filter).name
+    local w = f:getWidth(label) + f:getHeight()
+    lg.setColor(0, 0, 0, 0.4)
+    rrect("fill", r.x + r.h * 0.03, r.y + r.h - f:getHeight() * 1.4 - r.h * 0.03, w, f:getHeight() * 1.4, f:getHeight() * 0.3)
+    lg.setColor(1, 1, 1, 0.95)
+    lg.print(label, r.x + r.h * 0.03 + f:getHeight() * 0.5, r.y + r.h - f:getHeight() * 1.2 - r.h * 0.03)
   end
   if st.multi then
     local f = ctx.font(r.h * 0.06)
@@ -870,18 +1075,18 @@ local function drawAlbumTop(r)
   lg.setColor(0.08, 0.08, 0.1, 1)
   lg.rectangle("fill", r.x, r.y, r.w, r.h)
   local list = st.photos or listPhotos()
-  local name = list[st.sel]
-  if not name then
+  local item = list[st.sel]
+  if not item then
     local f = ctx.font(r.h * 0.06)
     lg.setFont(f)
     lg.setColor(1, 1, 1, 0.7)
-    lg.printf("No pictures", r.x, r.y + r.h / 2 - f:getHeight() / 2, r.w, "center")
+    lg.printf("No pictures or videos", r.x, r.y + r.h / 2 - f:getHeight() / 2, r.w, "center")
     return
   end
-  if st.fullName ~= name then
+  if st.fullName ~= item.path then
     if st.full then st.full:release() end
-    local ok, img = pcall(lg.newImage, DIR .. "/" .. name)
-    st.full, st.fullName = ok and img or nil, name
+    local ok, img = pcall(lg.newImage, item.path)
+    st.full, st.fullName = ok and img or nil, item.path
     if st.full then st.full:setFilter("linear", "linear") end
   end
   if st.full then
@@ -891,11 +1096,24 @@ local function drawAlbumTop(r)
     lg.draw(st.full, r.x + (r.w - w * s) / 2, r.y + (r.h - h * s) / 2, 0, s, s)
   end
   local f = ctx.font(r.h * 0.05)
+  if item.video then
+    -- a video: its first frame, a play button, and how to play it
+    local ps = r.h * 0.26
+    lg.setColor(0, 0, 0, 0.45)
+    lg.circle("fill", r.x + r.w / 2, r.y + r.h / 2, ps * 0.62)
+    lg.setColor(1, 1, 1, 0.95)
+    G.play(r.x + r.w / 2 - ps / 2, r.y + r.h / 2 - ps / 2, ps)
+    lg.setFont(f)
+    lg.setColor(0, 0, 0, 0.45)
+    lg.rectangle("fill", r.x, r.y + r.h - f:getHeight() * 1.5, r.w, f:getHeight() * 1.5)
+    lg.setColor(1, 1, 1, 1)
+    lg.printf("A: play in the phone's video player", r.x, r.y + r.h - f:getHeight() * 1.25, r.w, "center")
+  end
   lg.setFont(f)
   lg.setColor(0, 0, 0, 0.45)
   lg.rectangle("fill", r.x, r.y, r.w, f:getHeight() * 1.4)
   lg.setColor(1, 1, 1, 1)
-  lg.print(name:gsub("%.png$", ""), r.x + r.h * 0.03, r.y + f:getHeight() * 0.2)
+  lg.print(item.name, r.x + r.h * 0.03, r.y + f:getHeight() * 0.2)
   lg.printf(("%d / %d"):format(st.sel, #list), r.x, r.y + f:getHeight() * 0.2, r.w - r.h * 0.03, "right")
 end
 
@@ -903,10 +1121,12 @@ function C.drawTop(r)
   lg.push("all")
   lg.setScissor(r.x, r.y, r.w, r.h)
   -- shots waiting to be taken are taken here, with the frame on screen
+  st.topAspect = r.w / r.h
   while st.captures > 0 do
     st.captures = st.captures - 1
     takeShot(r.w / r.h)
   end
+  if st.view ~= "photos" then recordFrame() end
   if st.view == "photos" then drawAlbumTop(r) else drawViewfinder(r) end
   drawToast(r)
   lg.pop()
@@ -916,6 +1136,7 @@ end
 
 local function setView(v)
   if st.view == v then return end
+  if v == "photos" then stopRecording() end
   st.view = v
   st.confirmDelete = nil
   if v == "photos" then listPhotos(); st.page = math.floor((st.sel - 1) / PER_PAGE) + 1 end
@@ -923,6 +1144,7 @@ local function setView(v)
 end
 
 local function flip()
+  stopRecording()
   st.facing = 1 - st.facing
   saveCfg()
   st.zoom = 1
@@ -949,21 +1171,37 @@ local function pick(i)
 end
 
 local function deletePhoto()
-  local name = (st.photos or {})[st.sel]
-  if not name then return end
-  if st.confirmDelete ~= name then
-    st.confirmDelete = name
+  local item = (st.photos or {})[st.sel]
+  if not item then return end
+  if st.confirmDelete ~= item.path then
+    st.confirmDelete = item.path
     Sfx.play("dialog")
-    toast("Tap the bin again to delete " .. name:gsub("%.png$", ""))
+    toast("Tap the bin again to delete " .. item.name)
     return
   end
-  love.filesystem.remove(DIR .. "/" .. name)
-  st.thumbs[name] = nil
-  if st.fullName == name then st.fullName = nil end
+  love.filesystem.remove(item.path)
+  if item.video then
+    love.filesystem.remove(item.mp4)
+    love.filesystem.remove(item.uriPath)
+  end
+  st.thumbs[item.path] = nil
+  if st.fullName == item.path then st.fullName = nil end
   st.confirmDelete = nil
   listPhotos()
   Sfx.play("cancel")
-  toast("Deleted")
+  toast(item.video and "Deleted (the gallery copy stays)" or "Deleted")
+end
+
+-- a video plays in the phone's own player, from its gallery copy
+local function playVideo(item)
+  local ok, uri = pcall(love.filesystem.read, item.uriPath)
+  if ok and type(uri) == "string" and uri:match("^content://") and love.system and love.system.openURL then
+    Sfx.play("open")
+    love.system.openURL(uri)
+  else
+    toast("Turn on Copy to phone gallery to play videos")
+    Sfx.play("noMove")
+  end
 end
 
 local function activate(id)
@@ -985,30 +1223,37 @@ local function activate(id)
   elseif id == "zoomOut" then
     zoom(-1)
   elseif id:match("^mode:") then
+    if id ~= "mode:video" then stopRecording() end
     st.mode = id:sub(6)
     st.multi, st.timerAt = nil, nil
     saveCfg()
     Sfx.play("button")
   elseif id:match("^photo:") then
     local i = tonumber(id:sub(7))
-    if i == st.sel then setView("camera") else pick(i) end
+    local item = (st.photos or {})[i]
+    if i ~= st.sel then pick(i)
+    elseif item and item.video then playVideo(item)
+    else setView("camera") end
   elseif id == "pagePrev" or id == "pageNext" then
     local p = clamp(st.page + (id == "pageNext" and 1 or -1), 1, pages())
     if p == st.page then Sfx.play("edge") else Sfx.play("strip") end
     st.page = p
     pick((p - 1) * PER_PAGE + 1)
   elseif id == "info" then
-    local name = (st.photos or {})[st.sel]
-    if name then
-      local info = love.filesystem.getInfo(DIR .. "/" .. name) or {}
-      local when = info.modtime and os.date("%Y/%m/%d %H:%M", info.modtime) or ""
-      toast(("%s  %s  %d KB"):format(name:gsub("%.png$", ""), when, math.floor((info.size or 0) / 1024)))
+    local item = (st.photos or {})[st.sel]
+    if item then
+      local when = item.time > 0 and os.date("%Y/%m/%d %H:%M", item.time) or ""
+      toast(("%s  %s  %d KB"):format(item.name, when, math.floor(item.size / 1024)))
       Sfx.play("dialog")
     end
   elseif id == "delete" then
     deletePhoto()
   elseif id == "set:facing" then
     flip()
+  elseif id == "filterNext" or id == "set:filter" then
+    setFilter(Filters.step(st.filter, 1))
+  elseif id == "filterPrev" then
+    setFilter(Filters.step(st.filter, -1))
   elseif id == "set:sound" then
     st.sound = not st.sound; saveCfg(); Sfx.play(st.sound and "on" or "off")
   elseif id == "set:grid" then
@@ -1069,13 +1314,18 @@ function C.button(name)
     elseif name == "y" then setView("photos")
     elseif name == "up" then zoom(1)
     elseif name == "down" then zoom(-1)
+    elseif name == "left" then setFilter(Filters.step(st.filter, -1))
+    elseif name == "right" then setFilter(Filters.step(st.filter, 1))
     end
   elseif st.view == "photos" then
     if name == "left" then pick(st.sel - 1)
     elseif name == "right" then pick(st.sel + 1)
     elseif name == "up" then pick(st.sel - 5)
     elseif name == "down" then pick(st.sel + 5)
-    elseif name == "a" or name == "y" then setView("camera")
+    elseif name == "a" then
+      local item = (st.photos or {})[st.sel]
+      if item and item.video then playVideo(item) else setView("camera") end
+    elseif name == "y" then setView("camera")
     elseif name == "x" then deletePhoto()
     elseif name == "l" then activate("pagePrev")
     elseif name == "r" then activate("pageNext")
@@ -1106,6 +1356,7 @@ end
 
 function C.close()
   if not st.open then return end
+  stopRecording()
   st.open = false
   stopCamera()
   st.data, st.image, st.info = nil, nil, nil
@@ -1120,6 +1371,7 @@ function C.update(dt, showing)
   st.t = st.t + (dt or 0)
   if not st.open then return end
   if not showing then
+    stopRecording()
     if st.camState ~= 0 and st.camState ~= "none" then stopCamera(); st.paused = true end
     return
   end

@@ -112,8 +112,10 @@ public final class FoldCamera {
             a.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    // the microphone too, for the sound of videos (FoldRecorder)
                     ActivityCompat.requestPermissions(a,
-                        new String[]{ Manifest.permission.CAMERA }, PERMISSION_REQUEST);
+                        new String[]{ Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO },
+                        PERMISSION_REQUEST);
                 }
             });
             return state;

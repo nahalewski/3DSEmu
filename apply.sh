@@ -21,7 +21,7 @@ git checkout -q -- main.lua scripts/build_android.sh src/import/LauncherView.lua
 # the Android picker's "image" kind (the cover sticker), and the camera bridge
 # (love.system.foldCamera -> FoldCamera.java, the Camera applet)
 for p in "$HERE"/patches/*.patch; do git apply "$p"; done
-cp "$HERE/android/FoldCamera.java" mobile/android/love/src/main/java/org/love2d/android/FoldCamera.java
+cp "$HERE"/android/*.java mobile/android/love/src/main/java/org/love2d/android/
 # the layer
 rm -rf fold3ds && cp -r "$HERE/fold3ds" fold3ds
 # the community mod catalog (gen1recomp.com/mod) as of this build: shipped so
@@ -44,6 +44,8 @@ printf '\n-- the Android foldable layer (fold3ds/): a 3DS on a foldable, the lid
 python3 - <<'PY'
 import re, pathlib
 p = pathlib.Path("scripts/build_android.sh"); s = p.read_text()
+# the Camera applet records video with sound: keep the microphone permission
+s = s.replace('    "android.permission.RECORD_AUDIO",\n', "")
 s = s.replace("main.lua conf.lua src data assets tools/save-editor \\", "main.lua conf.lua src data assets fold3ds tools/save-editor \\")
 s = s.replace("-x 'data/generated/*' -x 'assets/generated/*')", "-x 'data/generated/*' -x 'assets/generated/*' -x 'fold3ds/dev/*')")
 p.write_text(s)

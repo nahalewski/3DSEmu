@@ -1203,6 +1203,8 @@ end
 skipBoot = function()
   local b = state.boot
   if not booting() then return false end
+  -- already fading: the touch is the menu's
+  if state.time - b.t0 >= BOOT_TIME - BOOT_FADE then return false end
   -- straight to the fade
   b.t0 = math.min(b.t0, state.time - (BOOT_TIME - BOOT_FADE))
   return true

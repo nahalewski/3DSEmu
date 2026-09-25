@@ -91,8 +91,17 @@ upstream's own Android build script.
   the self-timer counts down, green as the shutter fires, with a white
   flash and a shutter click).  On the bottom screen: Shoot (or A, L, R),
   Photos, Settings, zoom + / - (or up / down, up to 4x), the rear / front
-  camera switch (or X), and the modes Auto, Multi (four shots half a
-  second apart in one 2x2 picture) and Self-Timer (3 s).  Photos shows the
+  camera switch (or X), the filter chip (or left / right), and the modes
+  Auto, Video, Multi (four shots half a second apart in one 2x2 picture)
+  and Self-Timer (3 s).  Filters, after the 3DS camera's effects and
+  lenses (`fold3ds/camfilters.lua`, shaders): Normal, Sepia, Black &
+  White, Negative, Posterize, Pinhole, Fisheye, Mosaic, Mirror, Sparkle,
+  Sketch -- in the viewfinder, the pictures and the videos.  Video: Shoot
+  starts and stops (a red REC timer and red brackets while it runs, up to
+  ten minutes), H.264 with the microphone's sound in
+  `videos/HNV_0001.mp4`; the album shows videos with a play mark and A
+  plays them in the phone's video player from the gallery copy
+  (Movies/Gen1Recomp).  Photos shows the
   pictures newest first, ten to a page (swipe or left / right), the chosen
   one big on the top screen, with info and delete (tap the bin twice).
   Settings: camera, shutter sound, grid lines, and whether a copy goes to
@@ -100,9 +109,11 @@ upstream's own Android build script.
   `photos/HNI_0001.png`, ... in the save folder, exactly what the top
   screen shows.  Android asks for camera permission the first time.  The
   camera stops while the phone is folded or the applet is closed.  Native side:
-  `android/FoldCamera.java` (Camera2) and `patches/android-camera.patch`
-  (`love.system.foldCamera` in liblove, YUV to RGBA straight into an
-  ImageData; the CAMERA permission).
+  `android/FoldCamera.java` (Camera2), `android/FoldRecorder.java`
+  (MediaCodec H.264 + AAC into MediaMuxer) and
+  `patches/android-camera.patch` (`love.system.foldCamera` in liblove:
+  YUV to RGBA straight into an ImageData, RGBA to YUV for the encoder;
+  the CAMERA and RECORD_AUDIO permissions).
 * **Menu sounds**: the 3DS HOME menu's own sound effects
   (`fold3ds/sounds/`, trimmed) on the menus -- tiles, the applet bar,
   resizing, lifting and dropping icons, scrolling, HOME, back, launcher
