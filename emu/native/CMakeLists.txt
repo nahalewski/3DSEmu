@@ -48,7 +48,7 @@ endif()
 
 add_library(emucore SHARED emucore.cpp ds_host.cpp vc_host.c)
 target_include_directories(emucore PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${MELONDS_DIR}/src")
-target_link_libraries(emucore PRIVATE core skyemu m)
+target_link_libraries(emucore PRIVATE core skyemu m ${CMAKE_DL_LIBS})
 # only emucore.h's functions are exported; the cores and the C++ runtime
 # stay inside
 set_target_properties(emucore PROPERTIES C_VISIBILITY_PRESET hidden CXX_VISIBILITY_PRESET hidden
