@@ -171,6 +171,10 @@ upstream's own Android build script.
   on the open shells instead: the editor's *On: top shell / On: bottom
   shell* row picks which one.  They sit under the screens and buttons,
   so they never cover them, and they are cut to the shell.
+* **Startup, as a 3DS starts**: the boot screen and its jingle, then the
+  *Health & Safety Information* warning (its real HOME Menu title, EN or
+  JP with the artwork setting) until a touch or a button, then the HOME
+  Menu coming up out of white.
 * **Real 3DS HOME Menu art**: the HOME bar's Camera, Download Play,
   eShop, Settings and Online wear the 3DS's own HOME Menu icons (from The
   Spriters Resource's 3DS HOME Menu sheets, kept whole in

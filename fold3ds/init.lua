@@ -1545,25 +1545,38 @@ local function drawLidIn(x, y, W, H, portrait, cover)
 end
 
 -- a wallpaper filling a w x h box, cropped rather than stretched
--- The boot screen: the G1R Deluxe logo on both screens (fold3ds/boot/),
--- the lid's click, then the HOME menu's welcome jingle; it fades into the
--- menu after a few seconds, or at once on a tap or a button.
+-- The startup, as a 3DS starts: the boot screen (the G1R Deluxe logo on
+-- both screens, fold3ds/boot/, the lid's click, then the HOME menu's welcome
+-- jingle), then the Health & Safety warning until a touch or a button, then
+-- the HOME menu coming up out of white.  A tap hurries the logo along.
 local BOOT_TIME, BOOT_FADE = 3.6, 0.5
+local HS_FADE, HOME_TIME = 0.35, 0.7
 local function booting()
   local b = state.boot
   if not b then return false end
-  if state.time - b.t0 > BOOT_TIME then state.boot = nil return false end
+  local age = state.time - b.t0
+  if b.phase == "logo" and age > BOOT_TIME then b.phase, b.t0 = "hs", state.time end
+  if b.phase == "home" and age > HOME_TIME then state.boot = nil return false end
   return true
 end
 
 skipBoot = function()
   local b = state.boot
   if not booting() then return false end
-  -- already fading: the touch is the menu's
-  if state.time - b.t0 >= BOOT_TIME - BOOT_FADE then return false end
-  -- straight to the fade
-  b.t0 = math.min(b.t0, state.time - (BOOT_TIME - BOOT_FADE))
-  return true
+  if b.phase == "logo" then
+    -- straight to the fade
+    b.t0 = math.min(b.t0, state.time - (BOOT_TIME - BOOT_FADE))
+    return true
+  end
+  if b.phase == "hs" then
+    -- not while it is still coming up (the tap that hurried the logo)
+    if state.time - b.t0 < HS_FADE then return true end
+    b.phase, b.t0 = "home", state.time
+    Sfx.play("click")
+    return true
+  end
+  -- the menu coming up: the touch is the menu's
+  return false
 end
 
 local function bootImage(name)
@@ -1605,18 +1618,97 @@ local function drawBootScreen(img, r, age, zoom, a)
   lg.setScissor()
 end
 
+local function healthImage(name)
+  local key = "health:" .. name
+  if state.images[key] == nil then
+    local ok, img = pcall(lg.newImage, DIR .. "health/" .. name .. ".png")
+    state.images[key] = ok and img or false
+    if ok then img:setFilter("linear", "linear") end
+  end
+  return state.images[key] or nil
+end
+
+-- the Health & Safety warning: its HOME Menu title (EN or JP with the
+-- artwork setting) over the note on the top screen, the prompt below
+local function drawHealth(L, age)
+  local a = math.min(1, age / HS_FADE)
+  local t, bt = L.topCut, L.botCut
+  for _, r in ipairs({ t, bt }) do
+    lg.setScissor(r.x, r.y, r.w, r.h)
+    lg.setColor(0.97, 0.97, 0.97, 1)
+    lg.rectangle("fill", r.x, r.y, r.w, r.h)
+    lg.setColor(0.86, 0.86, 0.87, 1)
+    for y = r.y, r.y + r.h, math.max(2, math.floor(r.h / 60)) * 2 do
+      lg.rectangle("fill", r.x, y, r.w, 1)
+    end
+  end
+  -- top: the title bar, then the note
+  lg.setScissor(t.x, t.y, t.w, t.h)
+  local barH = t.h * 0.3
+  lg.setColor(1, 1, 1, 1)
+  lg.rectangle("fill", t.x, t.y + t.h * 0.08, t.w, barH)
+  lg.setColor(0.8, 0.8, 0.8, 1)
+  lg.rectangle("fill", t.x, t.y + t.h * 0.08 + barH, t.w, 2)
+  local warn = healthImage("warn")
+  local title = healthImage(Cart3D.region == "jp" and "title_jp" or "title_en")
+  local wx = t.x + t.w * 0.06
+  if warn then
+    local k = barH * 0.62 / warn:getHeight()
+    lg.setColor(1, 1, 1, 1)
+    lg.draw(warn, wx, t.y + t.h * 0.08 + barH / 2, 0, k, k, 0, warn:getHeight() / 2)
+    wx = wx + warn:getWidth() * k + t.w * 0.05
+  end
+  if title then
+    local k = math.min(barH * 0.7 / title:getHeight(), (t.x + t.w * 0.95 - wx) / title:getWidth())
+    lg.setColor(1, 1, 1, 1)
+    lg.draw(title, wx, t.y + t.h * 0.08 + barH / 2, 0, k, k, 0, title:getHeight() / 2)
+  end
+  local f = font(t.h * 0.066)
+  lg.setFont(f)
+  lg.setColor(0.2, 0.2, 0.22, 1)
+  lg.printf("Before using this software, read the Health & Safety Information "
+    .. "on the HOME Menu. It contains important information that will help "
+    .. "you enjoy this software.", t.x + t.w * 0.08, t.y + t.h * 0.47, t.w * 0.84, "left")
+  -- bottom: the prompt, breathing
+  lg.setScissor(bt.x, bt.y, bt.w, bt.h)
+  local pulse = 0.55 + 0.45 * math.abs(math.sin(state.time * 2.2))
+  lg.setFont(font(bt.h * 0.07))
+  lg.setColor(0.2, 0.2, 0.22, pulse)
+  lg.printf("Touch the Touch Screen to continue.", bt.x, bt.y + bt.h * 0.46, bt.w, "center")
+  lg.setScissor()
+  -- up from black, after the logo's fade
+  if a < 1 then
+    lg.setColor(0, 0, 0, 1 - a)
+    for _, r in ipairs({ t, bt }) do lg.rectangle("fill", r.x, r.y, r.w, r.h) end
+  end
+end
+
 local function drawBoot(L)
   if not booting() then return end
   local b = state.boot
   local age = state.time - b.t0
-  -- the jingle, a beat after the click
-  if not b.jingle and age > 0.3 then b.jingle = true; Sfx.play("boot") end
-  local a = 1
-  if age > BOOT_TIME - BOOT_FADE then a = math.max(0, (BOOT_TIME - age) / BOOT_FADE) end
-  local zoom = 1 + 0.035 * math.min(1, age / BOOT_TIME)
   lg.push("all")
-  drawBootScreen(bootImage("top"), L.topCut, age, zoom, a)
-  drawBootScreen(bootImage("bottom"), L.botCut, age, zoom, a)
+  if b.phase == "hs" then
+    drawHealth(L, age)
+  elseif b.phase == "home" then
+    -- the HOME menu comes up out of white
+    local a = 1 - math.min(1, age / HOME_TIME)
+    lg.setColor(1, 1, 1, a * a)
+    for _, r in ipairs({ L.topCut, L.botCut }) do lg.rectangle("fill", r.x, r.y, r.w, r.h) end
+  else
+    -- the jingle, a beat after the click
+    if not b.jingle and age > 0.3 then b.jingle = true; Sfx.play("boot") end
+    local a = 1
+    if age > BOOT_TIME - BOOT_FADE then a = math.max(0, (BOOT_TIME - age) / BOOT_FADE) end
+    local zoom = 1 + 0.035 * math.min(1, age / BOOT_TIME)
+    -- it fades to black, for the warning
+    for _, r in ipairs({ L.topCut, L.botCut }) do
+      lg.setColor(0, 0, 0, 1)
+      lg.rectangle("fill", r.x, r.y, r.w, r.h)
+    end
+    drawBootScreen(bootImage("top"), L.topCut, age, zoom, a)
+    drawBootScreen(bootImage("bottom"), L.botCut, age, zoom, a)
+  end
   lg.pop()
 end
 
@@ -1979,7 +2071,7 @@ function backend:beginFrame(kind, subject)
   -- the first time the menu comes up on the open 3DS: the boot screen
   if kind == "launcher" and not state.chimed and state.mode == "ds" then
     state.chimed = true
-    state.boot = { t0 = state.time, jingle = false }
+    state.boot = { t0 = state.time, jingle = false, phase = "logo" }
     Sfx.play("click")
   end
   Sfx.inGame = kind == "game"
