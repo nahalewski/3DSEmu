@@ -68,10 +68,15 @@ end
 
 local function parse(text)
   local status, games = nil, {}
+  st.userDir, st.gamesDir = nil, nil
   for line in text:gmatch("[^\n]+") do
     local f = split(line)
     if f[1] == "state" then
       status = f[2]
+    elseif f[1] == "userdir" then
+      st.userDir = f[2] ~= "" and f[2] or nil
+    elseif f[1] == "gamesdir" then
+      st.gamesDir = f[2] ~= "" and f[2] or nil
     elseif f[1] == "game" and f[2] and f[2]:match("^[%w_]+$") then
       games[#games + 1] = {
         id = "ctr_" .. f[2], key = f[2], ctr = true,
@@ -79,6 +84,7 @@ local function parse(text)
         sub = (f[4] ~= "" and f[4]) or "Nintendo 3DS",
         regions = f[5], hasIcon = f[6] == "1", installed = f[7] == "1",
         tdb = f[9] ~= "" and f[9] or nil, hasCart = f[10] == "1",
+        file = f[11] ~= "" and f[11] or nil, titleId = f[12],
       }
     end
   end
@@ -118,6 +124,27 @@ function A.poll(time)
 end
 
 function A.status() return st.status end
+-- Azahar's folder and the 3DS games folder, as paths (Download Play)
+function A.userDir() return st.userDir end
+function A.gamesDir() return st.gamesDir end
+
+-- a 3DS game's files for Download Play, as FoldBridge.zip entries
+-- ("/path=>entry"): the cartridge dump (games3ds/<file>) and, in Azahar's
+-- folder, its title folders -- the game if installed, its update, its DLC
+-- and its save data -- at the same place (azahar/sdmc/...)
+local SDMC = "sdmc/Nintendo 3DS/00000000000000000000000000000000/00000000000000000000000000000000/title/"
+function A.transferEntries(t)
+  local out = {}
+  if t.file then out[#out + 1] = t.file .. "=>games3ds/" .. (t.file:match("[^/]+$") or "game.3ds") end
+  local low = t.titleId and t.titleId:sub(9, 16)
+  if st.userDir and low and #low == 8 then
+    for _, high in ipairs({ "00040000", "0004000e", "0004008c" }) do
+      local rel = SDMC .. high .. "/" .. low
+      out[#out + 1] = st.userDir .. "/" .. rel .. "=>azahar/" .. rel
+    end
+  end
+  return out
+end
 function A.games() return st.games end
 
 -- the game's own icon (48x48 from its SMDH)

@@ -2,11 +2,16 @@
 -- one phone sends a game's files, another nearby receives them, the way a
 -- 3DS hands a game to its neighbour.
 --
--- What travels: the game itself -- its ROM (this phone's kept copy, or
--- baseroms/) -- in one package with its saves (saves/<game>/ and
--- save_<game>.lua, with their backups) and the installed mods.  The
--- receiving phone installs the saves and mods and imports the ROM straight
--- away, so the game is ready to play there as on a 3DS.
+-- What travels: the game itself, ready to play on the other phone, with
+-- nothing to pick there:
+--   * a gen1recomp game: its ROM (this phone's kept copy, or baseroms/) in
+--     one package with its saves (saves/<game>/ and save_<game>.lua, with
+--     their backups) and the installed mods; the receiving phone installs
+--     the saves and mods and imports the ROM straight away;
+--   * a 3DS game (Azahar's library, fold3ds.azahar): the cartridge dump,
+--     which lands in the other phone's 3DS games folder, and its folders in
+--     Azahar's -- the installed game, its update, its DLC, its save data --
+--     which land at the same place in the other phone's Azahar folder.
 --
 -- The transfer is FoldPlay.java (Google Nearby Connections through
 -- love.system.foldCamera("call", "dp.*")): the phones find each other over
@@ -154,7 +159,43 @@ end
 ---------------------------------------------------------------- actions
 
 -- one package: the ROM (downloadplay/rom/<file>), the saves, the mods
+local Azahar = require("fold3ds.azahar")
+
+local function s3dsName(game) return type(game) == "string" and game:match("^3DS %- ") ~= nil end
+
+-- the 3DS game with this tile id, from Azahar's library
+local function ctrGame(id)
+  for _, g in ipairs(Azahar.games()) do if g.id == id then return g end end
+end
+
+-- a name another phone's list can show (no : ; | in it)
+local function wireName(s) return (s:gsub("[:;|]", " ")) end
+
+local function sendCtr(id)
+  local g = ctrGame(id)
+  if not g then toast("That 3DS game is gone") Sfx.play("noMove") return end
+  local files = Azahar.transferEntries(g)
+  if #files == 0 then toast("Couldn't find " .. g.name .. "'s files") Sfx.play("noMove") return end
+  st.game = id
+  NAMES[id] = g.name
+  if fakeMode then
+    st.fake = { role = "host", t0 = st.t }
+    st.view = "hosting"
+    Sfx.play("open")
+    return
+  end
+  local root = love.filesystem.getSaveDirectory()
+  love.filesystem.createDirectory(DIR)
+  local zip = root .. "/" .. DIR .. "/send_3ds.zip"
+  local r = bridge("zip", root .. "|" .. zip .. "|" .. table.concat(files, ";"))
+  if not r or not r:match("^ok:[1-9]") then toast("Couldn't pack " .. g.name) Sfx.play("cancel") return end
+  bridge("dp.host", zip .. "|" .. myName() .. "|" .. wireName("3DS - " .. g.name))
+  st.view = "hosting"
+  Sfx.play("open")
+end
+
 local function send(v)
+  if v:match("^ctr_") then return sendCtr(v) end
   local rom, name = romBytes(v)
   if not rom then
     toast("No ROM for " .. NAMES[v] .. " on this phone -- import it first")
@@ -224,7 +265,9 @@ local function install()
   if fakeMode then toast("Installed (test)") st.view = "menu" return end
   local root = love.filesystem.getSaveDirectory()
   local backup = root .. "/" .. DIR .. "/backup_" .. os.date("%Y%m%d_%H%M%S")
-  local r = bridge("unzip", (st.status.file or "") .. "|" .. root .. "|" .. backup)
+  -- a 3DS game's files go to Azahar's folder and the 3DS games folder
+  local r = bridge("unzip", (st.status.file or "") .. "|" .. root .. "|" .. backup
+    .. "|" .. (Azahar.userDir() or "") .. "|" .. (Azahar.gamesDir() or ""))
   if r and r:match("^ok") then
     local n = r:match("^ok:(%d+)") or "0"
     toast(("Installed %s files; the old ones are in %s"):format(n, DIR .. "/backup_..."))
@@ -241,6 +284,15 @@ local function install()
       end
     end
     romKnown = {}
+    -- a 3DS game: Azahar looks again, and the game joins the HOME menu
+    local threeDs = tonumber(r:match("^ok:%d+:%d+:(%d+)") or "0") or 0
+    if threeDs > 0 then
+      Azahar.open("refresh")
+      st.imported = true
+    elseif (s3dsName(st.status.game)) and not Azahar.userDir() then
+      toast("Set up 3DS on this phone first (the Set Up 3DS icon), then receive again")
+    end
+  else
     toast("Couldn't install: " .. tostring(r))
     Sfx.play("cancel")
   end
@@ -399,13 +451,36 @@ function D.drawBottom(r)
     button("receive", r.x + pad, y0 + bh + pad, bw, bh, "Receive", false,
       "A game from a phone nearby")
   elseif st.view == "pick" then
+    -- the recomp games, then the 3DS games, eight to a page
+    local list = {}
+    for _, v in ipairs(GAMES) do
+      list[#list + 1] = { id = v, name = NAMES[v],
+        sub = not hasRom(v) and "no ROM on this phone" or hasSaves(v) and "with its saves" or "no saves yet" }
+    end
+    for _, g in ipairs(Azahar.games()) do
+      list[#list + 1] = { id = g.id, name = g.name, sub = g.installed and "3DS, installed" or "3DS" }
+    end
     local cols, rows = 2, 4
+    local pages = math.max(1, math.ceil(#list / (cols * rows)))
+    st.pickPage = clamp(st.pickPage or 1, 1, pages)
+    local arrowsH = pages > 1 and rowH * 0.8 or 0
     local bw = (r.w - pad * 3) / cols
-    local bh = (h0 - pad * rows) / rows
-    for i, v in ipairs(GAMES) do
+    local bh = (h0 - arrowsH - pad * rows) / rows
+    local first = (st.pickPage - 1) * cols * rows
+    for i = 1, cols * rows do
+      local e = list[first + i]
+      if not e then break end
       local cx = r.x + pad + ((i - 1) % cols) * (bw + pad)
       local cy = y0 + math.floor((i - 1) / cols) * (bh + pad)
-      button("game:" .. v, cx, cy, bw, bh, NAMES[v], false, not hasRom(v) and "no ROM on this phone" or hasSaves(v) and "with its saves" or "no saves yet")
+      button("game:" .. e.id, cx, cy, bw, bh, e.name, false, e.sub)
+    end
+    if pages > 1 then
+      local ay = r.y + r.h - pad - arrowsH
+      button("pageprev", r.x + pad, ay, r.w * 0.3, arrowsH, "<", false)
+      button("pagenext", r.x + r.w - pad - r.w * 0.3, ay, r.w * 0.3, arrowsH, ">", false)
+      lg.setFont(f)
+      col(INK, 0.8)
+      lg.printf(("%d / %d"):format(st.pickPage, pages), r.x, ay + (arrowsH - f:getHeight()) / 2, r.w, "center")
     end
   elseif st.view == "hosting" or st.view == "searching" or st.view == "receiving" then
     local state = s.state or ""
@@ -505,6 +580,9 @@ local function activate(id)
     receive()
   elseif id:match("^game:") then
     send(id:sub(6))
+  elseif id == "pageprev" or id == "pagenext" then
+    st.pickPage = (st.pickPage or 1) + (id == "pagenext" and 1 or -1)
+    Sfx.play("select")
   elseif id:match("^peer:") then
     local p = (st.status.peerList or {})[tonumber(id:sub(6))]
     if p then connect(p) end

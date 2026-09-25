@@ -173,6 +173,17 @@ upstream's own Android build script.
   wait in SKINS (*Put the fallen ones back*).  Stickers keep their
   proportions, stay on the lid's flat face and are cut to the shell's
   shape.
+* **Real 3DS HOME Menu art**: the HOME bar's Camera, Download Play,
+  eShop, Settings and Online wear the 3DS's own HOME Menu icons (from The
+  Spriters Resource's 3DS HOME Menu sheets, kept whole in
+  `fold3ds/homesprites/`, not packed into the APK).  Picking Camera or
+  Settings on the bar shows its banner on the top screen as the 3DS does:
+  the icon turning in 3D over the app's real title ("Nintendo 3DS Camera",
+  "System Settings"), in English or Japanese with SKINS > CARTRIDGE
+  ARTWORK (`fold3ds/banners/`).  *Division of work*: this UI layer
+  (fold3ds/*.lua, icons, banners) is kept in step with the Azahar base
+  (azahar/, shell/, build.sh -- the other session's) by merging before
+  every push.
 * **Nintendo eShop (3DS theme)**: the shopping bag on the applet bar is
   the community mod catalog as a 3DS store (`fold3ds/eshop.lua`, art in
   `fold3ds/eshop/` cut from the supplied eShop sheet).  The orange eShop
