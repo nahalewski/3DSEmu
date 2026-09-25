@@ -1,0 +1,105 @@
+name: Fetch 3DS system sounds
+
+# Downloads the 3DS system sound effects for the HOME menu UI and commits
+# them to the sounds-3ds branch (with INDEX.tsv):
+#   * The Sounds Resource, 3DS System / BIOS: every asset;
+#   * khinsider, "Nintendo 3DS Sound Effects" (gamerip, 2011): every track.
+on:
+  push:
+    branches: [fetch-sounds]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download
+        run: |
+          mkdir -p out/spriters out/khinsider
+          python3 - <<'PY'
+          import gzip, html, os, re, time, urllib.parse, urllib.request
+          UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"}
+          log = []
+          def get(url, t=120):
+              for a in range(3):
+                  try:
+                      b = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=t).read()
+                      if b[:2] == b"\x1f\x8b":
+                          b = gzip.decompress(b)
+                      return b
+                  except Exception as e:
+                      err = e
+                      time.sleep(3 * (a + 1))
+              raise err
+          def safe(s): return re.sub(r"[^A-Za-z0-9._-]+", "_", s)[:120]
+
+          # ---- The Sounds Resource: 3DS System / BIOS
+          base = "https://sounds.spriters-resource.com"
+          try:
+              page = get(base + "/3ds/systembios/").decode("utf-8", "replace")
+              ids = []
+              for href in re.findall(r'href="(/3ds/systembios/(?:asset|sound|sheet)/(\d+)/?)"', page):
+                  if href[1] not in [i[1] for i in ids]:
+                      ids.append(href)
+              log.append("SPRITERS\tindex\t%d assets" % len(ids))
+              for href, sid in ids:
+                  try:
+                      ap = get(base + href).decode("utf-8", "replace")
+                      title = html.unescape((re.findall(r"<title>([^<]*)", ap) or [sid])[0]).split("|")[0].strip()
+                      links = set(re.findall(r'(?:href|src)="((?:https://[^"]*spriters-resource\.com)?/(?:media/assets|download|resources/sounds)/[^"]+)"', ap))
+                      got = 0
+                      for l in links:
+                          url = l if l.startswith("http") else base + l
+                          body = get(url, 180)
+                          ext = ".zip" if body[:2] == b"PK" else ".wav" if body[:4] == b"RIFF" else ".ogg" if body[:4] == b"OggS" else ".mp3" if body[:3] in (b"ID3", b"\xff\xfb") else ".bin"
+                          if ext == ".bin" and body[:15].lower().startswith(b"<!doctype") : continue
+                          name = safe("%s__%s__%s" % (sid, title, url.rstrip("/").rsplit("/", 1)[-1]))
+                          if not name.endswith(ext): name += ext
+                          open(os.path.join("out/spriters", name), "wb").write(body)
+                          got += 1
+                      log.append("SPRITERS\t%s\t%s\t%d files" % (sid, title, got))
+                  except Exception as e:
+                      log.append("SPRITERS FAILED\t%s\t%s" % (sid, e))
+                  time.sleep(0.4)
+          except Exception as e:
+              log.append("SPRITERS INDEX FAILED\t%s" % e)
+
+          # ---- khinsider: Nintendo 3DS Sound Effects
+          album = "https://downloads.khinsider.com/game-soundtracks/album/nintendo-3ds-sound-sound-effects-3ds-gamerip-2011"
+          try:
+              page = get(album).decode("utf-8", "replace")
+              songs = []
+              for s in re.findall(r'href="(/game-soundtracks/album/nintendo-3ds-sound-sound-effects-3ds-gamerip-2011/[^"]+)"', page):
+                  if s not in songs: songs.append(s)
+              log.append("KHINSIDER\tindex\t%d tracks" % len(songs))
+              for s in songs:
+                  try:
+                      sp = get("https://downloads.khinsider.com" + s).decode("utf-8", "replace")
+                      files = re.findall(r'href="(https?://[^"]+\.(?:flac|mp3|ogg|m4a))"', sp)
+                      pick = [f for f in files if f.endswith(".flac")] or files
+                      for f in pick[:1]:
+                          body = get(f, 180)
+                          name = safe(urllib.parse.unquote(f.rsplit("/", 1)[-1]))
+                          open(os.path.join("out/khinsider", name), "wb").write(body)
+                          log.append("KHINSIDER\t%s" % name)
+                  except Exception as e:
+                      log.append("KHINSIDER FAILED\t%s\t%s" % (s, e))
+                  time.sleep(0.3)
+          except Exception as e:
+              log.append("KHINSIDER INDEX FAILED\t%s" % e)
+          open("out/INDEX.tsv", "w").write("\n".join(log) + "\n")
+          PY
+          find out -type f | wc -l; du -sh out
+      - name: Commit to the sounds-3ds branch
+        run: |
+          cd out
+          git init -q
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout -q -b sounds-3ds
+          git add -A
+          git commit -qm "3DS system sounds: The Sounds Resource (3DS System / BIOS) and khinsider (Nintendo 3DS Sound Effects)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" sounds-3ds
