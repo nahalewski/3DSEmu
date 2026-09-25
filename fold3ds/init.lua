@@ -1546,6 +1546,21 @@ function backend:update(dt)
     if n ~= 0 then setVolume((state.volume or 1) + n / 10) end
   end
   if state.volSaveAt and state.time >= state.volSaveAt then state.volSaveAt = nil; saveSettings() end
+  -- the top screen's cartridge feels the phone: a quick spin when it is
+  -- moved (the gyroscope), a lean with its tilt (the accelerometer)
+  if Theme3DS.active and state.mode == "ds" and state.kind ~= "game" then
+    if state.sensors == nil then
+      local ok, S = pcall(require, "src.core.Sensors")
+      state.sensors = ok and S or false
+    end
+    local S = state.sensors
+    if S then
+      local ok, gx, gy, gz = pcall(S.read, "gyroscope")
+      if ok and gx and math.sqrt(gx * gx + gy * gy + (gz or 0) ^ 2) > 2.4 then Cart3D.kick(state.time) end
+      local ok2, ax, ay = pcall(S.read, "accelerometer")
+      if ok2 and ax then Cart3D.setTilt(-ax / 9.8, ay / 9.8 - 0.5) end
+    end
+  end
   -- today's steps for the top screen (every few seconds, 3DS theme only)
   if Theme3DS.active and state.time >= (state.stepsAt or 0) then
     state.stepsAt = state.time + 3
