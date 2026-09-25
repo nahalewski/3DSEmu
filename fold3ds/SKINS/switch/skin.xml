@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  =============================================================================
+  gen1recomp - Nintendo Switch Full Screen UI Skin Definition
+  =============================================================================
+  This file configures the full-screen Nintendo Switch home menu skin.
+  Users can customize colors, dimensions, positions, fonts, textures, themes,
+  game templates, retro frames, and sounds.
+-->
+<Skin id="switch" name="Nintendo Switch (Full Screen)" version="1.1.0" author="gen1recomp">
+  <Description>Full screen Nintendo Switch interface theme with carousel, retro frames, status bar, and quick settings.</Description>
+
+  <!-- Display & Screen Mode -->
+  <Display>
+    <!-- mode: "full_screen" (Switch style) or "clamshell" (3DS style dual screen) -->
+    <Mode>full_screen</Mode>
+    <!-- Base design resolution; UI scales smoothly to match any display window or fullscreen -->
+    <TargetResolution width="1280" height="720" />
+    <AspectRatio>16:9</AspectRatio>
+    <!-- Safe area padding for notches or rounded screen borders (left, top, right, bottom in px) -->
+    <SafeArea left="40" top="24" right="40" bottom="24" />
+  </Display>
+
+  <!-- Global Color Palette & Themes -->
+  <Theme>
+    <!-- Default active theme variant: "light" or "dark" -->
+    <ActiveVariant>dark</ActiveVariant>
+
+    <!-- Light Theme Variant -->
+    <Variant id="light" name="Basic White">
+      <Background type="image" src="textures/bg_light.png" fallbackColor="#EBEBEB" />
+      <DividerLine enabled="true" y="502" height="1.5" color="#D2D2D4" alpha="0.9" />
+      <Colors>
+        <Primary>#0AB9E6</Primary>            <!-- Switch signature Cyan -->
+        <Accent>#00D2FF</Accent>             <!-- Bright cyan glow / focus -->
+        <NintendoRed>#E60012</NintendoRed>   <!-- Iconic Nintendo Red -->
+        <TextPrimary>#2C2C2C</TextPrimary>   <!-- Dark charcoal headings/titles -->
+        <TextSecondary>#787878</TextSecondary><!-- Neutral subtitle/caption text -->
+        <TextMuted>#9B9B9B</TextMuted>
+        <TextInverse>#FFFFFF</TextInverse>   <!-- White text for buttons/badges -->
+        <Surface>#F2F2F2</Surface>
+        <CardDefaultFrame>textures/frame_clean.png</CardDefaultFrame>
+      </Colors>
+    </Variant>
+
+    <!-- Dark Theme Variant -->
+    <Variant id="dark" name="Basic Black">
+      <Background type="image" src="textures/bg_dark.png" fallbackColor="#2D2D2D" />
+      <DividerLine enabled="true" y="502" height="1.5" color="#3C3C3E" alpha="0.9" />
+      <Colors>
+        <Primary>#0AB9E6</Primary>            <!-- Switch signature Cyan -->
+        <Accent>#00D2FF</Accent>             <!-- Bright cyan glow / focus -->
+        <NintendoRed>#E60012</NintendoRed>   <!-- Iconic Nintendo Red -->
+        <TextPrimary>#FFFFFF</TextPrimary>   <!-- White headings/titles -->
+        <TextSecondary>#A0A0A0</TextSecondary><!-- Light gray subtitle text -->
+        <TextMuted>#6C7075</TextMuted>
+        <TextInverse>#1A1A1A</TextInverse>
+        <Surface>#2C2D30</Surface>
+        <CardDefaultFrame>textures/frame_dark.png</CardDefaultFrame>
+      </Colors>
+    </Variant>
+
+    <Fonts>
+      <GameTitle size="23" weight="bold" />
+      <Clock size="20" weight="bold" />
+      <StatusBarLabel size="14" weight="normal" />
+      <SystemIconLabel size="14" weight="medium" />
+      <ButtonPrompt size="14" weight="bold" />
+      <DialogTitle size="20" weight="bold" />
+      <DialogBody size="15" weight="normal" />
+      <FilterPill size="13" weight="bold" />
+    </Fonts>
+  </Theme>
+
+  <!-- Top Status Bar -->
+  <StatusBar enabled="true" y="24" height="48" paddingHorizontal="48">
+    <!-- User Profile Avatar (Left) -->
+    <UserProfile align="left" x="48" y="24">
+      <Avatar src="textures/icon_user.png" size="44" shape="circle" />
+      <Username text="Player 1" show="true" fontSize="15" />
+      <OnlineStatus src="textures/status_online.png" show="true" offsetX="140" offsetY="10" />
+    </UserProfile>
+
+    <!-- Indicators (Right) -->
+    <Indicators align="right" spacing="16" y="32">
+      <!-- Digital Clock: format "12h" or "24h" -->
+      <Clock format="12h" showAmPm="false" fontSize="22" />
+      <Wifi src="textures/status_wifi.png" width="28" height="20" show="true" />
+      <Bluetooth src="textures/status_bluetooth.png" width="16" height="22" show="true" />
+      <Battery src="textures/status_battery.png" width="36" height="20" show="true" showPercentage="true" />
+    </Indicators>
+  </StatusBar>
+
+  <!-- Filter Pills / Categories (Above Carousel) -->
+  <FilterBar enabled="true" y="88" height="34" paddingHorizontal="52" spacing="12">
+    <Filter id="all" label="All" active="true" src="textures/filter_all.png" width="80" height="36" />
+    <Filter id="games" label="Games" src="textures/filter_games.png" width="79" height="30" />
+    <Filter id="apps" label="Apps" src="textures/filter_apps.png" width="78" height="30" />
+    <Filter id="recent" label="Recent" src="textures/filter_recent.png" width="80" height="30" />
+    <Filter id="favorites" label="Favorites" src="textures/filter_favorites.png" width="92" height="30" />
+  </FilterBar>
+
+  <!-- Game Library Carousel -->
+  <Carousel y="145" height="340">
+    <Tile>
+      <Width>230</Width>
+      <Height>230</Height>
+      <CornerRadius>18</CornerRadius>
+      <Spacing>24</Spacing>
+      <SelectedScale>1.08</SelectedScale>
+      <UnselectedScale>0.92</UnselectedScale>
+      <AnimationSpeed>10.0</AnimationSpeed>
+      
+      <!-- Selection border glow -->
+      <FocusGlow src="textures/card_selected_glow.png" padding="16" pulseSpeed="2.0" glowColor="#0AB9E6" />
+      <FrameGlow src="textures/glow_frame.png" />
+      
+      <!-- Placeholders and badges -->
+      <PlaceholderLight src="textures/card_placeholder_light.png" />
+      <PlaceholderDark src="textures/card_placeholder_dark.png" />
+      <Locked src="textures/card_locked.png" />
+      <BadgeNotification src="textures/badge_notification_3.png" size="32" offsetX="-8" offsetY="-8" />
+    </Tile>
+
+    <!-- Selected Game Title -->
+    <TitleDisplay y="410" fontSize="24" align="center" showPublisher="true" />
+
+    <!-- Page Indicator Dots -->
+    <PageIndicator enabled="true" y="442" src="textures/page_dots.png" width="110" height="20" align="center" />
+
+    <!-- "All Software" button at end of carousel -->
+    <AllSoftware enabled="true" src="textures/icon_all_software.png" label="All Software" />
+  </Carousel>
+
+  <!-- Retro Game Card Templates & Framing (Dynamic Artwork Compositing) -->
+  <RetroFrames>
+    <!-- System frames with custom console spines and banners -->
+    <Frame system="gb" name="Game Boy" src="textures/frame_gb.png" window="55,22,196,180" radius="8" />
+    <Frame system="gbc" name="Game Boy Color" src="textures/frame_gbc.png" window="55,22,196,180" radius="8" />
+    <Frame system="gba" name="Game Boy Advance" src="textures/frame_gba.png" window="55,22,196,180" radius="8" />
+    <Frame system="nds" name="Nintendo DS" src="textures/frame_nds.png" window="55,22,196,180" radius="8" />
+    <Frame system="3ds" name="Nintendo 3DS" src="textures/frame_3ds.png" window="55,22,196,180" radius="8" />
+    <Frame system="nes" name="NES" src="textures/frame_nes.png" window="20,22,194,165" radius="8" />
+    <Frame system="snes" name="SNES" src="textures/frame_snes.png" window="20,22,194,165" radius="8" />
+    <Frame system="n64" name="Nintendo 64" src="textures/frame_n64.png" window="20,22,194,165" radius="8" />
+    <Frame system="gamecube" name="GameCube" src="textures/frame_gamecube.png" window="20,22,194,165" radius="8" />
+    <Frame system="wii" name="Wii" src="textures/frame_wii.png" window="20,22,194,165" radius="8" />
+    <Frame system="wiiu" name="Wii U" src="textures/frame_wiiu.png" window="20,36,194,178" radius="8" />
+    <Frame system="switch" name="Nintendo Switch" src="textures/frame_switch.png" window="20,36,194,178" radius="8" />
+    
+    <!-- Generic frames -->
+    <Frame id="clean" name="Clean Frame" src="textures/frame_clean.png" window="20,18,170,142" radius="8" />
+    <Frame id="minimal" name="Minimal Frame" src="textures/frame_minimal.png" window="20,18,160,142" radius="8" />
+    <Frame id="glass" name="Glass Frame" src="textures/frame_glass.png" window="20,18,170,142" radius="8" />
+    <Frame id="dark" name="Dark Frame" src="textures/frame_dark.png" window="20,18,160,142" radius="8" />
+    <Frame id="custom" name="Neon Custom Frame" src="textures/frame_custom.png" window="20,18,170,142" radius="8" />
+
+    <!-- Pre-composited Official Game Artwork Cards -->
+    <PrebuiltCards>
+      <Card game="red" system="gb" src="textures/card_pokemon_red.png" title="Pokémon Red Version" />
+      <Card game="blue" system="gb" src="textures/card_pokemon_blue.png" title="Pokémon Blue Version" />
+      <Card game="yellow" system="gb" src="textures/card_pokemon_yellow.png" title="Pokémon Yellow Version" />
+      <Card game="gold" system="gbc" src="textures/card_pokemon_gold.png" title="Pokémon Gold Version" />
+      <Card game="silver" system="gbc" src="textures/card_pokemon_silver.png" title="Pokémon Silver Version" />
+      <Card game="crystal" system="gbc" src="textures/card_pokemon_crystal.png" title="Pokémon Crystal Version" />
+      <Card game="firered" system="gba" src="textures/card_pokemon_firered.png" title="Pokémon FireRed Version" />
+      <Card game="leafgreen" system="gba" src="textures/card_pokemon_leafgreen.png" title="Pokémon LeafGreen Version" />
+      <Card game="emerald" system="gba" src="textures/card_pokemon_emerald.png" title="Pokémon Emerald Version" />
+      <Card game="ruby" system="gba" src="textures/card_pokemon_ruby.png" title="Pokémon Ruby Version" />
+      <Card game="sapphire" system="gba" src="textures/card_pokemon_sapphire.png" title="Pokémon Sapphire Version" />
+    </PrebuiltCards>
+  </RetroFrames>
+
+  <!-- Quick Action System Buttons (Below Divider Line) -->
+  <SystemRow enabled="true" y="540" iconSize="64" spacing="28" align="center">
+    <Button id="news" name="News" src="textures/icon_news.png" color="#E60012" action="app:news">
+      <Badge count="3" show="true" />
+    </Button>
+    <Button id="eshop" name="Nintendo eShop" src="textures/icon_store.png" color="#FF7D00" action="app:eshop" />
+    <Button id="album" name="Album" src="textures/icon_album.png" color="#0072CE" action="app:album" />
+    <Button id="controllers" name="Controllers" src="textures/icon_controllers.png" color="#6E3FB5" action="modal:controllers" />
+    <Button id="settings" name="Settings" src="textures/icon_settings.png" color="#646870" action="modal:settings" />
+    <Button id="sleep" name="Sleep Mode" src="textures/icon_sleep.png" color="#2D3035" action="app:sleep" />
+  </SystemRow>
+
+  <!-- Bottom Navigation / Controller Button Prompts -->
+  <NavigationBar enabled="true" y="665" height="38" paddingHorizontal="48">
+    <Prompt group="left">
+      <Item button="B" label="Back" src="textures/btn_b.png" action="back" />
+    </Prompt>
+    <Prompt group="right" spacing="20">
+      <Item button="A" label="Start" src="textures/btn_a.png" action="confirm" />
+      <Item button="Y" label="Search" src="textures/btn_y.png" action="search" />
+      <Item button="X" label="Options" src="textures/btn_x.png" action="options" />
+      <Item button="plus" label="Options" src="textures/btn_plus.png" action="menu" />
+    </Prompt>
+  </NavigationBar>
+
+  <!-- Quick Settings Overlay (Hold HOME Button) -->
+  <QuickOverlay enabled="true" trigger="hold_home" holdSeconds="1.0">
+    <Panel src="textures/overlay_panel_bg.png" fullSrc="textures/overlay_quick_settings.png" width="360" align="right" />
+    <Components>
+      <!-- Modular Rows -->
+      <Row id="sleep" label="Sleep Mode" src="textures/overlay_row_sleep.png" icon="textures/overlay_icon_power.png" action="sleep" />
+      <Row id="brightness" label="Brightness" src="textures/overlay_row_brightness.png" icon="textures/overlay_icon_brightness.png" slider="true" />
+      <Row id="volume" label="Volume" src="textures/overlay_row_volume.png" icon="textures/overlay_icon_volume.png" slider="true" />
+      <Row id="airplane" label="Airplane Mode" src="textures/overlay_row_airplane.png" icon="textures/overlay_icon_airplane.png" toggle="true" />
+      <Row id="bluetooth" label="Bluetooth Audio" src="textures/overlay_row_bluetooth.png" icon="textures/overlay_icon_bluetooth.png" action="bluetooth" />
+      <Row id="controllers" label="Controllers" src="textures/overlay_row_controllers.png" icon="textures/overlay_icon_controllers.png" action="controllers" />
+      <Row id="internet" label="Internet" src="textures/overlay_row_internet.png" icon="textures/overlay_icon_internet.png" action="internet" />
+      <Row id="settings" label="System Settings" src="textures/overlay_row_settings.png" icon="textures/overlay_icon_settings.png" action="settings" />
+      
+      <!-- Sliders, Knobs and Chevrons -->
+      <SliderTrackEmpty src="textures/slider_track_empty.png" />
+      <SliderTrackFill src="textures/slider_track_fill.png" />
+      <SliderKnob src="textures/slider_knob_outline.png" />
+      <SliderBarActive src="textures/slider_bar_active.png" />
+      <ChevronBright src="textures/chevron_right_bright.png" />
+      <PillAuto src="textures/pill_auto.png" />
+      <PillOff src="textures/pill_off.png" />
+      
+      <!-- Bottom Prompt Bar -->
+      <BottomBar src="textures/bar_switch_prompts.png" consoleIcon="textures/icon_switch_console.png" btnBack="textures/prompt_b_back.png" btnOk="textures/prompt_a_ok.png" />
+    </Components>
+  </QuickOverlay>
+
+  <!-- Modal Dialogs, Context Menus & Notification Toasts -->
+  <Popups>
+    <ConfirmDialog src="textures/dialog_confirm.png" title="Are you sure?" btnCancel="Cancel" btnOk="OK" />
+    <ContextMenu src="textures/menu_context.png" activeItem="Continue">
+      <Item id="continue" label="Continue" />
+      <Item id="details" label="Software Details" />
+      <Item id="manage" label="Manage" />
+      <Item id="delete" label="Delete" />
+    </ContextMenu>
+    <TooltipBubble src="textures/tooltip_bubble.png" text="New items available!" />
+    <ToastAction src="textures/toast_action.png" text="Action completed!" defaultDuration="2.5" />
+    <ToastNotify src="textures/toast_notify.png" text="You have new notifications!" defaultDuration="3.0" />
+    <ToastSaved src="textures/toast_saved.png" text="Saved successfully." defaultDuration="2.0" />
+  </Popups>
+
+  <!-- Audio Sound Effects (WAV / OGG) -->
+  <Sounds>
+    <CursorMove src="sounds/switch_cursor.wav" fallback="sounds/home_touch.wav" />
+    <Confirm src="sounds/switch_select.wav" fallback="sounds/home_icon_select.wav" />
+    <Cancel src="sounds/switch_back.wav" fallback="sounds/common_return.wav" />
+    <LaunchGame src="sounds/switch_start.wav" fallback="sounds/home_start.wav" />
+    <HomeButton src="sounds/switch_home.wav" fallback="sounds/home_homebutton.wav" />
+    <SleepMode src="sounds/switch_sleep.wav" fallback="sounds/common_wait.wav" />
+  </Sounds>
+</Skin>

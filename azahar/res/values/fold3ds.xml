@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- the app's name on the phone's launcher -->
-    <string name="fold3ds_app_name" translatable="false">gen1recomp Fold</string>
+    <string name="fold3ds_app_name" translatable="false">AeonDX</string>
 
     <!-- Fold3dsLinkActivity: nothing of its own shows, only the dialogs and
          pickers it opens, over the 3DS HOME menu -->

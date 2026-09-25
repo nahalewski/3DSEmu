@@ -10,7 +10,7 @@
 --   * the play meter: the blue bar fills with time spent in the app, and
 --     every 12 hours it fills it pays a coin and starts over (up to 99999
 --     coins, kept in fold3ds_coins.cfg);
---   * the Manual / Open bar across the bottom (Manual: the game's manual).
+--   * the Manual / Open bar across the bottom.
 --
 -- Sizes: 1 row of 4 across up to 5 rows of 9 across (the size buttons, a
 -- pinch, or X / Y).  Changing size animates: every tile glides and scales
@@ -71,7 +71,6 @@ local APPLETS = {
   { id = "skins", name = "Skins", icon = "paintbrush", color = { 40, 130, 230 }, tab = "skins" },
   { id = "importers", name = "Import", icon = "download", color = { 90, 180, 60 }, tab = "importers" },
   { id = "sync", name = "Save Sync", icon = "arrow-left-right", color = { 20, 170, 170 }, modal = "sync" },
-  { id = "switchui", name = "Switch HOME Menu", switchui = true },
   { id = "exit", name = "Exit", icon = "x", color = { 226, 56, 60 }, exit = true },
 }
 
@@ -121,29 +120,73 @@ local function load()
   text = ok and type(text) == "string" and text or ""
   local lv = tonumber(text:match("level=(%d)"))
   if lv and LEVELS[lv] then st.level, st.prevLevel = lv, lv end
-  -- new games arrive wrapped as presents (the 3DS's new software): the
-  -- ones still wrapped, and every game ever seen
-  st.gifts, st.known = {}, {}
-  st.knownLoaded = text:match("known=") ~= nil
-  for id in (text:match("gifts=([%w_,]*)") or ""):gmatch("[%w_]+") do st.gifts[id] = true end
-  for id in (text:match("known=([%w_,]*)") or ""):gmatch("[%w_]+") do st.known[id] = true end
   local order = text:match("order=([%w_,]+)")
   if order then
     st.order = {}
     for id in order:gmatch("[%w_]+") do st.order[#st.order + 1] = id end
   end
-end
-
-local function idList(set)
-  local out = {}
-  for id in pairs(set or {}) do out[#out + 1] = id end
-  table.sort(out)
-  return table.concat(out, ",")
+  local unwrapped = text:match("unwrapped=([%w_,-]+)")
+  if unwrapped then
+    st.unwrapped = {}
+    for id in unwrapped:gmatch("[%w_-]+") do st.unwrapped[id] = true end
+  end
+  local wrapped = text:match("wrapped=([%w_,-]+)")
+  if wrapped then
+    st.wrapped = {}
+    for id in wrapped:gmatch("[%w_-]+") do st.wrapped[id] = true end
+  end
 end
 
 local function save()
-  pcall(love.filesystem.write, CFG, ("level=%d\norder=%s\ngifts=%s\nknown=%s\n"):format(st.level,
-    table.concat(st.order or {}, ","), idList(st.gifts), idList(st.known)))
+  local unList, wrList = {}, {}
+  for id, v in pairs(st.unwrapped or {}) do if v then unList[#unList + 1] = id end end
+  for id, v in pairs(st.wrapped or {}) do if v then wrList[#wrList + 1] = id end end
+  pcall(love.filesystem.write, CFG, ("level=%d\norder=%s\nunwrapped=%s\nwrapped=%s\n"):format(
+    st.level, table.concat(st.order or {}, ","), table.concat(unList, ","), table.concat(wrList, ",")))
+end
+
+local function isWrapped(t)
+  if not t or t.close or t.folder or t.camera or t.exit or t.activity or t.dlplay or t.eshop or t.app or t.modal or t.tab then
+    return false
+  end
+  if t.wrapped ~= nil then return t.wrapped end
+  if st.wrapped and st.wrapped[t.id] then return true end
+  if st.unwrapped and st.unwrapped[t.id] then return false end
+  return false
+end
+
+local function unwrapTile(id)
+  if not id then return end
+  if st.wrapped then st.wrapped[id] = nil end
+  st.unwrapped = st.unwrapped or {}
+  st.unwrapped[id] = true
+  save()
+end
+
+local function wrapTile(id)
+  if not id then return end
+  st.wrapped = st.wrapped or {}
+  st.wrapped[id] = true
+  if st.unwrapped then st.unwrapped[id] = nil end
+  save()
+end
+
+function H.isWrapped(t) return isWrapped(t) end
+function H.wrapTile(id) wrapTile(id) end
+function H.unwrapTile(id) unwrapTile(id) end
+
+function H.toggleWrapSelected()
+  local tiles = H.tiles()
+  local t = tiles and tiles[st.sel]
+  if t and not (t.close or t.folder or t.camera or t.exit or t.activity or t.dlplay or t.eshop or t.app or t.modal or t.tab) then
+    if isWrapped(t) then
+      unwrapTile(t.id)
+      Sfx.play("gift")
+    else
+      wrapTile(t.id)
+      Sfx.play("button")
+    end
+  end
 end
 
 ---------------------------------------------------------------- tiles
@@ -172,9 +215,14 @@ local function folderTiles(folder)
   return out
 end
 
-local ARRIVE_GAP = 0.45      -- seconds between games landing, when many arrive
-
 -- the tiles in the player's order (new tiles join at the end)
+-- The current position of a tile we only know by id. Nil when it has gone.
+local function indexOfId(tiles, id)
+  if id == nil then return nil end
+  for i, t in ipairs(tiles) do if t.id == id then return i end end
+  return nil
+end
+
 function H.tiles(imp)
   if st.folder then return folderTiles(st.folder) end
   local byId, ids = allTiles(imp)
@@ -188,28 +236,6 @@ function H.tiles(imp)
   local order = {}
   for i, t in ipairs(out) do order[i] = t.id end
   st.order = order
-  -- a game never seen before arrives wrapped (not on the very first run:
-  -- the library already there is simply there)
-  st.gifts, st.known, st.arrive = st.gifts or {}, st.known or {}, st.arrive or {}
-  local changed = false
-  for _, t in ipairs(out) do
-    if (t.emuGame or t.game) and not st.known[t.id] then
-      st.known[t.id] = true
-      changed = true
-      if st.knownLoaded then
-        -- a whole folder of games comes in one after another, each landing
-        -- with its own sound, the strip gliding over to show it
-        st.gifts[t.id] = true
-        local at = math.max(now(), (st.nextArrive or 0))
-        st.arrive[t.id] = at
-        st.nextArrive = at + ARRIVE_GAP
-      end
-    end
-  end
-  if changed then
-    st.knownLoaded = true
-    save()
-  end
   return out
 end
 
@@ -257,8 +283,17 @@ function H.init(context) ctx = context; load(); loadCoins(); Emus.init() end
 ---------------------------------------------------------------- actions
 
 local function selectTile(imp, t)
+  if t and isWrapped(t) then
+    if Sfx.stopBanner then Sfx.stopBanner() end
+    return
+  end
   -- the top screen follows the selected game, as the 3DS shows its banner
   if t and t.game and imp and imp.tab ~= t.id then imp.tab = t.id end
+  if t and (t.game or t.emuGame) then
+    if Sfx.playBanner then Sfx.playBanner(t) end
+  else
+    if Sfx.stopBanner then Sfx.stopBanner() end
+  end
 end
 
 local function closeFolder()
@@ -269,15 +304,48 @@ local function closeFolder()
   st.disp = {}
 end
 
-local UNWRAP = 1.0
+local function startUnwrap(t)
+  if not t then return end
+  if st.unwrapping and st.unwrapping.id == t.id then return end
+  st.unwrapping = {
+    id = t.id,
+    t0 = now(),
+    duration = 0.85,
+    tile = t,
+    particles = {},
+  }
+  local count = 28
+  for p = 1, count do
+    local angle = (p / count) * math.pi * 2 + (math.random() - 0.5) * 0.4
+    local spd = 70 + math.random() * 120
+    local ptype = (p % 3 == 0) and "star" or (p % 2 == 0) and "ribbon" or "confetti"
+    local colors = {
+      { 255, 215, 0 },
+      { 255, 240, 140 },
+      { 232, 45, 55 },
+      { 255, 255, 255 },
+      { 50, 190, 245 },
+      { 255, 140, 30 },
+    }
+    local c = colors[(p % #colors) + 1]
+    st.unwrapping.particles[#st.unwrapping.particles + 1] = {
+      vx = math.cos(angle) * spd,
+      vy = math.sin(angle) * spd - 45,
+      rot = math.random() * math.pi * 2,
+      vrot = (math.random() - 0.5) * 14,
+      size = 3.5 + math.random() * 4.5,
+      type = ptype,
+      color = c,
+    }
+  end
+  Sfx.play("gift")
+end
+function H.startUnwrap(t) startUnwrap(t) end
+
 local function openTile(imp, t)
   if not imp or not t then return end
-  -- a present: the first open unwraps it, the next one starts the game
-  if st.gifts and st.gifts[t.id] then
-    if not (st.unwrap and st.unwrap.id == t.id) then
-      st.unwrap = { id = t.id, t0 = now() }
-      Sfx.play("gift")
-    end
+  if isWrapped(t) then
+    startUnwrap(t)
     return
   end
   -- the Azahar folder, its icons and the 3DS games
@@ -292,22 +360,10 @@ local function openTile(imp, t)
   end
   if t.close then Sfx.play("back"); closeFolder() return end
   if t.url and t.emu then Sfx.play("open"); Emus.open(t) return end
-  if t.emuGame and t.system == "switch" then
-    -- the Switch way: the tile swells to fill the screen, then the game
-    if not st.launch then
-      st.launch = { tile = t, t0 = now() }
-      Sfx.play("launch")
-    end
-    return
-  end
   if t.emuGame then Sfx.play("open"); Emus.play(t) return end
   Sfx.play("open")
   if t.exit then
     if imp._quitApp then imp:_quitApp() end
-    return
-  end
-  if t.switchui then
-    if ctx.toSwitch then ctx.toSwitch() end
     return
   end
   if t.camera then
@@ -340,28 +396,16 @@ local function openTile(imp, t)
   end
 end
 
--- the game's manage page (ROM, saves, carts)
-local function manage(imp, t)
-  openTile(imp, t)
-  imp._gameManage = t.id
-end
-
--- Manual: a recomp game's electronic manual on the bottom screen (its Game
--- Options go on to the manage page), else straight to the manage page; an
--- emulator's game shows its options
+-- Manual: the game's manage page (ROM, saves, carts)
 local function manual(imp, t)
   if t and t.emuGame then
     if Emus.hasManual(t) then Sfx.play("open"); Emus.manual(t) end
     return
   end
   if not imp or not t or not t.game then return end
-  if ctx.openManual and ctx.openManual(t.id, function() manage(imp, t) end) then return end
-  manage(imp, t)
+  openTile(imp, t)
+  imp._gameManage = t.id
 end
-
--- the Switch HOME menu (fold3ds.homenx) opens tiles and manuals the same way
-H.openTile = function(imp, t) return openTile(imp, t) end
-H.manual = function(imp, t) return manual(imp, t) end
 
 -- open an applet on the bar by its id (the eShop's Open goes to Mods)
 function H.openApplet(imp, id)
@@ -393,6 +437,10 @@ function H.openSelected(imp)
 end
 
 function H.update(imp)
+  if st.unwrapping and now() - st.unwrapping.t0 >= st.unwrapping.duration then
+    unwrapTile(st.unwrapping.id)
+    st.unwrapping = nil
+  end
   Emus.poll(now())
   local t = st.open
   if t and t.modal and imp then
@@ -522,193 +570,162 @@ function H.drawIconFor(imp, id, x, y, s)
   return false
 end
 
--- the white tile the icon sits in, with its soft shadow
--- the present's wrapping: a paper colour of its own per game
-local PAPERS = { { 232, 58, 76 }, { 52, 132, 228 }, { 248, 184, 36 }, { 64, 184, 104 }, { 168, 86, 216 },
-                 { 240, 120, 40 } }
-local function paperFor(id)
-  local h = 0
-  for i = 1, #id do h = (h * 31 + id:byte(i)) % 997 end
-  return PAPERS[h % #PAPERS + 1], h
+local function drawSparkleStar(cx, cy, size, c, rot)
+  lg.push()
+  lg.translate(cx, cy)
+  if rot then lg.rotate(rot) end
+  lg.setColor(c[1] / 255, c[2] / 255, c[3] / 255, c[4] or 1)
+  local p = size * 0.22
+  lg.polygon("fill", 0, -size, p, -p, size, 0, p, p, 0, size, -p, p, -size, 0, -p, -p)
+  lg.setColor(1, 1, 1, (c[4] or 1) * 0.9)
+  local cp = size * 0.1
+  lg.polygon("fill", 0, -size * 0.5, cp, -cp, size * 0.5, 0, cp, cp, 0, size * 0.5, -cp, cp, -size * 0.5, 0, -cp, -cp)
+  lg.pop()
 end
 
--- a wrapped present in the tile's square: paper with its stripes, the
--- ribbon both ways, the bow on top.  open 0..1: the bow and ribbon fly
--- off and the paper bursts away in four pieces
-local function drawPresent(id, x, y, ts, alpha, open)
-  local paper, h = paperFor(id)
-  local r = ts * 0.2
+local function drawGiftBox(t, x, y, ts, alpha, lifted, time)
   local cx, cy = x + ts / 2, y + ts / 2
-  local k = open or 0
-  local fade = alpha * (1 - clamp((k - 0.2) / 0.6, 0, 1))
-  if fade <= 0 then return end
-  -- the paper: four quarters, each flying out from the centre when opened
-  local fly = ease(clamp(k / 0.8, 0, 1)) * ts * 0.9
-  for qi, q in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } }) do
+  local time = time or now()
+
+  -- Idle breathing bob
+  local bob = math.sin(time * 3.2) * (ts * 0.02)
+
+  -- Periodic cute hop & wiggle cycle (every 3.8s, lasts 0.65s)
+  local hash = 0
+  for ch in (t.id or ""):gmatch(".") do hash = (hash * 31 + ch:byte()) % 1000 end
+  local cycle = (time + hash * 0.003) % 3.8
+  local wiggle = 0
+  local hop = 0
+  if cycle < 0.65 then
+    local w = cycle / 0.65
+    wiggle = math.sin(w * math.pi * 6) * 0.12 * (1 - w)
+    hop = math.sin(w * math.pi) * (ts * 0.12)
+  end
+
+  local dy = - (hop + bob)
+
+  -- Dynamic shadow on tile base
+  local shadowScale = math.max(0.6, 1.0 - (hop / ts) * 0.5)
+  col({ 40, 35, 50 }, 0.22 * alpha * shadowScale)
+  lg.ellipse("fill", cx, cy + ts * 0.32, ts * 0.28 * shadowScale, ts * 0.10 * shadowScale)
+
+  -- 3DS Gift Box
+  local gImg = icon("gift_3ds")
+  if gImg then
+    local iw, ih = gImg:getDimensions()
+    local scale = (ts * 0.82) / math.max(iw, ih)
     lg.push()
-    lg.translate(cx + q[1] * fly, cy + q[2] * fly * 0.8 + (k > 0 and (k * k) * ts * 0.6 or 0))
-    lg.rotate(q[1] * k * 1.6 + (qi % 2 == 0 and 0.3 or -0.3) * k)
-    lg.stencil(function() lg.rectangle("fill", q[1] < 0 and -ts / 2 or 0, q[2] < 0 and -ts / 2 or 0, ts / 2, ts / 2) end,
-      "replace", 1)
-    lg.setStencilTest("greater", 0)
-    col(paper, fade)
-    roundRect("fill", -ts / 2, -ts / 2, ts, ts, r)
-    -- stripes
-    col({ 255, 255, 255 }, 0.22 * fade)
-    for i = -3, 3 do
-      local sx = i * ts * 0.22 + (h % 7) * 0.01 * ts
-      lg.polygon("fill", sx - ts * 0.04, -ts / 2, sx + ts * 0.05, -ts / 2, sx - ts * 0.35, ts / 2, sx - ts * 0.44, ts / 2)
-    end
-    -- the ribbon on the paper
-    col({ 255, 236, 150 }, fade)
-    lg.rectangle("fill", -ts * 0.07, -ts / 2, ts * 0.14, ts)
-    lg.rectangle("fill", -ts / 2, -ts * 0.07, ts, ts * 0.14)
-    col({ 220, 170, 40 }, fade)
-    lg.rectangle("fill", ts * 0.045, -ts / 2, ts * 0.025, ts)
-    lg.rectangle("fill", -ts / 2, ts * 0.045, ts, ts * 0.025)
-    lg.setStencilTest()
+    lg.translate(cx, cy + dy)
+    lg.rotate(wiggle)
+    lg.setColor(1, 1, 1, alpha)
+    lg.draw(gImg, 0, 0, 0, scale, scale, iw / 2, ih / 2)
     lg.pop()
   end
-  -- the bow, lifting off first
-  local bowUp = ease(clamp(k / 0.5, 0, 1)) * ts * 1.1
-  local bx, by = cx, y + ts * 0.14 - bowUp
-  local ba = alpha * (1 - clamp((k - 0.1) / 0.4, 0, 1))
-  if ba > 0 then
-    lg.push()
-    lg.translate(bx, by)
-    lg.rotate(k * 2.5)
-    col({ 255, 226, 110 }, ba)
-    lg.ellipse("fill", -ts * 0.14, 0, ts * 0.15, ts * 0.09)
-    lg.ellipse("fill", ts * 0.14, 0, ts * 0.15, ts * 0.09)
-    col({ 230, 180, 50 }, ba)
-    lg.ellipse("fill", -ts * 0.14, 0, ts * 0.07, ts * 0.04)
-    lg.ellipse("fill", ts * 0.14, 0, ts * 0.07, ts * 0.04)
-    col({ 250, 210, 80 }, ba)
-    lg.circle("fill", 0, 0, ts * 0.065)
-    lg.pop()
-  end
-  -- a soft sheen over the wrapped box
-  if k == 0 then
-    lg.setColor(1, 1, 1, 0.16 * alpha)
-    roundRect("fill", x + ts * 0.06, y + ts * 0.05, ts * 0.88, ts * 0.32, r * 0.8)
+
+  -- Twinkling star sparkle glint on the golden bow
+  local sCycle = (time * 1.6 + hash * 0.005) % 2.8
+  if sCycle < 0.45 then
+    local sProg = sCycle / 0.45
+    local sSize = math.sin(sProg * math.pi) * (ts * 0.14)
+    local sAlpha = math.sin(sProg * math.pi) * alpha
+    drawSparkleStar(cx + ts * 0.12, cy - ts * 0.18 + dy, sSize, { 255, 245, 180, sAlpha }, sProg * 2)
   end
 end
 
--- confetti bursting out of an opened present
-local function drawConfetti(id, x, y, ts, k)
-  if k <= 0.25 or k >= 1 then return end
-  local _, h = paperFor(id)
-  local p = (k - 0.25) / 0.75
-  for i = 1, 16 do
-    local a = (i / 16) * math.pi * 2 + (h % 10) * 0.1
-    local sp = ts * (0.7 + ((i * 37 + h) % 10) * 0.05)
-    local px = x + ts / 2 + math.cos(a) * sp * p
-    local py = y + ts / 2 + math.sin(a) * sp * p * 0.8 + p * p * ts * 0.8
-    col(PAPERS[(i + h) % #PAPERS + 1], 1 - p)
-    lg.push()
-    lg.translate(px, py)
-    lg.rotate(p * 8 + i)
-    lg.rectangle("fill", -ts * 0.03, -ts * 0.015, ts * 0.06, ts * 0.03)
-    lg.pop()
-  end
-end
-
-local function drawTile(t, x, y, ts, alpha, lifted)
-  local gift = st.gifts and st.gifts[t.id]
-  local un = st.unwrap and st.unwrap.id == t.id and st.unwrap or nil
-  local ka = st.arrive and st.arrive[t.id]
-  -- arriving: dropping in from above with a bounce
-  if ka and not lifted then
-    local a = (now() - ka) / 0.7
-    if a < 0 then return end
-    if not (st.landed and st.landed[t.id]) then
-      -- this one's turn: its sound, and the strip follows it
-      st.landed = st.landed or {}
-      st.landed[t.id] = true
-      st.follow = t.id
-      Sfx.play("newapp")
-    end
-    if a >= 1 then st.arrive[t.id] = nil
-    else
-      local b = 1 - a
-      y = y - ts * 1.6 * b * b + math.sin(a * math.pi) * ts * 0.08 * (1 - a)
-      alpha = alpha * math.min(1, a * 3)
-    end
-  end
-  if gift and not lifted then
-    local k = 0
-    if un then
-      k = (now() - un.t0) / UNWRAP
-      if k >= 1 then
-        -- unwrapped: from now on it is the game's own tile
-        st.gifts[t.id] = nil
-        st.unwrap = nil
-        st.popAt = st.popAt or {}
-        st.popAt[t.id] = now()
-        save()
-        gift = nil
-      end
-    end
-    if gift then
-      -- a shake before it opens
-      local shake = (k > 0 and k < 0.25) and math.sin(k * 90) * ts * 0.04 * (1 - k * 4) or 0
-      if k > 0.35 then
-        -- the game's icon inside, growing out of the paper
-        local g = ease(clamp((k - 0.35) / 0.5, 0, 1))
-        local s = ts * (0.6 + 0.4 * g)
-        lg.push()
-        col({ 255, 255, 255 }, alpha * g)
-        roundRect("fill", x + (ts - s) / 2, y + (ts - s) / 2, s, s, s * 0.2)
-        local inset = s * 0.12
-        drawIcon(t, x + (ts - s) / 2 + inset, y + (ts - s) / 2 + inset, s - 2 * inset)
-        lg.pop()
-      end
-      drawPresent(t.id, x + shake, y, ts, alpha, k)
-      drawConfetti(t.id, x, y, ts, k)
-      return
-    end
-  end
-  -- just unwrapped: a little pop
-  local pop = st.popAt and st.popAt[t.id]
-  if pop then
-    local a = (now() - pop) / 0.35
-    if a >= 1 then st.popAt[t.id] = nil
-    else
-      local s = 1 + math.sin(a * math.pi) * 0.12
-      x, y, ts = x - ts * (s - 1) / 2, y - ts * (s - 1) / 2, ts * s
-    end
-  end
-  if t.system == "switch" then
-    -- a Switch game: its square art edge to edge, small corners
-    local rr = ts * 0.06
-    col({ 20, 22, 30 }, (lifted and 0.3 or 0.16) * alpha)
-    roundRect("fill", x + ts * 0.02, y + ts * (lifted and 0.1 or 0.05), ts, ts, rr)
-    col({ 235, 235, 238 }, alpha)
-    roundRect("fill", x, y, ts, ts, rr)
-    local img = Emus.icon(t)
-    if img then
-      lg.stencil(function() roundRect("fill", x, y, ts, ts, rr) end, "replace", 1)
-      lg.setStencilTest("greater", 0)
-      lg.setColor(1, 1, 1, alpha)
-      local iw, ih = img:getDimensions()
-      local k = math.max(ts / iw, ts / ih)
-      lg.draw(img, x + (ts - iw * k) / 2, y + (ts - ih * k) / 2, 0, k, k)
-      lg.setStencilTest()
-    else
-      drawIcon(t, x + ts * 0.12, y + ts * 0.12, ts * 0.76)
-    end
-    return
-  end
+-- the white tile the icon sits in, with its soft shadow
+local function drawTile(t, x, y, ts, alpha, lifted, time)
   local r = ts * 0.2
+  local time = time or now()
+  local unw = st.unwrapping and st.unwrapping.id == t.id and st.unwrapping
+
   col({ 60, 70, 90 }, (lifted and 0.3 or 0.14) * alpha)
   roundRect("fill", x + ts * 0.02, y + ts * (lifted and 0.1 or 0.05), ts, ts, r)
   col({ 255, 255, 255 }, alpha)
   roundRect("fill", x, y, ts, ts, r)
+
   local inset = ts * 0.12
-  drawIcon(t, x + inset, y + inset, ts - 2 * inset)
-  if t.game and not t.ready then
-    lg.setColor(0.93, 0.94, 0.96, 0.55 * alpha)
-    roundRect("fill", x, y, ts, ts, r)
+  local cx, cy = x + ts / 2, y + ts / 2
+
+  if unw then
+    local prog = math.min(1, (time - unw.t0) / unw.duration)
+    if prog >= 1 then
+      unwrapTile(t.id)
+      st.unwrapping = nil
+      drawIcon(t, x + inset, y + inset, ts - 2 * inset)
+    else
+      -- 1. Underlying icon zooming and popping into view
+      if prog > 0.18 then
+        local iprog = (prog - 0.18) / 0.82
+        local iscale = 0.2 + 0.8 * (1 - math.exp(-iprog * 7) * math.cos(iprog * 11))
+        local ialpha = math.min(1, iprog * 2.5) * alpha
+        local isize = (ts - 2 * inset) * iscale
+        lg.setColor(1, 1, 1, ialpha)
+        drawIcon(t, cx - isize / 2, cy - isize / 2, isize)
+      end
+
+      -- 2. Gift box leap, burst & dissolve
+      if prog < 0.6 then
+        local gImg = icon("gift_3ds")
+        if gImg then
+          local iw, ih = gImg:getDimensions()
+          local gprog = prog / 0.6
+          local leap = math.sin(prog / 0.25 * math.pi * 0.5) * (ts * 0.22)
+          local burstScale = 1.0 + gprog * 0.55
+          local gAlpha = math.max(0, 1.0 - gprog * 1.5) * alpha
+          local sc = ((ts * 0.82) / math.max(iw, ih)) * burstScale
+          lg.push()
+          lg.translate(cx, cy - leap)
+          lg.setColor(1, 1, 1, gAlpha)
+          lg.draw(gImg, 0, 0, 0, sc, sc, iw / 2, ih / 2)
+          lg.pop()
+        end
+      end
+
+      -- 3. Radial flash glow
+      if prog >= 0.15 and prog <= 0.65 then
+        local fprog = (prog - 0.15) / 0.5
+        local falpha = math.sin(fprog * math.pi) * 0.8 * alpha
+        lg.setColor(1, 0.98, 0.75, falpha)
+        lg.circle("fill", cx, cy, ts * 0.7 * (0.3 + 0.7 * fprog))
+      end
+
+      -- 4. Confetti & star explosion particles
+      local dt = time - unw.t0
+      for _, p in ipairs(unw.particles) do
+        local px = cx + p.vx * dt
+        local py = cy + p.vy * dt + 0.5 * 360 * (dt * dt)
+        local pLife = math.max(0, 1.0 - dt / unw.duration)
+        local pAlpha = pLife * alpha
+        if pAlpha > 0 then
+          local prot = p.rot + p.vrot * dt
+          if p.type == "star" then
+            drawSparkleStar(px, py, p.size * (0.6 + 0.4 * pLife), { p.color[1], p.color[2], p.color[3], pAlpha }, prot)
+          elseif p.type == "ribbon" then
+            lg.push()
+            lg.translate(px, py)
+            lg.rotate(prot)
+            lg.setColor(p.color[1] / 255, p.color[2] / 255, p.color[3] / 255, pAlpha)
+            lg.rectangle("fill", -p.size, -p.size * 0.35, p.size * 2, p.size * 0.7, 1, 1)
+            lg.pop()
+          else
+            lg.push()
+            lg.translate(px, py)
+            lg.rotate(prot)
+            lg.setColor(p.color[1] / 255, p.color[2] / 255, p.color[3] / 255, pAlpha)
+            lg.rectangle("fill", -p.size / 2, -p.size / 2, p.size, p.size)
+            lg.pop()
+          end
+        end
+      end
+    end
+  elseif isWrapped(t) then
+    drawGiftBox(t, x, y, ts, alpha, lifted, time)
+  else
+    drawIcon(t, x + inset, y + inset, ts - 2 * inset)
+    if t.game and not t.ready then
+      lg.setColor(0.93, 0.94, 0.96, 0.55 * alpha)
+      roundRect("fill", x, y, ts, ts, r)
+    end
   end
 end
 
@@ -791,8 +808,6 @@ function H.draw(r, imp, time)
       lg.draw(img, ix, iy, 0, s / iw, s / ih)
     elseif a.camera and ctx.drawCameraIcon then
       ctx.drawCameraIcon(ix, iy, s)
-    elseif a.switchui and ctx.drawSwitchIcon then
-      ctx.drawSwitchIcon(ix, iy, s)
     else
       local okI, Icons = pcall(require, "src.ui.kit.Icons")
       if okI then Icons.draw(a.icon, ix, iy, s, a.color, 1) end
@@ -832,23 +847,6 @@ function H.draw(r, imp, time)
   if not next(st.touches) then
     if st.scroll < 0 then st.scroll = st.scroll * math.exp(-dt * 14); st.vel = 0 end
     if st.scroll > maxS then st.scroll = maxS + (st.scroll - maxS) * math.exp(-dt * 14); st.vel = 0 end
-  end
-  -- games arriving one by one: the strip glides over to each as it lands
-  -- (a finger on the grid takes over)
-  if st.follow and not next(st.touches) and not st.folder then
-    local idx
-    for i, t in ipairs(tiles) do if t.id == st.follow then idx = i break end end
-    if idx then
-      local x = slotPos(G, idx, 0)
-      local lo = x + G.ts + G.pitchX * 0.35 - (g.x + g.w)
-      local hi = x - G.pitchX * 0.35 - g.x
-      local want = clamp(clamp(st.scroll, lo, hi), 0, maxS)
-      st.scroll = st.scroll + (want - st.scroll) * math.min(1, dt * 8)
-      st.vel = 0
-      if math.abs(want - st.scroll) < 0.5 and not (st.arrive and st.arrive[st.follow]) then st.follow = nil end
-    else
-      st.follow = nil
-    end
   end
   -- while a lifted tile is held near an edge, the strip scrolls
   if st.lift then
@@ -898,7 +896,7 @@ function H.draw(r, imp, time)
     end
     local lifted = st.lift and st.lift.id == t.id
     if not lifted and d.x > g.x - d.s * 1.5 and d.x < g.x + g.w + d.s then
-      drawTile(t, d.x, d.y, d.s, 1, false)
+      drawTile(t, d.x, d.y, d.s, 1, false, time)
       hit("tile", d.x, d.y, d.s, d.s, { idx = i, tile = t })
     end
     if i == st.sel then selRect = { d.x, d.y, d.s } end
@@ -916,53 +914,16 @@ function H.draw(r, imp, time)
     local f = ctx.font(bh * 0.3)
     lg.setFont(f)
     col({ 80, 82, 88 })
-    local sub = t.sub or (t.game and (t.ready and "Game Freak / BOIS CLUB GAMES" or "Import the ROM to play")) or ""
-    lg.printf(t.name, bx, by + bh * 0.16, bw, "center")
+    local wrapped = isWrapped(t)
+    local sub = wrapped and "Tap or press Unwrap to open!" or (t.sub or (t.game and (t.ready and "Game Freak / BOIS CLUB GAMES" or "Import the ROM to play")) or "")
+    local titleName = wrapped and (t.name .. " (Gift)") or t.name
+    lg.printf(titleName, bx, by + bh * 0.16, bw, "center")
     col({ 110, 112, 118 })
     lg.printf(sub, bx, by + bh * 0.16 + f:getHeight() * 1.1, bw, "center")
   end
   if selRect and not st.lift then
     local s = selRect[3]
-    local selTile = tiles[st.sel]
-    if selTile and selTile.system == "switch" and not st.bar then
-      -- the Switch's selection: a cyan outline that breathes, the tile
-      -- popped up a little the moment it is picked
-      if st.swSel ~= selTile.id then st.swSel, st.swSelAt = selTile.id, now() end
-      local pa = clamp((now() - (st.swSelAt or 0)) / 0.18, 0, 1)
-      local pop = 1 + 0.06 * math.sin(pa * math.pi)
-      local ps = s * pop
-      local px, py = selRect[1] - (ps - s) / 2, selRect[2] - (ps - s) / 2
-      drawTile(selTile, px, py, ps, 1, false)
-      local glow = 0.55 + 0.45 * math.abs(math.sin(time * 2.4))
-      local lw = math.max(2, s * 0.045)
-      lg.setLineWidth(lw)
-      lg.setColor(0, 0.76, 0.89, glow)
-      roundRect("line", px - lw * 1.2, py - lw * 1.2, ps + lw * 2.4, ps + lw * 2.4, ps * 0.08)
-      lg.setColor(0.6, 0.95, 1, glow * 0.4)
-      lg.setLineWidth(math.max(1, lw * 0.4))
-      roundRect("line", px - lw * 2.2, py - lw * 2.2, ps + lw * 4.4, ps + lw * 4.4, ps * 0.1)
-    elseif not st.bar then brackets(selRect[1] - s * 0.1, selRect[2] - s * 0.1, s * 1.2, s * 1.2, time) end
-  end
-  -- a Switch game launching: its tile swells over the whole screen, then
-  -- the game starts
-  if st.launch then
-    local L = st.launch
-    local a = (now() - L.t0) / 0.45
-    local d = st.disp[L.tile.id]
-    if d then
-      local e = ease(clamp(a, 0, 1))
-      local sx, sy, ss = d.x, d.y, d.s
-      local tw = math.max(r.w, r.h) * 1.1
-      local cx, cy = sx + ss / 2 + (r.x + r.w / 2 - sx - ss / 2) * e, sy + ss / 2 + (r.y + r.h / 2 - sy - ss / 2) * e
-      local sz = ss + (tw - ss) * e
-      drawTile(L.tile, cx - sz / 2, cy - sz / 2, sz, 1, false)
-      lg.setColor(1, 1, 1, clamp((a - 0.6) / 0.4, 0, 1))
-      lg.rectangle("fill", r.x, r.y, r.w, r.h)
-    end
-    if a >= 1 then
-      st.launch = nil
-      Emus.play(L.tile)
-    end
+    if not st.bar then brackets(selRect[1] - s * 0.1, selRect[2] - s * 0.1, s * 1.2, s * 1.2, time) end
   end
   -- more to the right / left: the half-round arrow tabs at the edges
   local function edgeTab(side)
@@ -985,7 +946,7 @@ function H.draw(r, imp, time)
     for _, tt in ipairs(tiles) do if tt.id == st.lift.id then t = tt end end
     if t then
       local s = G.ts * 1.15
-      drawTile(t, st.lift.x - s / 2, st.lift.y - s / 2, s, 0.95, true)
+      drawTile(t, st.lift.x - s / 2, st.lift.y - s / 2, s, 0.95, true, time)
     end
   end
   lg.setScissor(r.x, r.y, r.w, r.h)
@@ -1046,7 +1007,8 @@ function H.draw(r, imp, time)
   col({ 100, 102, 108 }, sel and (sel.game or (sel.emuGame and Emus.hasManual(sel))) and 1 or 0.35)
   lg.printf("Manual", r.x, oy + (obH - f:getHeight()) / 2, split - r.x, "center")
   col({ 100, 102, 108 })
-  lg.printf("Open", split, oy + (obH - f:getHeight()) / 2, r.x + r.w - split, "center")
+  local openLabel = (sel and isWrapped(sel)) and "Unwrap" or "Open"
+  lg.printf(openLabel, split, oy + (obH - f:getHeight()) / 2, r.x + r.w - split, "center")
   hit("manual", r.x, oy, split - r.x, obH)
   hit("open", split, oy, r.x + r.w - split, obH)
   lg.pop()
@@ -1201,8 +1163,25 @@ function H.released(imp, id, x, y)
   -- opened by the same tap arriving twice
   if tc.kind == "tile" and now() - (st.folderAt or -10) < 0.35 then return true end
   if tc.kind == "tile" then
-    if st.sel == tc.idx then openTile(imp, tiles[tc.idx])
-    else st.sel = tc.idx; Sfx.play("select"); selectTile(imp, tiles[tc.idx]) end
+    -- By IDENTITY, not by the index recorded at press.
+    --
+    -- H.tiles() rebuilds from Emus.addTiles() on every call, and addTiles adds
+    -- or drops tiles as a provider's status() flips setup -> ready and as a
+    -- scan finds games. So the list at release need not be the list at press,
+    -- and tiles[tc.idx] can be a different tile than the finger was on. It
+    -- landed on a file picker because the tiles that move are exactly the ones
+    -- that open one: nds_setup is act?id=storage and nds_add / vc_add are
+    -- act?id=add, and the add tile is present whenever a provider is ready.
+    -- That is Ben's "touching an icon opens the file browser".
+    --
+    -- st.sel is an index too, so comparing it to tc.idx asks the same stale
+    -- question; both sides are resolved here instead. A tap whose tile has
+    -- gone opens NOTHING, rather than whatever moved into its slot.
+    local idx = indexOfId(tiles, tc.tileId)
+    if idx then
+      if tiles[st.sel] and tiles[st.sel].id == tc.tileId then openTile(imp, tiles[idx])
+      else st.sel = idx; Sfx.play("select"); selectTile(imp, tiles[idx]) end
+    end
   elseif tc.kind == "button" then
     local h = tc.hit
     local g = st.grid

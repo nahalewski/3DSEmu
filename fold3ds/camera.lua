@@ -116,8 +116,10 @@ local function synth(name)
   if sounds[name] ~= nil then return sounds[name] or nil end
   -- the 3DS camera's own shutter
   if name == "shutter" then
-    local ok, src = pcall(love.audio.newSource, "fold3ds/sounds/home_camera.wav", "static")
-    if ok then sounds[name] = src return src end
+    for _, ext in ipairs({".ogg", ".mp3", ".wav"}) do
+      local ok, src = pcall(love.audio.newSource, "fold3ds/sounds/home_camera" .. ext, "static")
+      if ok then sounds[name] = src return src end
+    end
   end
   local ok, src = pcall(function()
     local rate = 44100

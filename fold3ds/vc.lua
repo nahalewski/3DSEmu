@@ -21,7 +21,7 @@ M.provider = require("fold3ds.emuprovider")({
     { id = "vc_about", name = "About", sub = "The cores and where the art comes from", url = "page?id=about" },
   },
   setupTile = nil,   -- the DS folder's set-up tile covers both
-  addTile = { id = "vc_add", name = "Add Virtual Console Games", sub = "Pick a .gb, .gbc or .gba game",
+  addTile = { id = "vc_add", name = "Add Virtual Console Games", sub = "Pick a game, or copy into AeonDX/vc/roms/gb, gbc or gba/",
     url = "act?id=add" },
 })
 

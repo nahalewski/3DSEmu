@@ -367,8 +367,30 @@ local function drawTitle(r, y0, pad)
       local pop = math.min(1, age / 0.35)
       local g = img("gift")
       if g then
-        local gs = h0 * 0.2 * (0.6 + 0.4 * pop) * (1 + 0.08 * math.sin(math.min(age, 1) * math.pi * 3))
-        fit(g, r.x + r.w / 2 - gs / 2, by - h0 * 0.28 - gs / 2 + h0 * 0.1, gs, gs, pop)
+        local iw, ih = g:getDimensions()
+        local gs = h0 * 0.22 * (0.6 + 0.4 * pop)
+        local hop = math.abs(math.sin(math.min(age, 1.2) * math.pi * 2.5)) * h0 * 0.03
+        local wiggle = (age < 0.8) and (math.sin(age * math.pi * 8) * 0.1 * (1 - age / 0.8)) or 0
+        local gcx, gcy = r.x + r.w / 2, by - h0 * 0.26 - hop
+        -- contact drop shadow
+        lg.setColor(0.2, 0.15, 0.25, 0.18 * pop)
+        lg.ellipse("fill", gcx, by - h0 * 0.16, gs * 0.4, gs * 0.12)
+        -- gift box
+        lg.push()
+        lg.translate(gcx, gcy)
+        lg.rotate(wiggle)
+        lg.setColor(1, 1, 1, pop)
+        lg.draw(g, 0, 0, 0, gs / iw, gs / ih, iw / 2, ih / 2)
+        lg.pop()
+        -- Sparkles
+        local sc = (st.t * 2) % 2.5
+        if sc < 0.5 then
+          local sprog = sc / 0.5
+          local sSize = math.sin(sprog * math.pi) * (gs * 0.2)
+          local sx, sy = gcx + gs * 0.18, gcy - gs * 0.22
+          lg.setColor(1, 0.95, 0.6, math.sin(sprog * math.pi))
+          lg.circle("fill", sx, sy, sSize * 0.4)
+        end
       end
       fit(img("thanks"), r.x + r.w * 0.1, by, r.w * 0.8, h0 * 0.2)
       lg.setFont(f2)
@@ -661,6 +683,10 @@ function E.update(dt)
     job.text = n and n.text
     job.doneAt = st.t
     st.cache = nil
+    if job.ok and job.entry then
+      local okH, Home = pcall(require, "fold3ds.home3ds")
+      if okH and Home and Home.wrapTile then Home.wrapTile(job.entry.id) end
+    end
     Sfx.play(job.ok and "gift" or "error")
   end
 end

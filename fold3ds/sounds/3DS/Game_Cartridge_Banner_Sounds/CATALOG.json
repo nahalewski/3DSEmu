@@ -1,0 +1,1780 @@
+[
+  {
+    "code": "A2D",
+    "title": "Super Mario 64 DS",
+    "category": "Mario_and_Nintendo",
+    "filename": "Super Mario 64 DS [A2D].wav",
+    "size_bytes": 529196
+  },
+  {
+    "code": "A2G",
+    "title": "Phoenix Wright - Ace Attorney Justice for All",
+    "category": "Capcom_Konami_and_Adventure",
+    "filename": "Phoenix Wright - Ace Attorney Justice for All [A2G].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "A2S",
+    "title": "Dragon Ball Z: Supersonic Warriors 2",
+    "category": "Sega_and_Sonic",
+    "filename": "Dragon Ball Z_ Supersonic Warriors 2 [A2S].wav",
+    "size_bytes": 259656
+  },
+  {
+    "code": "A3Y",
+    "title": "Sonic Rush Adventure",
+    "category": "Sega_and_Sonic",
+    "filename": "Sonic Rush Adventure [A3Y].wav",
+    "size_bytes": 37804
+  },
+  {
+    "code": "A5F",
+    "title": "Professor Layton and the Curious Village",
+    "category": "Capcom_Konami_and_Adventure",
+    "filename": "Professor Layton and the Curious Village [A5F].wav",
+    "size_bytes": 384464
+  },
+  {
+    "code": "A5L",
+    "title": "Go! Go! Kokopolo: Harmonious Forest Revenge",
+    "category": "Other_Classics",
+    "filename": "Go! Go! Kokopolo_ Harmonious Forest Revenge [A5L].wav",
+    "size_bytes": 400712
+  },
+  {
+    "code": "A6F",
+    "title": "Final Fantasy Tactics A2",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Final Fantasy Tactics A2 [A6F].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "A6R",
+    "title": "Digimon Story: Moonlight",
+    "category": "Other_Classics",
+    "filename": "Digimon Story_ Moonlight [A6R].wav",
+    "size_bytes": 66572
+  },
+  {
+    "code": "A6S",
+    "title": "The Legend of Spyro: A New Beginning",
+    "category": "Other_Classics",
+    "filename": "The Legend of Spyro_ A New Beginning [A6S].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "A6T",
+    "title": "The Legend of Spyro: The Eternal Night",
+    "category": "Other_Classics",
+    "filename": "The Legend of Spyro_ The Eternal Night [A6T].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "A8T",
+    "title": "Mario Party DS",
+    "category": "Mario_and_Nintendo",
+    "filename": "Mario Party DS [A8T].wav",
+    "size_bytes": 383930
+  },
+  {
+    "code": "AB3E",
+    "title": "Mario Hoops 3 on 3",
+    "category": "Mario_and_Nintendo",
+    "filename": "Mario Hoops 3 on 3 [AB3E].wav",
+    "size_bytes": 329852
+  },
+  {
+    "code": "AB3J",
+    "title": "Mario Basket 3 on 3",
+    "category": "Mario_and_Nintendo",
+    "filename": "Mario Basket 3 on 3 [AB3J].wav",
+    "size_bytes": 329852
+  },
+  {
+    "code": "AB3P",
+    "title": "Mario Slam Basketball",
+    "category": "Mario_and_Nintendo",
+    "filename": "Mario Slam Basketball [AB3P].wav",
+    "size_bytes": 329852
+  },
+  {
+    "code": "AB4",
+    "title": "Mokjjangiyagi: Colobockle Station for Girl",
+    "category": "Other_Classics",
+    "filename": "Mokjjangiyagi_ Colobockle Station for Girl [AB4].wav",
+    "size_bytes": 166796
+  },
+  {
+    "code": "ABC",
+    "title": "Chousoku Henkei Gyrozetter: Albatross no Tsubasa",
+    "category": "Other_Classics",
+    "filename": "Chousoku Henkei Gyrozetter_ Albatross no Tsubasa [ABC].wav",
+    "size_bytes": 166796
+  },
+  {
+    "code": "ABH",
+    "title": "Senran Kagura: Shoujo-tachi no Shinei",
+    "category": "Other_Classics",
+    "filename": "Senran Kagura_ Shoujo-tachi no Shinei [ABH].wav",
+    "size_bytes": 208716
+  },
+  {
+    "code": "ABHJ",
+    "title": "Senran Kagura: Shoujo-tachi no Shinei",
+    "category": "Other_Classics",
+    "filename": "Senran Kagura_ Shoujo-tachi no Shinei [ABHJ].wav",
+    "size_bytes": 208716
+  },
+  {
+    "code": "ABM",
+    "title": "Biohazard: The Mercenaries 3D",
+    "category": "Other_Classics",
+    "filename": "Biohazard_ The Mercenaries 3D [ABM].wav",
+    "size_bytes": 40244
+  },
+  {
+    "code": "ABNP",
+    "title": "Ben 10: Galactic Racing",
+    "category": "Other_Classics",
+    "filename": "Ben 10_ Galactic Racing [ABNP].wav",
+    "size_bytes": 40244
+  },
+  {
+    "code": "ABU",
+    "title": "My Exotic Farm",
+    "category": "Other_Classics",
+    "filename": "My Exotic Farm [ABU].wav",
+    "size_bytes": 394804
+  },
+  {
+    "code": "ABX",
+    "title": "Bomberman Land Touch!",
+    "category": "Other_Classics",
+    "filename": "Bomberman Land Touch! [ABX].wav",
+    "size_bytes": 40244
+  },
+  {
+    "code": "ABZ",
+    "title": "Boulder Dash-XL 3D",
+    "category": "Other_Classics",
+    "filename": "Boulder Dash-XL 3D [ABZ].wav",
+    "size_bytes": 374572
+  },
+  {
+    "code": "ACB",
+    "title": "Culdcept",
+    "category": "Other_Classics",
+    "filename": "Culdcept [ACB].wav",
+    "size_bytes": 163128
+  },
+  {
+    "code": "ACC",
+    "title": "Super Pokémon Rumble",
+    "category": "Pokemon",
+    "filename": "Super Pokémon Rumble [ACC].wav",
+    "size_bytes": 479656
+  },
+  {
+    "code": "ACHP",
+    "title": "Freshly-Picked: Tingle's Rosy Rupeeland",
+    "category": "Other_Classics",
+    "filename": "Freshly-Picked_ Tingle's Rosy Rupeeland [ACHP].wav",
+    "size_bytes": 515684
+  },
+  {
+    "code": "ACL",
+    "title": "Girls Style: Fashion Leader Seoneon!",
+    "category": "Other_Classics",
+    "filename": "Girls Style_ Fashion Leader Seoneon! [ACL].wav",
+    "size_bytes": 519492
+  },
+  {
+    "code": "ACV",
+    "title": "Castlevania - Dawn of Sorrow",
+    "category": "Capcom_Konami_and_Adventure",
+    "filename": "Castlevania - Dawn of Sorrow [ACV].wav",
+    "size_bytes": 187456
+  },
+  {
+    "code": "ADA",
+    "title": "Pokemon Diamond",
+    "category": "Pokemon",
+    "filename": "Pokemon Diamond [ADA].wav",
+    "size_bytes": 86380
+  },
+  {
+    "code": "ADD",
+    "title": "Dead or Alive: Dimensions",
+    "category": "Other_Classics",
+    "filename": "Dead or Alive_ Dimensions [ADD].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "ADM",
+    "title": "Moshi Monsters: Katsuma Unleashed",
+    "category": "Other_Classics",
+    "filename": "Moshi Monsters_ Katsuma Unleashed [ADM].wav",
+    "size_bytes": 431172
+  },
+  {
+    "code": "ADMJ",
+    "title": "Oide yo Doubutsu no Mori",
+    "category": "Other_Classics",
+    "filename": "Oide yo Doubutsu no Mori [ADMJ].wav",
+    "size_bytes": 431172
+  },
+  {
+    "code": "ADMK",
+    "title": "Nolleooseyo Dongmurui Sup",
+    "category": "Other_Classics",
+    "filename": "Nolleooseyo Dongmurui Sup [ADMK].wav",
+    "size_bytes": 431172
+  },
+  {
+    "code": "ADQ",
+    "title": "Miitopia",
+    "category": "Other_Classics",
+    "filename": "Miitopia [ADQ].wav",
+    "size_bytes": 389608
+  },
+  {
+    "code": "AEG",
+    "title": "Doodle Jump Adventures",
+    "category": "Other_Classics",
+    "filename": "Doodle Jump Adventures [AEG].wav",
+    "size_bytes": 574146
+  },
+  {
+    "code": "AFF",
+    "title": "Bravely Default: Flying Fairy",
+    "category": "Other_Classics",
+    "filename": "Bravely Default_ Flying Fairy [AFF].wav",
+    "size_bytes": 529588
+  },
+  {
+    "code": "AFFJ",
+    "title": "Bravely Default: Flying Fairy",
+    "category": "Other_Classics",
+    "filename": "Bravely Default_ Flying Fairy [AFFJ].wav",
+    "size_bytes": 529588
+  },
+  {
+    "code": "AFOJ",
+    "title": "Front Mission 1st",
+    "category": "Other_Classics",
+    "filename": "Front Mission 1st [AFOJ].wav",
+    "size_bytes": 317612
+  },
+  {
+    "code": "AGC",
+    "title": "The Combo Pack: Madagascar 3: Europe's Most Wanted + The Croods: Prehistoric Party!",
+    "category": "Other_Classics",
+    "filename": "The Combo Pack_ Madagascar 3_ Europe's Most Wanted + The Croods_ Prehistoric Party! [AGC].wav",
+    "size_bytes": 269874
+  },
+  {
+    "code": "AGE",
+    "title": "GoldenEye: Rogue Agent",
+    "category": "Other_Classics",
+    "filename": "GoldenEye_ Rogue Agent [AGE].wav",
+    "size_bytes": 484524
+  },
+  {
+    "code": "AGY",
+    "title": "Gaist Crusher",
+    "category": "Other_Classics",
+    "filename": "Gaist Crusher [AGY].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "AHE",
+    "title": "Spy Hunter",
+    "category": "Other_Classics",
+    "filename": "Spy Hunter [AHE].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "AHV",
+    "title": "Heavy Fire: The Chosen Few 3D",
+    "category": "Other_Classics",
+    "filename": "Heavy Fire_ The Chosen Few 3D [AHV].wav",
+    "size_bytes": 504250
+  },
+  {
+    "code": "AIP",
+    "title": "Barbie in the 12 Dancing Princesses",
+    "category": "Other_Classics",
+    "filename": "Barbie in the 12 Dancing Princesses [AIP].wav",
+    "size_bytes": 385000
+  },
+  {
+    "code": "AJB",
+    "title": "Style Savvy: Styling Star",
+    "category": "Other_Classics",
+    "filename": "Style Savvy_ Styling Star [AJB].wav",
+    "size_bytes": 353246
+  },
+  {
+    "code": "AJR",
+    "title": "The Legend of Zelda: Majora's Mask 3D",
+    "category": "Zelda",
+    "filename": "The Legend of Zelda_ Majora's Mask 3D [AJR].wav",
+    "size_bytes": 408040
+  },
+  {
+    "code": "AKD",
+    "title": "Shin Hikari Shinwa: Palutena no Kagami",
+    "category": "Other_Classics",
+    "filename": "Shin Hikari Shinwa_ Palutena no Kagami [AKD].wav",
+    "size_bytes": 441700
+  },
+  {
+    "code": "AKW",
+    "title": "Kirby: Mouse Attack",
+    "category": "Kirby",
+    "filename": "Kirby_ Mouse Attack [AKW].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "AKWP",
+    "title": "Kirby: Mouse Attack",
+    "category": "Kirby",
+    "filename": "Kirby_ Mouse Attack [AKWP].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "AL7",
+    "title": "LEGO Star Wars II: The Original Trilogy",
+    "category": "Other_Classics",
+    "filename": "LEGO Star Wars II_ The Original Trilogy [AL7].wav",
+    "size_bytes": 264644
+  },
+  {
+    "code": "AMC",
+    "title": "Madagascar 3: Europe's Most Wanted",
+    "category": "Other_Classics",
+    "filename": "Madagascar 3_ Europe's Most Wanted [AMC].wav",
+    "size_bytes": 529244
+  },
+  {
+    "code": "AMG",
+    "title": "Metal Gear Solid: Snake Eater 3D",
+    "category": "Other_Classics",
+    "filename": "Metal Gear Solid_ Snake Eater 3D [AMG].wav",
+    "size_bytes": 529622
+  },
+  {
+    "code": "AMH",
+    "title": "Monster Hunter 3G",
+    "category": "Other_Classics",
+    "filename": "Monster Hunter 3G [AMH].wav",
+    "size_bytes": 519388
+  },
+  {
+    "code": "AMQ",
+    "title": "Disney Magical World",
+    "category": "Other_Classics",
+    "filename": "Disney Magical World [AMQ].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "AMT",
+    "title": "Shin Megami Tensei: Devil Survivor Overclocked",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Shin Megami Tensei_ Devil Survivor Overclocked [AMT].wav",
+    "size_bytes": 529132
+  },
+  {
+    "code": "ANS",
+    "title": "Need for Speed: The Run",
+    "category": "Other_Classics",
+    "filename": "Need for Speed_ The Run [ANS].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "ANX",
+    "title": "SpongeBob SquarePants: Plankton's Robotic Revenge",
+    "category": "Other_Classics",
+    "filename": "SpongeBob SquarePants_ Plankton's Robotic Revenge [ANX].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "AO2",
+    "title": "Moero! Nekketsu Rhythm Damashii: Osu! Tatakae! Ouendan 2",
+    "category": "Other_Classics",
+    "filename": "Moero! Nekketsu Rhythm Damashii_ Osu! Tatakae! Ouendan 2 [AO2].wav",
+    "size_bytes": 575156
+  },
+  {
+    "code": "AO2J",
+    "title": "Moero! Nekketsu Rhythm Damashii: Osu! Tatakae! Ouendan 2",
+    "category": "Other_Classics",
+    "filename": "Moero! Nekketsu Rhythm Damashii_ Osu! Tatakae! Ouendan 2 [AO2J].wav",
+    "size_bytes": 188732
+  },
+  {
+    "code": "AOS",
+    "title": "Elite Beat Agents",
+    "category": "Other_Classics",
+    "filename": "Elite Beat Agents [AOS].wav",
+    "size_bytes": 186972
+  },
+  {
+    "code": "AOSJ",
+    "title": "Osu! Tatakae! Ouendan",
+    "category": "Other_Classics",
+    "filename": "Osu! Tatakae! Ouendan [AOSJ].wav",
+    "size_bytes": 187360
+  },
+  {
+    "code": "AP2",
+    "title": "Puyo Puyo!! 20th Anniversary",
+    "category": "Other_Classics",
+    "filename": "Puyo Puyo!! 20th Anniversary [AP2].wav",
+    "size_bytes": 475264
+  },
+  {
+    "code": "APA",
+    "title": "Pokemon Pearl",
+    "category": "Pokemon",
+    "filename": "Pokemon Pearl [APA].wav",
+    "size_bytes": 89788
+  },
+  {
+    "code": "APD",
+    "title": "Pokemon Fushigi no Dungeon: Magnagate to Mugendai Meikyuu",
+    "category": "Pokemon",
+    "filename": "Pokemon Fushigi no Dungeon_ Magnagate to Mugendai Meikyuu [APD].wav",
+    "size_bytes": 268240
+  },
+  {
+    "code": "APG",
+    "title": "Pac-Man & Galaga Dimensions",
+    "category": "Other_Classics",
+    "filename": "Pac-Man & Galaga Dimensions [APG].wav",
+    "size_bytes": 483432
+  },
+  {
+    "code": "APH",
+    "title": "Pokémon Mystery Dungeon: Blue Rescue Team",
+    "category": "Pokemon",
+    "filename": "Pokémon Mystery Dungeon_ Blue Rescue Team [APH].wav",
+    "size_bytes": 461816
+  },
+  {
+    "code": "APT",
+    "title": "Pretty Rhythm: My Deco Rainbow Wedding",
+    "category": "Other_Classics",
+    "filename": "Pretty Rhythm_ My Deco Rainbow Wedding [APT].wav",
+    "size_bytes": 270390
+  },
+  {
+    "code": "ARG",
+    "title": "Pokemon Ranger",
+    "category": "Pokemon",
+    "filename": "Pokemon Ranger [ARG].wav",
+    "size_bytes": 506176
+  },
+  {
+    "code": "ARM",
+    "title": "Rayman Origins",
+    "category": "Other_Classics",
+    "filename": "Rayman Origins [ARM].wav",
+    "size_bytes": 401452
+  },
+  {
+    "code": "ARZ",
+    "title": "Sousaku Alice to Oujisama!",
+    "category": "Other_Classics",
+    "filename": "Sousaku Alice to Oujisama! [ARZ].wav",
+    "size_bytes": 444664
+  },
+  {
+    "code": "ASC",
+    "title": "Tom Clancy's Splinter Cell 3D",
+    "category": "Other_Classics",
+    "filename": "Tom Clancy's Splinter Cell 3D [ASC].wav",
+    "size_bytes": 36556
+  },
+  {
+    "code": "ASE",
+    "title": "Secrets of the Titanic",
+    "category": "Other_Classics",
+    "filename": "Secrets of the Titanic [ASE].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "ASFP",
+    "title": "Asphalt 3D",
+    "category": "Other_Classics",
+    "filename": "Asphalt 3D [ASFP].wav",
+    "size_bytes": 186112
+  },
+  {
+    "code": "ASM",
+    "title": "Super Monkey Ball 3D",
+    "category": "Other_Classics",
+    "filename": "Super Monkey Ball 3D [ASM].wav",
+    "size_bytes": 518148
+  },
+  {
+    "code": "ASP",
+    "title": "Skylanders: Spyro's Adventure",
+    "category": "Other_Classics",
+    "filename": "Skylanders_ Spyro's Adventure [ASP].wav",
+    "size_bytes": 346058
+  },
+  {
+    "code": "ASU",
+    "title": "Hana to Ikimono Rittai Zukan",
+    "category": "Other_Classics",
+    "filename": "Hana to Ikimono Rittai Zukan [ASU].wav",
+    "size_bytes": 288660
+  },
+  {
+    "code": "ATD",
+    "title": "Taiko no Tatsujin: Chibi Dragon to Fushigi na Orb",
+    "category": "Other_Classics",
+    "filename": "Taiko no Tatsujin_ Chibi Dragon to Fushigi na Orb [ATD].wav",
+    "size_bytes": 529138
+  },
+  {
+    "code": "ATI",
+    "title": "Electroplankton",
+    "category": "Other_Classics",
+    "filename": "Electroplankton [ATI].wav",
+    "size_bytes": 515904
+  },
+  {
+    "code": "ATK",
+    "title": "Tekken 3D: Prime Edition",
+    "category": "Other_Classics",
+    "filename": "Tekken 3D_ Prime Edition [ATK].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "ATKP",
+    "title": "Tekken 3D: Prime Edition",
+    "category": "Other_Classics",
+    "filename": "Tekken 3D_ Prime Edition [ATKP].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "ATR",
+    "title": "Time Travelers",
+    "category": "Other_Classics",
+    "filename": "Time Travelers [ATR].wav",
+    "size_bytes": 472620
+  },
+  {
+    "code": "AVD",
+    "title": "Bratz: Forever Diamondz",
+    "category": "Other_Classics",
+    "filename": "Bratz_ Forever Diamondz [AVD].wav",
+    "size_bytes": 490984
+  },
+  {
+    "code": "AWA",
+    "title": "Pilotwings Resort",
+    "category": "Other_Classics",
+    "filename": "Pilotwings Resort [AWA].wav",
+    "size_bytes": 223630
+  },
+  {
+    "code": "AWD",
+    "title": "Diddy Kong Racing DS",
+    "category": "Other_Classics",
+    "filename": "Diddy Kong Racing DS [AWD].wav",
+    "size_bytes": 475364
+  },
+  {
+    "code": "AWI",
+    "title": "Hotel Dusk: Room 215",
+    "category": "Other_Classics",
+    "filename": "Hotel Dusk_ Room 215 [AWI].wav",
+    "size_bytes": 293100
+  },
+  {
+    "code": "AWL",
+    "title": "The World Ends with You",
+    "category": "Square_Enix_and_RPG",
+    "filename": "The World Ends with You [AWL].wav",
+    "size_bytes": 514710
+  },
+  {
+    "code": "AWR",
+    "title": "Wreck-It Ralph",
+    "category": "Other_Classics",
+    "filename": "Wreck-It Ralph [AWR].wav",
+    "size_bytes": 40404
+  },
+  {
+    "code": "AXF",
+    "title": "Kouekizaidan Houjin Nihon Kanji Nouryoku Kentei Kyoukai: Kanken Training",
+    "category": "Other_Classics",
+    "filename": "Kouekizaidan Houjin Nihon Kanji Nouryoku Kentei Kyoukai_ Kanken Training [AXF].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "AXFJ",
+    "title": "Kouekizaidan Houjin Nihon Kanji Nouryoku Kentei Kyoukai: Kanken Training",
+    "category": "Other_Classics",
+    "filename": "Kouekizaidan Houjin Nihon Kanji Nouryoku Kentei Kyoukai_ Kanken Training [AXFJ].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "AY6",
+    "title": "Code Name: S.T.E.A.M.",
+    "category": "Other_Classics",
+    "filename": "Code Name_ S.T.E.A.M. [AY6].wav",
+    "size_bytes": 528686
+  },
+  {
+    "code": "AY9",
+    "title": "Adventure Time: Explore the Dungeon Because I Don't Know!",
+    "category": "Other_Classics",
+    "filename": "Adventure Time_ Explore the Dungeon Because I Don't Know! [AY9].wav",
+    "size_bytes": 423338
+  },
+  {
+    "code": "AYA",
+    "title": "My Baby Pet Hotel 3D",
+    "category": "Other_Classics",
+    "filename": "My Baby Pet Hotel 3D [AYA].wav",
+    "size_bytes": 154948
+  },
+  {
+    "code": "AYG",
+    "title": "Yuugen Gaisha Brave Company",
+    "category": "Other_Classics",
+    "filename": "Yuugen Gaisha Brave Company [AYG].wav",
+    "size_bytes": 377692
+  },
+  {
+    "code": "AYI",
+    "title": "Yoshi Touch & Go",
+    "category": "Mario_and_Nintendo",
+    "filename": "Yoshi Touch & Go [AYI].wav",
+    "size_bytes": 462606
+  },
+  {
+    "code": "AYW",
+    "title": "Animal Crossing - Wild World",
+    "category": "Other_Classics",
+    "filename": "Animal Crossing - Wild World [AYW].wav",
+    "size_bytes": 184392
+  },
+  {
+    "code": "AYWJ",
+    "title": "Youkai Watch",
+    "category": "Other_Classics",
+    "filename": "Youkai Watch [AYWJ].wav",
+    "size_bytes": 184392
+  },
+  {
+    "code": "AYX",
+    "title": "Yu-Gi-Oh! Zexal: World Duel Carnival",
+    "category": "Other_Classics",
+    "filename": "Yu-Gi-Oh! Zexal_ World Duel Carnival [AYX].wav",
+    "size_bytes": 486392
+  },
+  {
+    "code": "AZE",
+    "title": "The Legend of Zelda - Phantom Hourglass",
+    "category": "Zelda",
+    "filename": "The Legend of Zelda - Phantom Hourglass [AZE].wav",
+    "size_bytes": 414480
+  },
+  {
+    "code": "AZL",
+    "title": "Puzzler World 2013",
+    "category": "Other_Classics",
+    "filename": "Puzzler World 2013 [AZL].wav",
+    "size_bytes": 575116
+  },
+  {
+    "code": "AZW",
+    "title": "WarioWare: Touched!",
+    "category": "Mario_and_Nintendo",
+    "filename": "WarioWare_ Touched! [AZW].wav",
+    "size_bytes": 516976
+  },
+  {
+    "code": "B2KJ",
+    "title": "Kingdom Hearts 358-2 Days",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Kingdom Hearts 358-2 Days [B2KJ].wav",
+    "size_bytes": 560234
+  },
+  {
+    "code": "B3C",
+    "title": "Cooking Mama 3",
+    "category": "Other_Classics",
+    "filename": "Cooking Mama 3 [B3C].wav",
+    "size_bytes": 527116
+  },
+  {
+    "code": "B3DJ",
+    "title": "Taiko no Tatsujin DS: Dororon! Yookai Daikessen!!",
+    "category": "Other_Classics",
+    "filename": "Taiko no Tatsujin DS_ Dororon! Yookai Daikessen!! [B3DJ].wav",
+    "size_bytes": 519380
+  },
+  {
+    "code": "B3P",
+    "title": "Pokemon Mystery Dungeon - Explorers of Darkness",
+    "category": "Pokemon",
+    "filename": "Pokemon Mystery Dungeon - Explorers of Darkness [B3P].wav",
+    "size_bytes": 516852
+  },
+  {
+    "code": "B3R",
+    "title": "Pokémon Ranger: Guardian Signs",
+    "category": "Pokemon",
+    "filename": "Pokémon Ranger_ Guardian Signs [B3R].wav",
+    "size_bytes": 408550
+  },
+  {
+    "code": "B62J",
+    "title": "Okaeri! Chibi-Robo!: Happy Rich Oosouji!",
+    "category": "Other_Classics",
+    "filename": "Okaeri! Chibi-Robo!_ Happy Rich Oosouji! [B62J].wav",
+    "size_bytes": 495736
+  },
+  {
+    "code": "B6F",
+    "title": "LEGO Batman 2: DC Super Heroes",
+    "category": "Other_Classics",
+    "filename": "LEGO Batman 2_ DC Super Heroes [B6F].wav",
+    "size_bytes": 244840
+  },
+  {
+    "code": "B6Z",
+    "title": "Pokemon Ranger - Shadows of Almia",
+    "category": "Pokemon",
+    "filename": "Pokemon Ranger - Shadows of Almia [B6Z].wav",
+    "size_bytes": 527948
+  },
+  {
+    "code": "B6ZJ",
+    "title": "Rockman Zero Collection",
+    "category": "Capcom_Konami_and_Adventure",
+    "filename": "Rockman Zero Collection [B6ZJ].wav",
+    "size_bytes": 527948
+  },
+  {
+    "code": "B83",
+    "title": "LEGO Harry Potter: Years 5-7",
+    "category": "Other_Classics",
+    "filename": "LEGO Harry Potter_ Years 5-7 [B83].wav",
+    "size_bytes": 242152
+  },
+  {
+    "code": "BCNJ",
+    "title": "Sumikko Gurashi: Koko ga Ochitsukundesu",
+    "category": "Other_Classics",
+    "filename": "Sumikko Gurashi_ Koko ga Ochitsukundesu [BCNJ].wav",
+    "size_bytes": 527552
+  },
+  {
+    "code": "BDB",
+    "title": "Dragon Ball Heroes: Ultimate Mission 2",
+    "category": "Other_Classics",
+    "filename": "Dragon Ball Heroes_ Ultimate Mission 2 [BDB].wav",
+    "size_bytes": 273048
+  },
+  {
+    "code": "BDR",
+    "title": "Drawn to Life: The Next Chapter",
+    "category": "Other_Classics",
+    "filename": "Drawn to Life_ The Next Chapter [BDR].wav",
+    "size_bytes": 466364
+  },
+  {
+    "code": "BFX",
+    "title": "Fire Emblem Fates: Birthright",
+    "category": "Other_Classics",
+    "filename": "Fire Emblem Fates_ Birthright [BFX].wav",
+    "size_bytes": 217132
+  },
+  {
+    "code": "BFXJ",
+    "title": "Fire Emblem If: Byakuya Oukoku",
+    "category": "Other_Classics",
+    "filename": "Fire Emblem If_ Byakuya Oukoku [BFXJ].wav",
+    "size_bytes": 217132
+  },
+  {
+    "code": "BGT",
+    "title": "Ghost Trick: Phantom Detective",
+    "category": "Other_Classics",
+    "filename": "Ghost Trick_ Phantom Detective [BGT].wav",
+    "size_bytes": 256336
+  },
+  {
+    "code": "BH2",
+    "title": "Hoppe-chan: Minna de Odekake! Waku Waku Hoppe Land!!",
+    "category": "Other_Classics",
+    "filename": "Hoppe-chan_ Minna de Odekake! Waku Waku Hoppe Land!! [BH2].wav",
+    "size_bytes": 471084
+  },
+  {
+    "code": "BIH",
+    "title": "Monster Tale",
+    "category": "Other_Classics",
+    "filename": "Monster Tale [BIH].wav",
+    "size_bytes": 353110
+  },
+  {
+    "code": "BJ3",
+    "title": "Dragon Quest Monsters: Joker 3",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Dragon Quest Monsters_ Joker 3 [BJ3].wav",
+    "size_bytes": 529318
+  },
+  {
+    "code": "BJC",
+    "title": "GoldenEye 007",
+    "category": "Other_Classics",
+    "filename": "GoldenEye 007 [BJC].wav",
+    "size_bytes": 529244
+  },
+  {
+    "code": "BK9",
+    "title": "KINGDOM HEARTS Re:coded",
+    "category": "Square_Enix_and_RPG",
+    "filename": "KINGDOM HEARTS Re_coded [BK9].wav",
+    "size_bytes": 464940
+  },
+  {
+    "code": "BKI",
+    "title": "The Legend of Zelda: Spirit Tracks",
+    "category": "Zelda",
+    "filename": "The Legend of Zelda_ Spirit Tracks [BKI].wav",
+    "size_bytes": 497034
+  },
+  {
+    "code": "BKU",
+    "title": "Mario Kart DS",
+    "category": "Mario_and_Nintendo",
+    "filename": "Mario Kart DS [BKU].wav",
+    "size_bytes": 345644
+  },
+  {
+    "code": "BKUJ",
+    "title": "Medarot Classics: Kabuto Version",
+    "category": "Other_Classics",
+    "filename": "Medarot Classics_ Kabuto Version [BKUJ].wav",
+    "size_bytes": 345644
+  },
+  {
+    "code": "BL9",
+    "title": "LEGO Star Wars III: The Clone Wars",
+    "category": "Other_Classics",
+    "filename": "LEGO Star Wars III_ The Clone Wars [BL9].wav",
+    "size_bytes": 242196
+  },
+  {
+    "code": "BLF",
+    "title": "Layton's Mystery Journey: Katrielle and the Millionaires' Conspiracy",
+    "category": "Capcom_Konami_and_Adventure",
+    "filename": "Layton's Mystery Journey_ Katrielle and the Millionaires' Conspiracy [BLF].wav",
+    "size_bytes": 327164
+  },
+  {
+    "code": "BLH",
+    "title": "LEGO The Hobbit",
+    "category": "Other_Classics",
+    "filename": "LEGO The Hobbit [BLH].wav",
+    "size_bytes": 521496
+  },
+  {
+    "code": "BLJ",
+    "title": "Professor Layton and the Last Specter",
+    "category": "Capcom_Konami_and_Adventure",
+    "filename": "Professor Layton and the Last Specter [BLJ].wav",
+    "size_bytes": 264644
+  },
+  {
+    "code": "BLR",
+    "title": "LEGO Rock Band",
+    "category": "Other_Classics",
+    "filename": "LEGO Rock Band [BLR].wav",
+    "size_bytes": 264644
+  },
+  {
+    "code": "BO5",
+    "title": "Golden Sun: Dark Dawn",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Golden Sun_ Dark Dawn [BO5].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "BOO",
+    "title": "Okamiden",
+    "category": "Other_Classics",
+    "filename": "Okamiden [BOO].wav",
+    "size_bytes": 511256
+  },
+  {
+    "code": "BROJ",
+    "title": "Super Robot Taisen OG Saga: Masou Kishin: The Lord of Elemental",
+    "category": "Other_Classics",
+    "filename": "Super Robot Taisen OG Saga_ Masou Kishin_ The Lord of Elemental [BROJ].wav",
+    "size_bytes": 528348
+  },
+  {
+    "code": "BRP",
+    "title": "Pokemon Ranger - Guardian Signs",
+    "category": "Pokemon",
+    "filename": "Pokemon Ranger - Guardian Signs [BRP].wav",
+    "size_bytes": 344228
+  },
+  {
+    "code": "BSD",
+    "title": "Nankou Furaku Sangokuden: Shu to Toki no Doujaku",
+    "category": "Other_Classics",
+    "filename": "Nankou Furaku Sangokuden_ Shu to Toki no Doujaku [BSD].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "BSK",
+    "title": "Etrian Odyssey Untold: The Millennium Girl",
+    "category": "Other_Classics",
+    "filename": "Etrian Odyssey Untold_ The Millennium Girl [BSK].wav",
+    "size_bytes": 160250
+  },
+  {
+    "code": "BSL",
+    "title": "Osawari Tantei Ozawa Rina Nameko Rhythm",
+    "category": "Other_Classics",
+    "filename": "Osawari Tantei Ozawa Rina Nameko Rhythm [BSL].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "BT2",
+    "title": "Top Model 3D",
+    "category": "Other_Classics",
+    "filename": "Top Model 3D [BT2].wav",
+    "size_bytes": 428036
+  },
+  {
+    "code": "BVP",
+    "title": "Drawn to Life: Collection",
+    "category": "Other_Classics",
+    "filename": "Drawn to Life_ Collection [BVP].wav",
+    "size_bytes": 516488
+  },
+  {
+    "code": "BWB",
+    "title": "Plants vs. Zombies",
+    "category": "Other_Classics",
+    "filename": "Plants vs. Zombies [BWB].wav",
+    "size_bytes": 526820
+  },
+  {
+    "code": "BXOJ",
+    "title": "Gyakuten Kenji 2",
+    "category": "Other_Classics",
+    "filename": "Gyakuten Kenji 2 [BXOJ].wav",
+    "size_bytes": 85580
+  },
+  {
+    "code": "BXS",
+    "title": "Sonic Colours",
+    "category": "Sega_and_Sonic",
+    "filename": "Sonic Colours [BXS].wav",
+    "size_bytes": 42636
+  },
+  {
+    "code": "BYX",
+    "title": "Yu-Gi-Oh! 5D's World Championship 2010: Reverse of Arcadia",
+    "category": "Other_Classics",
+    "filename": "Yu-Gi-Oh! 5D's World Championship 2010_ Reverse of Arcadia [BYX].wav",
+    "size_bytes": 375920
+  },
+  {
+    "code": "BYY",
+    "title": "Yu-Gi-Oh! 5D's: World Championship 2011: Over the Nexus",
+    "category": "Other_Classics",
+    "filename": "Yu-Gi-Oh! 5D's_ World Championship 2011_ Over the Nexus [BYY].wav",
+    "size_bytes": 376836
+  },
+  {
+    "code": "BZD",
+    "title": "LEGO Pirates of the Caribbean: The Video Game",
+    "category": "Other_Classics",
+    "filename": "LEGO Pirates of the Caribbean_ The Video Game [BZD].wav",
+    "size_bytes": 242156
+  },
+  {
+    "code": "C24",
+    "title": "Pokemon Mystery Dungeon - Explorers of Time",
+    "category": "Pokemon",
+    "filename": "Pokemon Mystery Dungeon - Explorers of Time [C24].wav",
+    "size_bytes": 39716
+  },
+  {
+    "code": "C2S",
+    "title": "Pokémon Mystery Dungeon: Explorers of Sky",
+    "category": "Pokemon",
+    "filename": "Pokémon Mystery Dungeon_ Explorers of Sky [C2S].wav",
+    "size_bytes": 503304
+  },
+  {
+    "code": "C32",
+    "title": "Ace Attorney Investigations: Miles Edgeworth",
+    "category": "Capcom_Konami_and_Adventure",
+    "filename": "Ace Attorney Investigations_ Miles Edgeworth [C32].wav",
+    "size_bytes": 90868
+  },
+  {
+    "code": "C32J",
+    "title": "Gyakuten Kenji",
+    "category": "Other_Classics",
+    "filename": "Gyakuten Kenji [C32J].wav",
+    "size_bytes": 315880
+  },
+  {
+    "code": "C3J",
+    "title": "Professor Layton and the Unwound Future",
+    "category": "Capcom_Konami_and_Adventure",
+    "filename": "Professor Layton and the Unwound Future [C3J].wav",
+    "size_bytes": 368456
+  },
+  {
+    "code": "C6C",
+    "title": "The World Ends with You",
+    "category": "Square_Enix_and_RPG",
+    "filename": "The World Ends with You [C6C].wav",
+    "size_bytes": 529244
+  },
+  {
+    "code": "C6CJ",
+    "title": "Mugen Kouro",
+    "category": "Other_Classics",
+    "filename": "Mugen Kouro [C6CJ].wav",
+    "size_bytes": 529244
+  },
+  {
+    "code": "C6FJ",
+    "title": "Mugen no Frontier Exceed: Super Robot Taisen OG Saga",
+    "category": "Other_Classics",
+    "filename": "Mugen no Frontier Exceed_ Super Robot Taisen OG Saga [C6FJ].wav",
+    "size_bytes": 99564
+  },
+  {
+    "code": "C6P",
+    "title": "Picross 3D",
+    "category": "Other_Classics",
+    "filename": "Picross 3D [C6P].wav",
+    "size_bytes": 321312
+  },
+  {
+    "code": "CD6J",
+    "title": "7th Dragon",
+    "category": "Other_Classics",
+    "filename": "7th Dragon [CD6J].wav",
+    "size_bytes": 244652
+  },
+  {
+    "code": "CDZ",
+    "title": "Soccer Shootout",
+    "category": "Other_Classics",
+    "filename": "Soccer Shootout [CDZ].wav",
+    "size_bytes": 511712
+  },
+  {
+    "code": "CEY",
+    "title": "Aliens: Infestation",
+    "category": "Other_Classics",
+    "filename": "Aliens_ Infestation [CEY].wav",
+    "size_bytes": 258740
+  },
+  {
+    "code": "CFRE",
+    "title": "Zeus Quest Remastered",
+    "category": "Other_Classics",
+    "filename": "Zeus Quest Remastered [CFRE].wav",
+    "size_bytes": 99564
+  },
+  {
+    "code": "CFRJ",
+    "title": "Mugen no Frontier: Super Robot Taisen OG Saga",
+    "category": "Other_Classics",
+    "filename": "Mugen no Frontier_ Super Robot Taisen OG Saga [CFRJ].wav",
+    "size_bytes": 99564
+  },
+  {
+    "code": "CHN",
+    "title": "Might & Magic: Clash of Heroes",
+    "category": "Other_Classics",
+    "filename": "Might & Magic_ Clash of Heroes [CHN].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "CJK",
+    "title": "Nostalgeo no Kaze",
+    "category": "Other_Classics",
+    "filename": "Nostalgeo no Kaze [CJK].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "CJR",
+    "title": "Dragon Quest Monsters: Joker 2",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Dragon Quest Monsters_ Joker 2 [CJR].wav",
+    "size_bytes": 366568
+  },
+  {
+    "code": "CKN",
+    "title": "Chrono Trigger",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Chrono Trigger [CKN].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "CLJ",
+    "title": "Mario & Luigi: Bowser's Inside Story",
+    "category": "Mario_and_Nintendo",
+    "filename": "Mario & Luigi_ Bowser's Inside Story [CLJ].wav",
+    "size_bytes": 265290
+  },
+  {
+    "code": "CM6",
+    "title": "Rhapsody: A Musical Adventure",
+    "category": "Other_Classics",
+    "filename": "Rhapsody_ A Musical Adventure [CM6].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "COL",
+    "title": "Mario & Sonic at the Olympic Winter Games",
+    "category": "Mario_and_Nintendo",
+    "filename": "Mario & Sonic at the Olympic Winter Games [COL].wav",
+    "size_bytes": 495976
+  },
+  {
+    "code": "COO",
+    "title": "Moon",
+    "category": "Other_Classics",
+    "filename": "Moon [COO].wav",
+    "size_bytes": 529196
+  },
+  {
+    "code": "CPU",
+    "title": "New Super Mario Bros.",
+    "category": "Mario_and_Nintendo",
+    "filename": "New Super Mario Bros. [CPU].wav",
+    "size_bytes": 83964
+  },
+  {
+    "code": "CRUJ",
+    "title": "Kurutore eCDP",
+    "category": "Other_Classics",
+    "filename": "Kurutore eCDP [CRUJ].wav",
+    "size_bytes": 299052
+  },
+  {
+    "code": "CS5",
+    "title": "Castlevania - Order of Ecclesia",
+    "category": "Capcom_Konami_and_Adventure",
+    "filename": "Castlevania - Order of Ecclesia [CS5].wav",
+    "size_bytes": 514332
+  },
+  {
+    "code": "CSP",
+    "title": "Lock's Quest",
+    "category": "Other_Classics",
+    "filename": "Lock's Quest [CSP].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "CY8",
+    "title": "Yu-Gi-Oh! 5D's Stardust Accelerator: World Championship 2009",
+    "category": "Other_Classics",
+    "filename": "Yu-Gi-Oh! 5D's Stardust Accelerator_ World Championship 2009 [CY8].wav",
+    "size_bytes": 383488
+  },
+  {
+    "code": "CYJJ",
+    "title": "Blood of Bahamut",
+    "category": "Other_Classics",
+    "filename": "Blood of Bahamut [CYJJ].wav",
+    "size_bytes": 106572
+  },
+  {
+    "code": "IPG",
+    "title": "Pokemon SoulSilver",
+    "category": "Pokemon",
+    "filename": "Pokemon SoulSilver [IPG].wav",
+    "size_bytes": 302648
+  },
+  {
+    "code": "IPGJ",
+    "title": "Pocket Monsters: SoulSilver",
+    "category": "Other_Classics",
+    "filename": "Pocket Monsters_ SoulSilver [IPGJ].wav",
+    "size_bytes": 302648
+  },
+  {
+    "code": "IPK",
+    "title": "Pokemon HeartGold",
+    "category": "Pokemon",
+    "filename": "Pokemon HeartGold [IPK].wav",
+    "size_bytes": 180884
+  },
+  {
+    "code": "IPKJ",
+    "title": "Pocket Monsters: HeartGold",
+    "category": "Other_Classics",
+    "filename": "Pocket Monsters_ HeartGold [IPKJ].wav",
+    "size_bytes": 180884
+  },
+  {
+    "code": "IRA",
+    "title": "Pokemon White",
+    "category": "Pokemon",
+    "filename": "Pokemon White [IRA].wav",
+    "size_bytes": 423632
+  },
+  {
+    "code": "IRAJ",
+    "title": "Pocket Monsters: White",
+    "category": "Other_Classics",
+    "filename": "Pocket Monsters_ White [IRAJ].wav",
+    "size_bytes": 423632
+  },
+  {
+    "code": "IRB",
+    "title": "Pokemon Black",
+    "category": "Pokemon",
+    "filename": "Pokemon Black [IRB].wav",
+    "size_bytes": 352844
+  },
+  {
+    "code": "IRBJ",
+    "title": "Pocket Monsters: Black",
+    "category": "Other_Classics",
+    "filename": "Pocket Monsters_ Black [IRBJ].wav",
+    "size_bytes": 352844
+  },
+  {
+    "code": "IRD",
+    "title": "Pokemon White 2",
+    "category": "Pokemon",
+    "filename": "Pokemon White 2 [IRD].wav",
+    "size_bytes": 352844
+  },
+  {
+    "code": "IRDJ",
+    "title": "Pocket Monsters: White 2",
+    "category": "Other_Classics",
+    "filename": "Pocket Monsters_ White 2 [IRDJ].wav",
+    "size_bytes": 352844
+  },
+  {
+    "code": "IRE",
+    "title": "Pokemon Black 2",
+    "category": "Pokemon",
+    "filename": "Pokemon Black 2 [IRE].wav",
+    "size_bytes": 344296
+  },
+  {
+    "code": "IREJ",
+    "title": "Pocket Monsters: Black 2",
+    "category": "Other_Classics",
+    "filename": "Pocket Monsters_ Black 2 [IREJ].wav",
+    "size_bytes": 344296
+  },
+  {
+    "code": "TAD",
+    "title": "Metroid",
+    "category": "Other_Classics",
+    "filename": "Metroid [TAD].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "TCB",
+    "title": "Castlevania Ⅱ Simon's Quest",
+    "category": "Capcom_Konami_and_Adventure",
+    "filename": "Castlevania Ⅱ Simon's Quest [TCB].wav",
+    "size_bytes": 489582
+  },
+  {
+    "code": "TCS",
+    "title": "Ganbare Goemon 2",
+    "category": "Other_Classics",
+    "filename": "Ganbare Goemon 2 [TCS].wav",
+    "size_bytes": 518032
+  },
+  {
+    "code": "TLJ",
+    "title": "LEGO Friends",
+    "category": "Other_Classics",
+    "filename": "LEGO Friends [TLJ].wav",
+    "size_bytes": 376814
+  },
+  {
+    "code": "TLM",
+    "title": "LEGO Marvel Super Heroes: Universe in Peril",
+    "category": "Other_Classics",
+    "filename": "LEGO Marvel Super Heroes_ Universe in Peril [TLM].wav",
+    "size_bytes": 244910
+  },
+  {
+    "code": "TLR",
+    "title": "LEGO The Lord of the Rings",
+    "category": "Other_Classics",
+    "filename": "LEGO The Lord of the Rings [TLR].wav",
+    "size_bytes": 244852
+  },
+  {
+    "code": "TNRJ",
+    "title": "Nora to Toki no Koubou: Kiri no Mori no Majo",
+    "category": "Other_Classics",
+    "filename": "Nora to Toki no Koubou_ Kiri no Mori no Majo [TNRJ].wav",
+    "size_bytes": 503084
+  },
+  {
+    "code": "UOR",
+    "title": "WarioWare: Do It Yourself",
+    "category": "Mario_and_Nintendo",
+    "filename": "WarioWare_ Do It Yourself [UOR].wav",
+    "size_bytes": 478016
+  },
+  {
+    "code": "V2G",
+    "title": "Mario & Donkey Kong: Minis on the Move + Mario vs. Donkey Kong: Mini's March Again! -Download Codes-",
+    "category": "Mario_and_Nintendo",
+    "filename": "Mario & Donkey Kong_ Minis on the Move + Mario vs. Donkey Kong_ Mini's March Again! -Download Codes- [V2G].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "VAC",
+    "title": "Assassin's Creed II: Discovery",
+    "category": "Other_Classics",
+    "filename": "Assassin's Creed II_ Discovery [VAC].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "VCD",
+    "title": "Solatorobo: Red the Hunter",
+    "category": "Other_Classics",
+    "filename": "Solatorobo_ Red the Hunter [VCD].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "VD2",
+    "title": "de Blob 2",
+    "category": "Other_Classics",
+    "filename": "de Blob 2 [VD2].wav",
+    "size_bytes": 238644
+  },
+  {
+    "code": "VDE",
+    "title": "Fossil Fighters Champions",
+    "category": "Other_Classics",
+    "filename": "Fossil Fighters Champions [VDE].wav",
+    "size_bytes": 417836
+  },
+  {
+    "code": "VI2J",
+    "title": "Fire Emblem: Shin Monshou no Nazo: Hikari to Kage no Eiyuu",
+    "category": "Other_Classics",
+    "filename": "Fire Emblem_ Shin Monshou no Nazo_ Hikari to Kage no Eiyuu [VI2J].wav",
+    "size_bytes": 231280
+  },
+  {
+    "code": "VPY",
+    "title": "Pokémon Conquest",
+    "category": "Pokemon",
+    "filename": "Pokémon Conquest [VPY].wav",
+    "size_bytes": 511826
+  },
+  {
+    "code": "YAH",
+    "title": "Assassin's Creed: Altair's Chronicles",
+    "category": "Other_Classics",
+    "filename": "Assassin's Creed_ Altair's Chronicles [YAH].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "YB2",
+    "title": "Bomberman Land Touch! 2",
+    "category": "Other_Classics",
+    "filename": "Bomberman Land Touch! 2 [YB2].wav",
+    "size_bytes": 40244
+  },
+  {
+    "code": "YBAP",
+    "title": "Bomberman 2",
+    "category": "Other_Classics",
+    "filename": "Bomberman 2 [YBAP].wav",
+    "size_bytes": 40244
+  },
+  {
+    "code": "YCQ",
+    "title": "Cooking Mama 2",
+    "category": "Other_Classics",
+    "filename": "Cooking Mama 2 [YCQ].wav",
+    "size_bytes": 502388
+  },
+  {
+    "code": "YCT",
+    "title": "Contra: Dual Spirits",
+    "category": "Other_Classics",
+    "filename": "Contra_ Dual Spirits [YCT].wav",
+    "size_bytes": 180648
+  },
+  {
+    "code": "YCX",
+    "title": "Game Center CX: Arino no Chousenjou",
+    "category": "Other_Classics",
+    "filename": "Game Center CX_ Arino no Chousenjou [YCX].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "YDQ",
+    "title": "Dragon Quest IX: Sentinels of the Starry Skies",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Dragon Quest IX_ Sentinels of the Starry Skies [YDQ].wav",
+    "size_bytes": 352990
+  },
+  {
+    "code": "YDW",
+    "title": "Drawn to Life",
+    "category": "Other_Classics",
+    "filename": "Drawn to Life [YDW].wav",
+    "size_bytes": 516488
+  },
+  {
+    "code": "YEX",
+    "title": "Exit DS",
+    "category": "Other_Classics",
+    "filename": "Exit DS [YEX].wav",
+    "size_bytes": 529710
+  },
+  {
+    "code": "YFE",
+    "title": "Fire Emblem: Shadow Dragon",
+    "category": "Other_Classics",
+    "filename": "Fire Emblem_ Shadow Dragon [YFE].wav",
+    "size_bytes": 102356
+  },
+  {
+    "code": "YFEJ",
+    "title": "Fire Emblem: Shin Ankoku Ryuu to Hikari no Ken",
+    "category": "Other_Classics",
+    "filename": "Fire Emblem_ Shin Ankoku Ryuu to Hikari no Ken [YFEJ].wav",
+    "size_bytes": 102356
+  },
+  {
+    "code": "YFLJ",
+    "title": "Front Mission 2089: Border of Madness",
+    "category": "Other_Classics",
+    "filename": "Front Mission 2089_ Border of Madness [YFLJ].wav",
+    "size_bytes": 529244
+  },
+  {
+    "code": "YFT",
+    "title": "Pokémon Mystery Dungeon: Explorers of Time",
+    "category": "Pokemon",
+    "filename": "Pokémon Mystery Dungeon_ Explorers of Time [YFT].wav",
+    "size_bytes": 476614
+  },
+  {
+    "code": "YFY",
+    "title": "Pokémon Mystery Dungeon: Explorers of Darknes",
+    "category": "Pokemon",
+    "filename": "Pokémon Mystery Dungeon_ Explorers of Darknes [YFY].wav",
+    "size_bytes": 476614
+  },
+  {
+    "code": "YG3",
+    "title": "Phoenix Wright: Ace Attorney Trials and Tribulations",
+    "category": "Capcom_Konami_and_Adventure",
+    "filename": "Phoenix Wright_ Ace Attorney Trials and Tribulations [YG3].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "YG4",
+    "title": "Suikoden: Tierkreis",
+    "category": "Other_Classics",
+    "filename": "Suikoden_ Tierkreis [YG4].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "YG8",
+    "title": "Yu-Gi-Oh!: World Championship 2008",
+    "category": "Other_Classics",
+    "filename": "Yu-Gi-Oh!_ World Championship 2008 [YG8].wav",
+    "size_bytes": 375728
+  },
+  {
+    "code": "YGN",
+    "title": "Gauntlet",
+    "category": "Other_Classics",
+    "filename": "Gauntlet [YGN].wav",
+    "size_bytes": 527480
+  },
+  {
+    "code": "YHN",
+    "title": "Flower, Sun and Rain: Murder and Mystery in Paradise",
+    "category": "Other_Classics",
+    "filename": "Flower, Sun and Rain_ Murder and Mystery in Paradise [YHN].wav",
+    "size_bytes": 115252
+  },
+  {
+    "code": "YIVE",
+    "title": "Dragon Quest IV: Chapters of the Chosen",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Dragon Quest IV_ Chapters of the Chosen [YIVE].wav",
+    "size_bytes": 529244
+  },
+  {
+    "code": "YIVJ",
+    "title": "Dragon Quest IV: Michibikareshi Mono-tachi",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Dragon Quest IV_ Michibikareshi Mono-tachi [YIVJ].wav",
+    "size_bytes": 529244
+  },
+  {
+    "code": "YIVP",
+    "title": "Dragon Quest: The Chapters of the Chosen",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Dragon Quest_ The Chapters of the Chosen [YIVP].wav",
+    "size_bytes": 529244
+  },
+  {
+    "code": "YJB",
+    "title": "LEGO Batman: The Videogame",
+    "category": "Other_Classics",
+    "filename": "LEGO Batman_ The Videogame [YJB].wav",
+    "size_bytes": 264644
+  },
+  {
+    "code": "YKG",
+    "title": "Kingdom Hearts Re-coded",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Kingdom Hearts Re-coded [YKG].wav",
+    "size_bytes": 446464
+  },
+  {
+    "code": "YKH",
+    "title": "Bokura wa Kaseki Horider",
+    "category": "Other_Classics",
+    "filename": "Bokura wa Kaseki Horider [YKH].wav",
+    "size_bytes": 441044
+  },
+  {
+    "code": "YKTJ",
+    "title": "Taiko no Tatsujin DS: Touch de Dokodon!",
+    "category": "Other_Classics",
+    "filename": "Taiko no Tatsujin DS_ Touch de Dokodon! [YKTJ].wav",
+    "size_bytes": 525752
+  },
+  {
+    "code": "YKW",
+    "title": "Kirby Super Star Ultra",
+    "category": "Kirby",
+    "filename": "Kirby Super Star Ultra [YKW].wav",
+    "size_bytes": 528428
+  },
+  {
+    "code": "YLE",
+    "title": "Soul Bubbles",
+    "category": "Other_Classics",
+    "filename": "Soul Bubbles [YLE].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "YLG",
+    "title": "LEGO Star Wars: The Complete Saga",
+    "category": "Other_Classics",
+    "filename": "LEGO Star Wars_ The Complete Saga [YLG].wav",
+    "size_bytes": 264644
+  },
+  {
+    "code": "YLJ",
+    "title": "LEGO Indiana Jones: The Original Adventures",
+    "category": "Other_Classics",
+    "filename": "LEGO Indiana Jones_ The Original Adventures [YLJ].wav",
+    "size_bytes": 264644
+  },
+  {
+    "code": "YLT",
+    "title": "Professor Layton and the Diabolical Box",
+    "category": "Capcom_Konami_and_Adventure",
+    "filename": "Professor Layton and the Diabolical Box [YLT].wav",
+    "size_bytes": 190148
+  },
+  {
+    "code": "YLU",
+    "title": "Last Window: The Secret of Cape West",
+    "category": "Other_Classics",
+    "filename": "Last Window_ The Secret of Cape West [YLU].wav",
+    "size_bytes": 361056
+  },
+  {
+    "code": "YLZ",
+    "title": "Rhythm Paradise",
+    "category": "Other_Classics",
+    "filename": "Rhythm Paradise [YLZ].wav",
+    "size_bytes": 183180
+  },
+  {
+    "code": "YNG",
+    "title": "Ninja Gaiden: Dragon Sword",
+    "category": "Other_Classics",
+    "filename": "Ninja Gaiden_ Dragon Sword [YNG].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "YNN",
+    "title": "Enchanted Folk and the School of Wizardry",
+    "category": "Other_Classics",
+    "filename": "Enchanted Folk and the School of Wizardry [YNN].wav",
+    "size_bytes": 520004
+  },
+  {
+    "code": "YNX",
+    "title": "N+",
+    "category": "Other_Classics",
+    "filename": "N+ [YNX].wav",
+    "size_bytes": 9224
+  },
+  {
+    "code": "YO8",
+    "title": "The Legend of Spyro: Dawn of the Dragon",
+    "category": "Other_Classics",
+    "filename": "The Legend of Spyro_ Dawn of the Dragon [YO8].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "YOG",
+    "title": "Avalon Code",
+    "category": "Other_Classics",
+    "filename": "Avalon Code [YOG].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "YP2",
+    "title": "Pokémon Ranger: Shadows of Almia",
+    "category": "Pokemon",
+    "filename": "Pokémon Ranger_ Shadows of Almia [YP2].wav",
+    "size_bytes": 496980
+  },
+  {
+    "code": "YP9",
+    "title": "Steal Princess: Touzoku Koujo",
+    "category": "Other_Classics",
+    "filename": "Steal Princess_ Touzoku Koujo [YP9].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "YQU",
+    "title": "Chrono Trigger",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Chrono Trigger [YQU].wav",
+    "size_bytes": 166900
+  },
+  {
+    "code": "YR9",
+    "title": "Castlevania - Portrait of Ruin",
+    "category": "Capcom_Konami_and_Adventure",
+    "filename": "Castlevania - Portrait of Ruin [YR9].wav",
+    "size_bytes": 248188
+  },
+  {
+    "code": "YSL",
+    "title": "World Destruction: Michibikareshi Ishi",
+    "category": "Other_Classics",
+    "filename": "World Destruction_ Michibikareshi Ishi [YSL].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "YSS",
+    "title": "The Legend of Zelda - Spirit Tracks",
+    "category": "Zelda",
+    "filename": "The Legend of Zelda - Spirit Tracks [YSS].wav",
+    "size_bytes": 528712
+  },
+  {
+    "code": "YV4",
+    "title": "Spectrobes: Beyond the Portals",
+    "category": "Other_Classics",
+    "filename": "Spectrobes_ Beyond the Portals [YV4].wav",
+    "size_bytes": 621650
+  },
+  {
+    "code": "YV5",
+    "title": "Dragon Quest: The Hand of the Heavenly Bride",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Dragon Quest_ The Hand of the Heavenly Bride [YV5].wav",
+    "size_bytes": 529244
+  },
+  {
+    "code": "YV5J",
+    "title": "Dragon Quest V: Tenkuu no Hanayome",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Dragon Quest V_ Tenkuu no Hanayome [YV5J].wav",
+    "size_bytes": 529244
+  },
+  {
+    "code": "YVI",
+    "title": "Dragon Quest IX - Sentinels of the Starry Skies",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Dragon Quest IX - Sentinels of the Starry Skies [YVI].wav",
+    "size_bytes": 529244
+  },
+  {
+    "code": "YVIJ",
+    "title": "Dragon Quest VI: Maboroshi no Daichi",
+    "category": "Square_Enix_and_RPG",
+    "filename": "Dragon Quest VI_ Maboroshi no Daichi [YVIJ].wav",
+    "size_bytes": 529244
+  },
+  {
+    "code": "YVP",
+    "title": "Pokemon Mystery Dungeon - Explorers of Sky",
+    "category": "Pokemon",
+    "filename": "Pokemon Mystery Dungeon - Explorers of Sky [YVP].wav",
+    "size_bytes": 529890
+  },
+  {
+    "code": "YW2",
+    "title": "Advance Wars: Dark Conflict",
+    "category": "Other_Classics",
+    "filename": "Advance Wars_ Dark Conflict [YW2].wav",
+    "size_bytes": 52164
+  },
+  {
+    "code": "YWK",
+    "title": "Don King Boxing",
+    "category": "Other_Classics",
+    "filename": "Don King Boxing [YWK].wav",
+    "size_bytes": 163884
+  },
+  {
+    "code": "YWVJ",
+    "title": "Metcha! Taiko no Tatsujin DS: 7-tsu no Shima no Daibouken",
+    "category": "Other_Classics",
+    "filename": "Metcha! Taiko no Tatsujin DS_ 7-tsu no Shima no Daibouken [YWVJ].wav",
+    "size_bytes": 524096
+  },
+  {
+    "code": "YYK",
+    "title": "Kyuukyuu Kyuumei Caduceus 2",
+    "category": "Other_Classics",
+    "filename": "Kyuukyuu Kyuumei Caduceus 2 [YYK].wav",
+    "size_bytes": 519604
+  },
+  {
+    "code": "YZX",
+    "title": "Mega Man ZX: Advent",
+    "category": "Capcom_Konami_and_Adventure",
+    "filename": "Mega Man ZX_ Advent [YZX].wav",
+    "size_bytes": 511192
+  }
+]

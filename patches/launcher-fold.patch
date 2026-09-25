@@ -382,7 +382,9 @@ index 8ef7511d..36c25db5 100644
 +    local on, fallen = 0, 0
 +    if sticker.count then on, fallen = sticker.count() end
 +    local th = Kit.textHeight("small")
-+    local rows = fallen > 0 and 2 or 1
++    local favs = sticker.getFavorites and sticker.getFavorites() or {}
++    local extraRow = 1
++    local rows = (fallen > 0 and 2 or 1) + extraRow
 +    local cardH = gap * (2 + rows) + th * 2 + math.floor(4 * m.s) + bh * rows
 +    Kit.card(x, cy, w, cardH)
 +    Kit.caption(x + gap, cy + gap, "COVER STICKERS")
@@ -402,11 +404,57 @@ index 8ef7511d..36c25db5 100644
 +        Strings("Edit the top one"), { font = "small",
 +          action = function() sticker.open("top") end })
 +    end
++    local r2y = by + bh + gap
++    local third = math.floor((w - gap * 4) / 3)
++    btn(imp, x + gap, r2y, third, bh, "skins-sticker-aeon",
++      Strings("+ AeonDX"), {
++        kind = "ghost", font = "small",
++        action = function() if sticker.addDefault then sticker.addDefault("aeondx", 0) end end })
++    btn(imp, x + gap * 2 + third, r2y, third, bh, "skins-sticker-vintage",
++      Strings("+ Vintage"), {
++        kind = "ghost", font = "small",
++        action = function() if sticker.addDefault then sticker.addDefault("distressed", 0) end end })
++    btn(imp, x + gap * 3 + third * 2, r2y, w - gap - (x + gap * 3 + third * 2), bh, "skins-sticker-fav",
++      #favs > 0 and Strings("★ Fav (%d)", #favs) or Strings("★ Favorites"), {
++        kind = #favs > 0 and "accent" or "ghost", font = "small",
++        action = function()
++          if #favs > 0 and sticker.applyFavorite then
++            sticker.applyFavorite(favs[#favs].id, 0)
++          else
++            sticker.open()
++          end
++        end })
 +    if fallen > 0 then
-+      btn(imp, x + gap, by + bh + gap, w - gap * 2, bh, "skins-sticker-back",
++      btn(imp, x + gap, r2y + bh + gap, w - gap * 2, bh, "skins-sticker-back",
 +        Strings("Put the fallen ones back"), { kind = "good", font = "small",
 +          action = function() sticker.putBack() end })
 +    end
++    cy = cy + cardH + gap
++  end
++
++  -- FOLD: Bottom Shell Alternate Choices
++  local bshell = LauncherView.fold and LauncherView.foldBottomShell
++  if bshell then
++    local cur = bshell.get and bshell.get() or "default"
++    local th = Kit.textHeight("small")
++    local cardH = gap * 3 + th * 2 + math.floor(4 * m.s) + bh
++    Kit.card(x, cy, w, cardH)
++    Kit.caption(x + gap, cy + gap, "3DS BOTTOM SHELL")
++    local desc = cur == "clean" and Strings("AeonDX Clean Edition")
++      or (cur == "distressed" and Strings("AeonDX Vintage Edition") or Strings("Matte Black Standard"))
++    Kit.text("small", Kit.ellipsize("small", desc, w - gap * 2),
++      x + gap, cy + gap + th + math.floor(4 * m.s), PAL.text)
++    local by = cy + gap * 2 + th * 2 + math.floor(4 * m.s)
++    local third = math.floor((w - gap * 4) / 3)
++    btn(imp, x + gap, by, third, bh, "skins-shell-matte", Strings("Matte"), {
++      kind = cur == "default" and "accent" or "ghost", font = "small",
++      action = function() bshell.set("default") end })
++    btn(imp, x + gap * 2 + third, by, third, bh, "skins-shell-clean", Strings("Aeon Clean"), {
++      kind = cur == "clean" and "accent" or "ghost", font = "small",
++      action = function() bshell.set("clean") end })
++    btn(imp, x + gap * 3 + third * 2, by, w - gap - (x + gap * 3 + third * 2), bh, "skins-shell-vintage", Strings("Vintage"), {
++      kind = cur == "distressed" and "accent" or "ghost", font = "small",
++      action = function() bshell.set("distressed") end })
 +    cy = cy + cardH + gap
 +  end
 +

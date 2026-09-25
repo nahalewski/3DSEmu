@@ -1,0 +1,6 @@
+# The LaunchBox archive is 103 MB and rebuildable -- never commit it.
+cache/
+
+# 6.5 MB of derived rows; rebuild with build_cartdb.py.
+cartdb.sqlite
+__pycache__/

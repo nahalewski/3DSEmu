@@ -1,13 +1,14 @@
--- The 3DS HOME menu's own sound effects for the menus (never in game):
--- fold3ds/sounds/<name>.wav, trimmed from the originals.  Settings > 3DS
--- Shell turns them off.  In the Switch HOME menu the same events play the
--- Switch's own sounds instead: sounds/switch/<name>.wav in the save folder,
--- fetched once onto the phone (FoldBridge sounds.fetch), with the 3DS ones
--- standing in until they are there.
+-- The 3DS HOME menu's sound effects for the menus (never in game):
+-- fold3ds/sounds/ (OGG Vorbis, MP3, or WAV). Compressed to high-quality
+-- OGG to keep the APK compact without losing audio quality. Settings > 3DS Shell turns them off.
+-- In the Switch HOME menu the same events play the Switch's own sounds instead:
+-- sounds/switch/<name>.wav in the save folder, fetched once onto the phone (FoldBridge sounds.fetch).
 local X = {}
 
 local DIR = "fold3ds/sounds/"
 local VOLUME = 0.7
+local BannerSounds = nil
+
 -- what each menu event sounds like
 local EVENTS = {
   select = "home_icon_select",        -- a HOME tile selected
@@ -41,12 +42,16 @@ local EVENTS = {
   waitEnd = "common_wait_end",        -- and done loading
   notice = "common_notice",
   error = "common_error",             -- a download that failed
-  gift = "home_open_wrapped",         -- a download that arrived; a present unwrapped
+  gift = "home_open_wrapped",         -- a download that arrived
   newapp = "home_newapp_in",          -- a new game arrived on the HOME menu, wrapped
   boot = "home_welcome",              -- the boot screen's jingle
-  click = "home_capture_end",         -- the lid opening (and the app starting)
+  click = "hinge_open",               -- the lid opening (mechanical 3DS hinge)
+  hinge = "hinge_open",               -- 3DS XL mechanical hinge detent snap
+  hingeOpen = "hinge_open",           -- unfolding open
+  hingeClose = "hinge_close",         -- clamshell closing snap
   on = "home_check_btn",
   off = "home_check_btn_off",
+  insert = "cartridge_insert",        -- game cartridge inserted into slot
 }
 
 -- the Switch's sound for each event (sounds/switch/, the save folder)
@@ -67,15 +72,52 @@ local SWITCH = {
 }
 
 local sources = {}
+local currentBanner = nil
 X.enabled = true
+X.inGame = false   -- the menus' sounds stay out of the game
 
-local function source(path)
-  if sources[path] == nil then
-    local ok, s = pcall(love.audio.newSource, path, "static")
-    sources[path] = ok and s or false
-    if ok then s:setVolume(VOLUME) end
+local function resolvePath(name)
+  if not name or name == "" then return nil end
+  -- If path already specifies an extension
+  if name:match("%.[a-zA-Z0-9]+$") then
+    if love.filesystem and love.filesystem.getInfo and love.filesystem.getInfo(name) then
+      return name
+    end
+    if love.filesystem and love.filesystem.getInfo and love.filesystem.getInfo(DIR .. name) then
+      return DIR .. name
+    end
+    return name
   end
-  return sources[path] or nil
+
+  -- Search extensions in preference order: .ogg (compact), .mp3, .wav
+  local exts = { ".ogg", ".mp3", ".wav" }
+  for _, ext in ipairs(exts) do
+    local p = DIR .. name .. ext
+    if not love.filesystem or not love.filesystem.getInfo or love.filesystem.getInfo(p) then
+      return p
+    end
+  end
+  return DIR .. name .. ".ogg"
+end
+
+local function source(pathOrName)
+  if sources[pathOrName] == nil then
+    local path = pathOrName
+    if not (path:find("/") or path:find("%.[a-zA-Z0-9]+$")) then
+      path = resolvePath(pathOrName)
+    end
+    local ok, s = pcall(love.audio.newSource, path, "static")
+    if not ok then
+      -- Fallback try other extensions directly if filesystem.getInfo was not available
+      for _, ext in ipairs({ ".ogg", ".mp3", ".wav" }) do
+        ok, s = pcall(love.audio.newSource, DIR .. pathOrName .. ext, "static")
+        if ok then break end
+      end
+    end
+    sources[pathOrName] = ok and s or false
+    if ok and s then s:setVolume(VOLUME) end
+  end
+  return sources[pathOrName] or nil
 end
 
 -- the Switch HOME menu is up (fold3ds.homenx, once it has loaded)
@@ -104,20 +146,77 @@ local function switchSource(event)
   return source(path)
 end
 
-X.inGame = false   -- the menus' sounds stay out of the game
-
 -- play a menu event's sound (restarting it if it is still going); `force`
 -- plays it in game too (HOME, the C-stick: shell buttons the player pressed)
 function X.play(event, force)
   if not X.enabled or not love.audio then return end
   if X.inGame and not force then return end
-  local s = switchHome() and switchSource(event)
-    or source(DIR .. (EVENTS[event] or event) .. ".wav")
+  local s = (switchHome() and switchSource(event))
+    or source(EVENTS[event] or event)
   if not s then return end
   pcall(function()
     s:stop()
     s:play()
   end)
+end
+
+-- Play authentic cartridge insertion click
+function X.playInsert(force)
+  X.play("insert", force)
+end
+
+-- Play authentic game-specific cartridge banner sound
+function X.playBanner(game, force)
+  if not X.enabled or not love.audio then return end
+  if X.inGame and not force then return end
+
+  if BannerSounds == nil then
+    local ok, m = pcall(require, "fold3ds.banner_sounds")
+    BannerSounds = ok and m or false
+  end
+
+  local soundPath = nil
+  if BannerSounds and BannerSounds.find then
+    soundPath = BannerSounds.find(game)
+  end
+
+  if not soundPath then
+    -- Generic cartridge click if no unique banner chime is registered
+    X.playInsert(force)
+    return
+  end
+
+  -- Stop previous banner sound so sounds do not clobber each other
+  if currentBanner then
+    pcall(function() currentBanner:stop() end)
+    currentBanner = nil
+  end
+
+  local s = source(soundPath)
+  if not s then
+    local ok, src = pcall(love.audio.newSource, soundPath, "static")
+    if ok then
+      s = src
+      sources[soundPath] = s
+      s:setVolume(VOLUME)
+    end
+  end
+
+  if s then
+    currentBanner = s
+    pcall(function()
+      s:stop()
+      s:play()
+    end)
+  end
+end
+
+-- Stop any active banner audio
+function X.stopBanner()
+  if currentBanner then
+    pcall(function() currentBanner:stop() end)
+    currentBanner = nil
+  end
 end
 
 return X

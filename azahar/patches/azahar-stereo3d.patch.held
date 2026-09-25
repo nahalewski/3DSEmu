@@ -1,0 +1,61 @@
+Head-tracked stereoscopic 3D: let the fold3ds layer supply the render Surface.
+
+BEN-APPROVED AZAHAR SOURCE CHANGE. Asked directly and answered 2026-09-25,
+relayed by CEO Boss: "Route C. The one-line change in EmulationFragment so it
+accepts a Surface we supply. It goes in patches/, marked as Ben-approved, in the
+Android layer only."
+
+It is kept in its own patch file, separate from azahar-fold3ds.patch, so that the
+one approved change to Azahar's own rendering path stays auditable on its own and
+Bug Checker Dev's upstream diff can record it as expected rather than as drift.
+
+WHAT IT DOES
+
+Two lines, both in the Android layer, no C++ and no renderer code. Azahar's
+`surfaceChanged` handed native the SurfaceView's Surface directly; it now passes
+that Surface through `Fold3dsStereo.wrap`, which returns:
+
+  * stereo off -- the very same Surface object, so the code path is byte-for-byte
+    upstream behaviour and the feature cannot regress normal 2D play;
+  * stereo on  -- a SurfaceTexture-backed Surface at the same size. Azahar
+    renders its side-by-side pair (`render_3d` = 1 or 2) into that texture, and
+    our GL pass composites it onto the real Surface with eye separation and
+    convergence driven by the front camera's head position.
+
+`surfaceDestroyed` releases the compositor before native drops the surface,
+because the EGL context and the SurfaceTexture belong to the target Surface and
+outliving it leaks both.
+
+WHY IT CANNOT BE DONE WITHOUT TOUCHING THIS FILE
+
+`NativeLibrary.surfaceChanged(surf: Surface)` accepts any Surface, so the native
+side needs nothing. But the only caller is this fragment, inside Azahar's own
+EmulationActivity, which the fold3ds layer launches by Intent
+(Fold3dsLinkActivity.kt). The alternative was to host emulation ourselves and
+call NativeLibrary.run/surfaceChanged directly -- no Azahar change, but it
+reimplements this fragment's lifecycle, input and save-state handling. Ben chose
+the two lines.
+
+WHAT THIS IS NOT
+
+It is not look-around parallax, and Ben was told so before approving. Azahar
+renders exactly two views at a baseline fixed by `factor_3d`; two images with no
+depth buffer cannot be turned into new viewpoints. The head drives separation,
+convergence and framing -- convincing on the device, but not motion parallax.
+
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/fragments/EmulationFragment.kt b/src/android/app/src/main/java/org/citra/citra_emu/fragments/EmulationFragment.kt
+--- a/src/android/app/src/main/java/org/citra/citra_emu/fragments/EmulationFragment.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/fragments/EmulationFragment.kt
+@@ -1635,10 +1635,11 @@ class EmulationFragment :
+
+     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+         Log.debug("[EmulationFragment] Surface changed. Resolution: " + width + "x" + height)
+-        emulationState.newSurface(holder.surface)
++        emulationState.newSurface(org.citra.citra_emu.fold3ds.Fold3dsStereo.wrap(holder.surface, width, height))
+     }
+
+     override fun surfaceDestroyed(holder: SurfaceHolder) {
++        org.citra.citra_emu.fold3ds.Fold3dsStereo.release()
+         emulationState.clearSurface()
+     }
+

@@ -1,3 +1,5 @@
 build/
 /eden/
 /fold3ds/emudb/nx.tsv
+__pycache__/
+*.pyc

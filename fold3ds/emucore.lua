@@ -24,10 +24,11 @@
 --     press / release / touch the input, HOME the pause menu (save / load
 --     state, reset, screen shape, close).
 --
--- E.NAME is the name the HOME menu shows for all of it (to be decided).
+-- E.NAME is the root folder name: AeonDX
 local E = {}
 
-E.NAME = "Omnindo"
+E.NAME = "AeonDX"
+local AeonDX = require("fold3ds.aeondx")
 
 local lg = love.graphics
 local ffi
@@ -238,17 +239,18 @@ end
 -- where the user folder is: shared storage when the app may use it, else
 -- the app's own folder (no permission needed, but harder to reach)
 local function pickRoot()
-  local shared = android() and bridge("files.ok") == "1" and bridge("external")
-  local root
-  if shared and shared ~= "" and not shared:match("^error") then
-    root = shared .. "/" .. E.NAME
-  else
-    root = love.filesystem.getSaveDirectory() .. "/" .. E.NAME
-  end
+  local custom = st.settings and st.settings["root.dir"]
+  local root = AeonDX.pickRoot(custom)
   local lib = core()
   if lib then
-    for _, sub in ipairs({ "config", "games", "saves", "states", "bios", "bios/SkyEmu" }) do
-      lib.ec_mkdirs(root .. "/" .. sub)
+    for _, dir in ipairs(AeonDX.getAllScanDirs()) do
+      lib.ec_mkdirs(dir)
+    end
+    for _, emu in ipairs({ "azahar", "melonds", "vc", "eden" }) do
+      lib.ec_mkdirs(root .. "/" .. emu .. "/data/config")
+      lib.ec_mkdirs(root .. "/" .. emu .. "/data/saves")
+      lib.ec_mkdirs(root .. "/" .. emu .. "/data/states")
+      lib.ec_mkdirs(root .. "/" .. emu .. "/data/bios")
     end
   end
   if st.root ~= root then
@@ -259,6 +261,13 @@ local function pickRoot()
 end
 
 function E.root() pickRoot() return st.root end
+function E.setRoot(dir)
+  if dir and dir ~= "" then
+    E.set("root.dir", dir)
+    st.root = nil
+    pickRoot()
+  end
+end
 function E.sharedOk() return FAKE or not android() or bridge("files.ok") == "1" end
 function E.askShared() return bridge("files.ask") end
 
@@ -388,7 +397,10 @@ local function scan()
       end
     end
   end
-  walk(path("games"), 0)
+  local seenFiles = {}
+  for _, scanDir in ipairs(AeonDX.getAllScanDirs()) do
+    walk(scanDir, 0)
+  end
   table.sort(games, function(a, b) return a.name:lower() < b.name:lower() end)
   st.games, st.byKey = games, byKey
   st.scanned = true
@@ -422,15 +434,11 @@ end
 
 function E.rescan() st.scanned = false; st.images = {} end
 
-local takeInbox   -- Download Play's arrivals (below)
-
 -- a look at the games folder now and then (a game copied in joins the grid)
 function E.poll(time)
   if FAKE or time < st.scanAt then return end
   st.scanAt = time + 5
   if core() then
-    pickRoot()
-    takeInbox()
     local before = #st.games
     scan()
     if #st.games ~= before then st.images = {} end
@@ -550,16 +558,9 @@ function E.colour(t)
 end
 
 -- the top screen's 3D cart for a game (fold3ds.cart3d's skin)
--- a DS card's own label, cropped from its photo (fold3ds/cartart/<code>.png,
--- by the game code in its header), else the box art
-local function cardLabel(t)
-  if t.sys ~= "ds" or not t.code or #t.code ~= 4 then return nil end
-  return img("fold3ds/cartart/" .. t.code .. ".png")
-end
-
 function E.cartSkin(t)
   local shape = t.sys == "ds" and "ds" or t.sys == "gba" and "gba" or "gb"
-  return { shape = shape, cart = true, color = E.colour(t), labelImage = cardLabel(t) or E.boxArt(t),
+  return { shape = shape, cart = true, color = E.colour(t), labelImage = E.boxArt(t),
     noLabel = true, cacheKey = t.key }
 end
 
@@ -588,8 +589,9 @@ local function applyOptions(lib)
   for k in pairs(E.DEFAULTS) do lib.ec_set_option(k, E.get(k)) end
 end
 
-local function saveFile(t) return path("saves", t.base .. ".sav") end
-local function stateFile(t) return path("states", t.base .. ".state") end
+local function saveFile(t) return AeonDX.getSavePath(t.sys, t.base) end
+local function stateFile(t) return AeonDX.getStatePath(t.sys, t.base) end
+local function biosDir(t) return AeonDX.getBiosDir(t.sys) end
 
 -- a fake game's screen: colour bars, a moving stripe, the frame count
 local function fakeFrame(i, w, h, n)
@@ -642,7 +644,8 @@ function E.play(t)
   end
   pickRoot()
   applyOptions(lib)
-  if lib.ec_open(SYS[t.sys], t.file, saveFile(t), path("bios")) ~= 1 then
+  local bDir = biosDir(t)
+  if lib.ec_open(SYS[t.sys], t.file, saveFile(t), bDir) ~= 1 then
     E.message = "Could not start " .. (t.name or "the game") .. ": " .. ffi.string(lib.ec_error())
     return false
   end
@@ -777,20 +780,6 @@ function E.update(dt)
     -- fast forward: only a frame's worth of sound
     if n == 1 or not run.fast then pushAudio(lib) else lib.ec_audio(run.abuf, CHUNK * 4) end
   end
-  -- the sound sets the pace: a frame more when its queue runs short, one
-  -- less when it fills (the phone's refresh and the console's never quite
-  -- agree, and a starved queue crackles)
-  if run.source and not run.fast then
-    local queued = 8 - run.source:getFreeBufferCount()
-    if queued < 2 and n < 8 then
-      lib.ec_set_keys(run.keys)
-      lib.ec_run_frame()
-      pushAudio(lib)
-      n = n + 1
-    elseif queued > 6 then
-      run.acc = run.acc - 1 / fps
-    end
-  end
   if n > 0 then pullScreens(lib) end
 end
 
@@ -908,7 +897,7 @@ local picking = false
 
 function E.pick()
   if not (love.system.pickFile and android()) then
-    E.message = "Copy your games into " .. path("games")
+    E.message = "Copy your games into " .. (AeonDX.getRomDir("ds") or path("melonds", "roms", "ds"))
     return false
   end
   pcall(love.filesystem.remove, PICKED)
@@ -916,7 +905,7 @@ function E.pick()
   return picking
 end
 
--- a picked file arrived: into the games folder
+-- a picked file arrived: into the emulator's console ROM folder
 function E.takePicked()
   if not picking or not love.filesystem.getInfo(PICKED) then return end
   picking = false
@@ -932,13 +921,15 @@ function E.takePicked()
   local ext = ({ ds = "nds", gb = "gb", gbc = "gbc", gba = "gba" })[sys]
   local base = ffi.string(title):gsub("[^%w%-_ ]", ""):gsub("^%s+", ""):gsub("%s+$", "")
   if base == "" then base = "Game" end
-  local dest = path("games", base .. "." .. ext)
+  local romDir = AeonDX.getRomDir(sys)
+  lib.ec_mkdirs(romDir)
+  local dest = romDir .. "/" .. base .. "." .. ext
   local n = 1
-  while io.open(dest, "rb") do n = n + 1; dest = path("games", ("%s (%d).%s"):format(base, n, ext)) end
+  while io.open(dest, "rb") do n = n + 1; dest = romDir .. ("/%s (%d).%s"):format(base, n, ext) end
   if lib.ec_copy(src, dest) == 1 then
     pcall(love.filesystem.remove, PICKED)
     E.rescan()
-    E.message = "Added " .. base
+    E.message = "Added " .. base .. " to " .. sys:upper()
   end
 end
 
@@ -1055,73 +1046,10 @@ end
 -- the No-Intro name a game's border and box art are filed under
 function E.borderName(t) return t and t.nointro end
 
----------------------------------------------------------------- Download Play
--- A game travels with its save and its save state: FoldBridge.zip entries
--- ("/path=>entry") into emu_inbox/, which the other phone's FoldBridge.unzip
--- puts in its save folder, and E.poll moves into this user folder.
-
-local INBOX = "emu_inbox"
-
-local function exists(p)
-  local f = io.open(p, "rb")
-  if f then f:close() return true end
-  return false
-end
-
-function E.transferEntries(t)
-  if not t or not t.file then return {} end
-  pickRoot()
-  local out = {}
-  local name = t.file:match("[^/]+$")
-  out[#out + 1] = t.file .. "=>" .. INBOX .. "/games/" .. name
-  for _, f in ipairs({ { saveFile(t), "saves" }, { stateFile(t), "states" } }) do
-    if exists(f[1]) then out[#out + 1] = f[1] .. "=>" .. INBOX .. "/" .. f[2] .. "/" .. f[1]:match("[^/]+$") end
-  end
-  return out
-end
-
--- files that came by Download Play: into games/, saves/, states/ (a file
--- already there is kept as <name>.bak)
-takeInbox = function()
-  local lib = core()
-  if not lib or not love.filesystem.getInfo(INBOX) then return end
-  local base = love.filesystem.getSaveDirectory() .. "/" .. INBOX
-  local moved = 0
-  for _, sub in ipairs({ "games", "saves", "states" }) do
-    for _, name in ipairs(list(base .. "/" .. sub)) do
-      if name:sub(-1) ~= "/" then
-        local src, dest = base .. "/" .. sub .. "/" .. name, path(sub, name)
-        if exists(dest) then os.rename(dest, dest .. ".bak") end
-        if lib.ec_copy(src, dest) == 1 then lib.ec_remove(src); moved = moved + 1 end
-      end
-    end
-  end
-  if moved > 0 then E.rescan() end
-end
-
 ---------------------------------------------------------------- setup
 
 function E.init()
-  if not core() then return end
-  pickRoot()
-  -- the game's save to its file when the app closes or goes to the
-  -- background (Android may end it there without a quit)
-  if not E.hooked then
-    E.hooked = true
-    local quit, focus = love.quit, love.focus
-    love.quit = function(...)
-      E.stop()
-      if quit then return quit(...) end
-    end
-    love.focus = function(f, ...)
-      if not f and run.t then
-        local lib = core()
-        if lib then lib.ec_flush() end
-        run.menu = true          -- back to a paused game
-      end
-      if focus then return focus(f, ...) end
-    end
-  end
+  if core() then pickRoot() end
 end
 
 function E.loadError() return loadError end

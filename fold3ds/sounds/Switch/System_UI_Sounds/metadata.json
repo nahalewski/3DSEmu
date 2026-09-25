@@ -1,0 +1,219 @@
+{
+  "category": "System_UI_Sounds",
+  "album_slug": "nintendo-switch-sound-effects",
+  "description": "Official Nintendo Switch Home Menu, Joy-Con snap, navigation clicks, sleep/wake, and volume SFX",
+  "total_tracks": 30,
+  "downloaded": 30,
+  "tracks": [
+    {
+      "number": 1,
+      "title": "Album",
+      "filename": "01_Album.mp3",
+      "size_bytes": 63421,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/jjqbkwda/Album.mp3"
+    },
+    {
+      "number": 2,
+      "title": "Bing",
+      "filename": "02_Bing.mp3",
+      "size_bytes": 25021,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/tsgbqxtx/Bing.mp3"
+    },
+    {
+      "number": 3,
+      "title": "Border",
+      "filename": "03_Border.mp3",
+      "size_bytes": 6781,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/kgzfaoqo/Border.mp3"
+    },
+    {
+      "number": 4,
+      "title": "Controller",
+      "filename": "04_Controller.mp3",
+      "size_bytes": 48061,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/wqpbmfqo/Controller.mp3"
+    },
+    {
+      "number": 5,
+      "title": "Dada 0",
+      "filename": "05_Dada 0.mp3",
+      "size_bytes": 104701,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/wqpbprrh/Dada%200.mp3"
+    },
+    {
+      "number": 6,
+      "title": "Dada 1",
+      "filename": "06_Dada 1.mp3",
+      "size_bytes": 69181,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/kdngpgms/Dada%201.mp3"
+    },
+    {
+      "number": 7,
+      "title": "Dada 2",
+      "filename": "07_Dada 2.mp3",
+      "size_bytes": 106621,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/aaaaacjn/Dada%202.mp3"
+    },
+    {
+      "number": 8,
+      "title": "Dada 3",
+      "filename": "08_Dada 3.mp3",
+      "size_bytes": 76861,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/pjcjnofi/Dada%203.mp3"
+    },
+    {
+      "number": 9,
+      "title": "Dodo",
+      "filename": "09_Dodo.mp3",
+      "size_bytes": 135421,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/bimiiovk/Dodo.mp3"
+    },
+    {
+      "number": 10,
+      "title": "Enter & Back",
+      "filename": "10_Enter & Back.mp3",
+      "size_bytes": 5821,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/qwlsdqtx/Enter%20%26%20Back.mp3"
+    },
+    {
+      "number": 11,
+      "title": "Error",
+      "filename": "11_Error.mp3",
+      "size_bytes": 13501,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/eflracil/Error.mp3"
+    },
+    {
+      "number": 12,
+      "title": "Eshop",
+      "filename": "12_Eshop.mp3",
+      "size_bytes": 68221,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/yrkavekj/Eshop.mp3"
+    },
+    {
+      "number": 13,
+      "title": "Eshop Intro",
+      "filename": "13_Eshop Intro.mp3",
+      "size_bytes": 175741,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/djmjhhqj/Eshop%20Intro.mp3"
+    },
+    {
+      "number": 14,
+      "title": "Home",
+      "filename": "14_Home.mp3",
+      "size_bytes": 45181,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/trcmeiew/Home.mp3"
+    },
+    {
+      "number": 15,
+      "title": "Icons",
+      "filename": "15_Icons.mp3",
+      "size_bytes": 30781,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/xufvknmu/Icons.mp3"
+    },
+    {
+      "number": 16,
+      "title": "Jig 0",
+      "filename": "16_Jig 0.mp3",
+      "size_bytes": 34621,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/lvxbptat/Jig%200.mp3"
+    },
+    {
+      "number": 17,
+      "title": "Jig 1",
+      "filename": "17_Jig 1.mp3",
+      "size_bytes": 57661,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/shirnpjz/Jig%201.mp3"
+    },
+    {
+      "number": 18,
+      "title": "Klick",
+      "filename": "18_Klick.mp3",
+      "size_bytes": 2941,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/xqittmem/Klick.mp3"
+    },
+    {
+      "number": 19,
+      "title": "Loading",
+      "filename": "19_Loading.mp3",
+      "size_bytes": 166141,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/wxyxswfk/Loading.mp3"
+    },
+    {
+      "number": 20,
+      "title": "News",
+      "filename": "20_News.mp3",
+      "size_bytes": 51901,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/kvvtfwrv/News.mp3"
+    },
+    {
+      "number": 21,
+      "title": "Nock",
+      "filename": "21_Nock.mp3",
+      "size_bytes": 2941,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/czqhljop/Nock.mp3"
+    },
+    {
+      "number": 22,
+      "title": "Popup + Run Title",
+      "filename": "22_Popup + Run Title.mp3",
+      "size_bytes": 29821,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/jaabgbon/Popup%20%2B%20Run%20Title.mp3"
+    },
+    {
+      "number": 23,
+      "title": "Select",
+      "filename": "23_Select.mp3",
+      "size_bytes": 2941,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/zirkypdv/Select.mp3"
+    },
+    {
+      "number": 24,
+      "title": "Settings",
+      "filename": "24_Settings.mp3",
+      "size_bytes": 30781,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/scjmhahh/Settings.mp3"
+    },
+    {
+      "number": 25,
+      "title": "Standby",
+      "filename": "25_Standby.mp3",
+      "size_bytes": 18301,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/ozdwwrve/Standby.mp3"
+    },
+    {
+      "number": 26,
+      "title": "This One",
+      "filename": "26_This One.mp3",
+      "size_bytes": 5821,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/hbhglmdc/This%20One.mp3"
+    },
+    {
+      "number": 27,
+      "title": "Tick",
+      "filename": "27_Tick.mp3",
+      "size_bytes": 2941,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/epmoiyvg/Tick.mp3"
+    },
+    {
+      "number": 28,
+      "title": "Turn Off",
+      "filename": "28_Turn Off.mp3",
+      "size_bytes": 4861,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/vhbhkdks/Turn%20Off.mp3"
+    },
+    {
+      "number": 29,
+      "title": "Turn On",
+      "filename": "29_Turn On.mp3",
+      "size_bytes": 4861,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/gecxgqhq/Turn%20On.mp3"
+    },
+    {
+      "number": 30,
+      "title": "User",
+      "filename": "30_User.mp3",
+      "size_bytes": 73981,
+      "cdn_url": "https://jetta.vgmtreasurechest.com/soundtracks/nintendo-switch-sound-effects/itsimnap/User.mp3"
+    }
+  ]
+}

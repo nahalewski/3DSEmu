@@ -1,0 +1,15 @@
+{
+ "_note": "Ben's pinned emulator state, recorded by Bug Checker Dev 2026-09-25. Editing this changes what ships: Ben's word first.",
+ "pins": {
+  "azahar": "56d99197957f9c89609def36514319d961ce01eb",
+  "melonds": "431ab4bd0003c4356e25fce89640ae1004579b9b",
+  "skyemu": "01516d6798e3652b583e6a366085bb51c43b528d"
+ },
+ "eden_head": "bebc19da3253f13ceb5abfe8560cdbdc32ea7d8a",
+ "patches": {
+  "azahar/patches/azahar-fold3ds.patch": "b103172a983906e1de49f5e134f8e3856f03fc94142edcf63a28c78cc3891561",
+  "patches/android-camera.patch": "2c3af33d80be4567b5d8e3f67e4a7d38ebf0da7d04516cf5a6f51807764ef5d8",
+  "patches/android-image-pick.patch": "4db78d06cdc3bda89d273ac578b7d8dede33c51f18827422711b72b6ede043e0",
+  "patches/launcher-fold.patch": "4d466da66ef44eeaf2a9b3f25dec354f8fb9c410af3280af427af9ecc236e308"
+ }
+}

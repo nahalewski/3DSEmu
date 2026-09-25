@@ -1,0 +1,688 @@
+{
+  "category": "BIOS_and_System",
+  "album_slug": "nintendo-3ds-bios-sounds-3ds-gamerip-2011",
+  "description": "Core 3DS BIOS, Sleep Mode, Wake, Notifications, Battery alerts, and Badge SFX",
+  "total_tracks": 97,
+  "downloaded": 97,
+  "tracks": [
+    {
+      "number": 1,
+      "title": "Badge Appear",
+      "filename": "01_Badge Appear.mp3",
+      "size_bytes": 26541,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/gkfxxtzs/01.%20Badge%20Appear.mp3"
+    },
+    {
+      "number": 2,
+      "title": "Badge Back",
+      "filename": "02_Badge Back.mp3",
+      "size_bytes": 5733,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/rexyahlg/02.%20Badge%20Back.mp3"
+    },
+    {
+      "number": 3,
+      "title": "Badge Change Category",
+      "filename": "03_Badge Change Category.mp3",
+      "size_bytes": 2133,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/ajrhlksh/03.%20Badge%20Change%20Category.mp3"
+    },
+    {
+      "number": 4,
+      "title": "Badge Change Category Slide",
+      "filename": "04_Badge Change Category Slide.mp3",
+      "size_bytes": 1269,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/jxnuluqt/04.%20Badge%20Change%20Category%20Slide.mp3"
+    },
+    {
+      "number": 5,
+      "title": "Badge Disappear",
+      "filename": "05_Badge Disappear.mp3",
+      "size_bytes": 3357,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/ykheyeca/05.%20Badge%20Disappear.mp3"
+    },
+    {
+      "number": 6,
+      "title": "Badge Float",
+      "filename": "06_Badge Float.mp3",
+      "size_bytes": 2853,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/uvvqsrhi/06.%20Badge%20Float.mp3"
+    },
+    {
+      "number": 7,
+      "title": "Badge Remove",
+      "filename": "07_Badge Remove.mp3",
+      "size_bytes": 5373,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/uzlkorrk/07.%20Badge%20Remove.mp3"
+    },
+    {
+      "number": 8,
+      "title": "Badge Replace",
+      "filename": "08_Badge Replace.mp3",
+      "size_bytes": 2781,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/xkhffjhg/08.%20Badge%20Replace.mp3"
+    },
+    {
+      "number": 9,
+      "title": "Badge Slide List",
+      "filename": "09_Badge Slide List.mp3",
+      "size_bytes": 1269,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/ljpwnbrd/09.%20Badge%20Slide%20List.mp3"
+    },
+    {
+      "number": 10,
+      "title": "Common Button",
+      "filename": "10_Common Button.mp3",
+      "size_bytes": 41301,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/tilftayq/10.%20Common%20Button.mp3"
+    },
+    {
+      "number": 11,
+      "title": "Common Cancel",
+      "filename": "11_Common Cancel.mp3",
+      "size_bytes": 33309,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/kdjmhyvk/11.%20Common%20Cancel.mp3"
+    },
+    {
+      "number": 12,
+      "title": "Common Connect",
+      "filename": "12_Common Connect.mp3",
+      "size_bytes": 69525,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/opfiabhh/12.%20Common%20Connect.mp3"
+    },
+    {
+      "number": 13,
+      "title": "Common Dialog",
+      "filename": "13_Common Dialog.mp3",
+      "size_bytes": 31653,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/mruaqfef/13.%20Common%20Dialog.mp3"
+    },
+    {
+      "number": 14,
+      "title": "Common Error",
+      "filename": "14_Common Error.mp3",
+      "size_bytes": 16101,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/pixlngsw/14.%20Common%20Error.mp3"
+    },
+    {
+      "number": 15,
+      "title": "Common Nomove",
+      "filename": "15_Common Nomove.mp3",
+      "size_bytes": 1269,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/fmumcauw/15.%20Common%20Nomove.mp3"
+    },
+    {
+      "number": 16,
+      "title": "Common Notice",
+      "filename": "16_Common Notice.mp3",
+      "size_bytes": 19917,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/yborpyag/16.%20Common%20Notice.mp3"
+    },
+    {
+      "number": 17,
+      "title": "Common Ok",
+      "filename": "17_Common Ok.mp3",
+      "size_bytes": 39357,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/fjdoiaad/17.%20Common%20Ok.mp3"
+    },
+    {
+      "number": 18,
+      "title": "Common Return",
+      "filename": "18_Common Return.mp3",
+      "size_bytes": 33309,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/qvddkopg/18.%20Common%20Return.mp3"
+    },
+    {
+      "number": 19,
+      "title": "Common Scroll",
+      "filename": "19_Common Scroll.mp3",
+      "size_bytes": 1269,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/oxybjsld/19.%20Common%20Scroll.mp3"
+    },
+    {
+      "number": 20,
+      "title": "Common Scroll End",
+      "filename": "20_Common Scroll End.mp3",
+      "size_bytes": 1557,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/jkxgocur/20.%20Common%20Scroll%20End.mp3"
+    },
+    {
+      "number": 21,
+      "title": "Common Scroll List",
+      "filename": "21_Common Scroll List.mp3",
+      "size_bytes": 1269,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/admcawhs/21.%20Common%20Scroll%20List.mp3"
+    },
+    {
+      "number": 22,
+      "title": "Common Scroll Text",
+      "filename": "22_Common Scroll Text.mp3",
+      "size_bytes": 1377,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/uwvplmbx/22.%20Common%20Scroll%20Text.mp3"
+    },
+    {
+      "number": 23,
+      "title": "Common Silent",
+      "filename": "23_Common Silent.mp3",
+      "size_bytes": 549,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/gnyduqst/23.%20Common%20Silent.mp3"
+    },
+    {
+      "number": 24,
+      "title": "Common Sysapplet End",
+      "filename": "24_Common Sysapplet End.mp3",
+      "size_bytes": 23121,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/rzwklavz/24.%20Common%20Sysapplet%20End.mp3"
+    },
+    {
+      "number": 25,
+      "title": "Common Wait",
+      "filename": "25_Common Wait.mp3",
+      "size_bytes": 123885,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/kcgxxtax/25.%20Common%20Wait.mp3"
+    },
+    {
+      "number": 26,
+      "title": "Common Wait End",
+      "filename": "26_Common Wait End.mp3",
+      "size_bytes": 17433,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/llxedgvk/26.%20Common%20Wait%20End.mp3"
+    },
+    {
+      "number": 27,
+      "title": "Home Banner Bashotorya",
+      "filename": "27_Home Banner Bashotorya.mp3",
+      "size_bytes": 55053,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/proufuhc/27.%20Home%20Banner%20Bashotorya.mp3"
+    },
+    {
+      "number": 28,
+      "title": "Home Banner Ds Card",
+      "filename": "28_Home Banner Ds Card.mp3",
+      "size_bytes": 43137,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/qyrqcraa/28.%20Home%20Banner%20Ds%20Card.mp3"
+    },
+    {
+      "number": 29,
+      "title": "Home Banner Dsiware",
+      "filename": "29_Home Banner Dsiware.mp3",
+      "size_bytes": 27189,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/cjotbays/29.%20Home%20Banner%20Dsiware.mp3"
+    },
+    {
+      "number": 30,
+      "title": "Home Banner Invalid",
+      "filename": "30_Home Banner Invalid.mp3",
+      "size_bytes": 22401,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/rimnbuuo/30.%20Home%20Banner%20Invalid.mp3"
+    },
+    {
+      "number": 31,
+      "title": "Home Banner Locked",
+      "filename": "31_Home Banner Locked.mp3",
+      "size_bytes": 15777,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/khispxqo/31.%20Home%20Banner%20Locked.mp3"
+    },
+    {
+      "number": 32,
+      "title": "Home Banner Present",
+      "filename": "32_Home Banner Present.mp3",
+      "size_bytes": 58581,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/xvlrzyta/32.%20Home%20Banner%20Present.mp3"
+    },
+    {
+      "number": 33,
+      "title": "Home Banner Presentv1",
+      "filename": "33_Home Banner Presentv1.mp3",
+      "size_bytes": 189220,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/uwxahkdo/33.%20Home%20Banner%20Presentv1.mp3"
+    },
+    {
+      "number": 34,
+      "title": "Home Banner Show",
+      "filename": "34_Home Banner Show.mp3",
+      "size_bytes": 4113,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/gqnoiwkl/34.%20Home%20Banner%20Show.mp3"
+    },
+    {
+      "number": 35,
+      "title": "Home Banner Turn",
+      "filename": "35_Home Banner Turn.mp3",
+      "size_bytes": 125253,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/asmgview/35.%20Home%20Banner%20Turn.mp3"
+    },
+    {
+      "number": 36,
+      "title": "Home Camera",
+      "filename": "36_Home Camera.mp3",
+      "size_bytes": 27333,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/uihnrvbu/36.%20Home%20Camera.mp3"
+    },
+    {
+      "number": 37,
+      "title": "Home Capture End",
+      "filename": "37_Home Capture End.mp3",
+      "size_bytes": 3501,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/vtjlfrsp/37.%20Home%20Capture%20End.mp3"
+    },
+    {
+      "number": 38,
+      "title": "Home Capture Start",
+      "filename": "38_Home Capture Start.mp3",
+      "size_bytes": 4725,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/tcdjlcgx/38.%20Home%20Capture%20Start.mp3"
+    },
+    {
+      "number": 39,
+      "title": "Home Check Btn",
+      "filename": "39_Home Check Btn.mp3",
+      "size_bytes": 2565,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/vkpsvamm/39.%20Home%20Check%20Btn.mp3"
+    },
+    {
+      "number": 40,
+      "title": "Home Check Btn Invalid",
+      "filename": "40_Home Check Btn Invalid.mp3",
+      "size_bytes": 1629,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/yhnuksgf/40.%20Home%20Check%20Btn%20Invalid.mp3"
+    },
+    {
+      "number": 41,
+      "title": "Home Check Btn Off",
+      "filename": "41_Home Check Btn Off.mp3",
+      "size_bytes": 2565,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/flooctmc/41.%20Home%20Check%20Btn%20Off.mp3"
+    },
+    {
+      "number": 42,
+      "title": "Home Cherry",
+      "filename": "42_Home Cherry.mp3",
+      "size_bytes": 23301,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/digixmry/42.%20Home%20Cherry.mp3"
+    },
+    {
+      "number": 43,
+      "title": "Home Close Folder",
+      "filename": "43_Home Close Folder.mp3",
+      "size_bytes": 3357,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/tvxcvtgz/43.%20Home%20Close%20Folder.mp3"
+    },
+    {
+      "number": 44,
+      "title": "Home Ex Icon Scroll",
+      "filename": "44_Home Ex Icon Scroll.mp3",
+      "size_bytes": 11133,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/eyfeizbi/44.%20Home%20Ex%20Icon%20Scroll.mp3"
+    },
+    {
+      "number": 45,
+      "title": "Home Friend",
+      "filename": "45_Home Friend.mp3",
+      "size_bytes": 23301,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/kbabdlyi/45.%20Home%20Friend.mp3"
+    },
+    {
+      "number": 46,
+      "title": "Home Homebutton",
+      "filename": "46_Home Homebutton.mp3",
+      "size_bytes": 59121,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/vflrackr/46.%20Home%20Homebutton.mp3"
+    },
+    {
+      "number": 47,
+      "title": "Home Homebutton Ds",
+      "filename": "47_Home Homebutton Ds.mp3",
+      "size_bytes": 18621,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/dtjoqoxu/47.%20Home%20Homebutton%20Ds.mp3"
+    },
+    {
+      "number": 48,
+      "title": "Home Homebutton Return",
+      "filename": "48_Home Homebutton Return.mp3",
+      "size_bytes": 39357,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/gwpkhebs/48.%20Home%20Homebutton%20Return.mp3"
+    },
+    {
+      "number": 49,
+      "title": "Home Icon Drop Folder",
+      "filename": "49_Home Icon Drop Folder.mp3",
+      "size_bytes": 2637,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/kyjdnflq/49.%20Home%20Icon%20Drop%20Folder.mp3"
+    },
+    {
+      "number": 50,
+      "title": "Home Icon Exchange",
+      "filename": "50_Home Icon Exchange.mp3",
+      "size_bytes": 2781,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/xpgkilgv/50.%20Home%20Icon%20Exchange.mp3"
+    },
+    {
+      "number": 51,
+      "title": "Home Icon Grab",
+      "filename": "51_Home Icon Grab.mp3",
+      "size_bytes": 2853,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/mwwszuzp/51.%20Home%20Icon%20Grab.mp3"
+    },
+    {
+      "number": 52,
+      "title": "Home Icon Over",
+      "filename": "52_Home Icon Over.mp3",
+      "size_bytes": 1989,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/yagdyivd/52.%20Home%20Icon%20Over.mp3"
+    },
+    {
+      "number": 53,
+      "title": "Home Icon Release",
+      "filename": "53_Home Icon Release.mp3",
+      "size_bytes": 1269,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/hxqpzeyf/53.%20Home%20Icon%20Release.mp3"
+    },
+    {
+      "number": 54,
+      "title": "Home Icon Scroll",
+      "filename": "54_Home Icon Scroll.mp3",
+      "size_bytes": 2493,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/ehytykgb/54.%20Home%20Icon%20Scroll.mp3"
+    },
+    {
+      "number": 55,
+      "title": "Home Icon Scroll Invalid",
+      "filename": "55_Home Icon Scroll Invalid.mp3",
+      "size_bytes": 1341,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/pstptbyo/55.%20Home%20Icon%20Scroll%20Invalid.mp3"
+    },
+    {
+      "number": 56,
+      "title": "Home Icon Select",
+      "filename": "56_Home Icon Select.mp3",
+      "size_bytes": 1413,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/akavdfrr/56.%20Home%20Icon%20Select.mp3"
+    },
+    {
+      "number": 57,
+      "title": "Home Icon Touch",
+      "filename": "57_Home Icon Touch.mp3",
+      "size_bytes": 1989,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/hmmyfjeu/57.%20Home%20Icon%20Touch.mp3"
+    },
+    {
+      "number": 58,
+      "title": "Home Light",
+      "filename": "58_Home Light.mp3",
+      "size_bytes": 33561,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/jmhcngug/58.%20Home%20Light.mp3"
+    },
+    {
+      "number": 59,
+      "title": "Home Line Dec",
+      "filename": "59_Home Line Dec.mp3",
+      "size_bytes": 13725,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/vifbtlzr/59.%20Home%20Line%20Dec.mp3"
+    },
+    {
+      "number": 60,
+      "title": "Home Line Inc",
+      "filename": "60_Home Line Inc.mp3",
+      "size_bytes": 13725,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/hnruasle/60.%20Home%20Line%20Inc.mp3"
+    },
+    {
+      "number": 61,
+      "title": "Home Newapp Dialog",
+      "filename": "61_Home Newapp Dialog.mp3",
+      "size_bytes": 32229,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/myedcave/61.%20Home%20Newapp%20Dialog.mp3"
+    },
+    {
+      "number": 62,
+      "title": "Home Newapp Dialog2",
+      "filename": "62_Home Newapp Dialog2.mp3",
+      "size_bytes": 26433,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/jfbqzado/62.%20Home%20Newapp%20Dialog2.mp3"
+    },
+    {
+      "number": 63,
+      "title": "Home Newapp Dialog3",
+      "filename": "63_Home Newapp Dialog3.mp3",
+      "size_bytes": 34857,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/jgbnmvrz/63.%20Home%20Newapp%20Dialog3.mp3"
+    },
+    {
+      "number": 64,
+      "title": "Home Newapp In",
+      "filename": "64_Home Newapp In.mp3",
+      "size_bytes": 5589,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/vfnxctkw/64.%20Home%20Newapp%20In.mp3"
+    },
+    {
+      "number": 65,
+      "title": "Home Newapp Out",
+      "filename": "65_Home Newapp Out.mp3",
+      "size_bytes": 5949,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/cyitxfjd/65.%20Home%20Newapp%20Out.mp3"
+    },
+    {
+      "number": 66,
+      "title": "Home News",
+      "filename": "66_Home News.mp3",
+      "size_bytes": 23301,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/qtwcwcur/66.%20Home%20News.mp3"
+    },
+    {
+      "number": 67,
+      "title": "Home Open Folder",
+      "filename": "67_Home Open Folder.mp3",
+      "size_bytes": 6093,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/bgaipyaf/67.%20Home%20Open%20Folder.mp3"
+    },
+    {
+      "number": 68,
+      "title": "Home Open Wrapped",
+      "filename": "68_Home Open Wrapped.mp3",
+      "size_bytes": 33021,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/bpueogoc/68.%20Home%20Open%20Wrapped.mp3"
+    },
+    {
+      "number": 69,
+      "title": "Home Popup Bgdl",
+      "filename": "69_Home Popup Bgdl.mp3",
+      "size_bytes": 7245,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/sjpxufqm/69.%20Home%20Popup%20Bgdl.mp3"
+    },
+    {
+      "number": 70,
+      "title": "Home Popup Friend Online",
+      "filename": "70_Home Popup Friend Online.mp3",
+      "size_bytes": 30645,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/ppboofje/70.%20Home%20Popup%20Friend%20Online.mp3"
+    },
+    {
+      "number": 71,
+      "title": "Home Popup Inf",
+      "filename": "71_Home Popup Inf.mp3",
+      "size_bytes": 29061,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/thdvukpw/71.%20Home%20Popup%20Inf.mp3"
+    },
+    {
+      "number": 72,
+      "title": "Home Popup Inf2",
+      "filename": "72_Home Popup Inf2.mp3",
+      "size_bytes": 28197,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/lsgcrafy/72.%20Home%20Popup%20Inf2.mp3"
+    },
+    {
+      "number": 73,
+      "title": "Home Popup Power",
+      "filename": "73_Home Popup Power.mp3",
+      "size_bytes": 16137,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/blcfsype/73.%20Home%20Popup%20Power.mp3"
+    },
+    {
+      "number": 74,
+      "title": "Home Popup Zone",
+      "filename": "74_Home Popup Zone.mp3",
+      "size_bytes": 30897,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/apxswhst/74.%20Home%20Popup%20Zone.mp3"
+    },
+    {
+      "number": 75,
+      "title": "Home Sd Insert",
+      "filename": "75_Home Sd Insert.mp3",
+      "size_bytes": 1989,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/qvhaewui/75.%20Home%20Sd%20Insert.mp3"
+    },
+    {
+      "number": 76,
+      "title": "Home Select",
+      "filename": "76_Home Select.mp3",
+      "size_bytes": 1377,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/fefoeddi/76.%20Home%20Select.mp3"
+    },
+    {
+      "number": 77,
+      "title": "Home Slide Btn Center",
+      "filename": "77_Home Slide Btn Center.mp3",
+      "size_bytes": 1773,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/fdzovkqy/77.%20Home%20Slide%20Btn%20Center.mp3"
+    },
+    {
+      "number": 78,
+      "title": "Home Slide Btn Edge",
+      "filename": "78_Home Slide Btn Edge.mp3",
+      "size_bytes": 1269,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/wmsfxxug/78.%20Home%20Slide%20Btn%20Edge.mp3"
+    },
+    {
+      "number": 79,
+      "title": "Home Spider",
+      "filename": "79_Home Spider.mp3",
+      "size_bytes": 23301,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/xudieycu/79.%20Home%20Spider.mp3"
+    },
+    {
+      "number": 80,
+      "title": "Home Start",
+      "filename": "80_Home Start.mp3",
+      "size_bytes": 39357,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/pozfdccc/80.%20Home%20Start.mp3"
+    },
+    {
+      "number": 81,
+      "title": "Home Start Effect",
+      "filename": "81_Home Start Effect.mp3",
+      "size_bytes": 63369,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/fsbaaysr/81.%20Home%20Start%20Effect.mp3"
+    },
+    {
+      "number": 82,
+      "title": "Home Sub Menu Btn",
+      "filename": "82_Home Sub Menu Btn.mp3",
+      "size_bytes": 2421,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/geddjkzp/82.%20Home%20Sub%20Menu%20Btn.mp3"
+    },
+    {
+      "number": 83,
+      "title": "Home Touch",
+      "filename": "83_Home Touch.mp3",
+      "size_bytes": 1989,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/aiqfdaqf/83.%20Home%20Touch.mp3"
+    },
+    {
+      "number": 84,
+      "title": "Home Welcome",
+      "filename": "84_Home Welcome.mp3",
+      "size_bytes": 234117,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/eddgwnbt/84.%20Home%20Welcome.mp3"
+    },
+    {
+      "number": 85,
+      "title": "Mymenu Decide",
+      "filename": "85_Mymenu Decide.mp3",
+      "size_bytes": 40905,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/onzkzsqc/85.%20Mymenu%20Decide.mp3"
+    },
+    {
+      "number": 86,
+      "title": "Mymenu Delete",
+      "filename": "86_Mymenu Delete.mp3",
+      "size_bytes": 23229,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/nidqucby/86.%20Mymenu%20Delete.mp3"
+    },
+    {
+      "number": 87,
+      "title": "Mymenu In",
+      "filename": "87_Mymenu In.mp3",
+      "size_bytes": 5841,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/ozghtxgl/87.%20Mymenu%20In.mp3"
+    },
+    {
+      "number": 88,
+      "title": "Mymenu Out",
+      "filename": "88_Mymenu Out.mp3",
+      "size_bytes": 5841,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/pobrdqtv/88.%20Mymenu%20Out.mp3"
+    },
+    {
+      "number": 89,
+      "title": "Mymenu Save Down",
+      "filename": "89_Mymenu Save Down.mp3",
+      "size_bytes": 2421,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/wvojbhea/89.%20Mymenu%20Save%20Down.mp3"
+    },
+    {
+      "number": 90,
+      "title": "Mymenu Save Move",
+      "filename": "90_Mymenu Save Move.mp3",
+      "size_bytes": 7101,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/nqpcsfya/90.%20Mymenu%20Save%20Move.mp3"
+    },
+    {
+      "number": 91,
+      "title": "Mymenu Save Up",
+      "filename": "91_Mymenu Save Up.mp3",
+      "size_bytes": 2493,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/hjyrougv/91.%20Mymenu%20Save%20Up.mp3"
+    },
+    {
+      "number": 92,
+      "title": "Mymenu Zoom In",
+      "filename": "92_Mymenu Zoom In.mp3",
+      "size_bytes": 2925,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/ltjpxrqg/92.%20Mymenu%20Zoom%20In.mp3"
+    },
+    {
+      "number": 93,
+      "title": "Mymenu Zoom Out",
+      "filename": "93_Mymenu Zoom Out.mp3",
+      "size_bytes": 3789,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/ivelquca/93.%20Mymenu%20Zoom%20Out.mp3"
+    },
+    {
+      "number": 94,
+      "title": "Theme Decide",
+      "filename": "94_Theme Decide.mp3",
+      "size_bytes": 40905,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/ypfgpgmp/94.%20Theme%20Decide.mp3"
+    },
+    {
+      "number": 95,
+      "title": "Theme List Float",
+      "filename": "95_Theme List Float.mp3",
+      "size_bytes": 2853,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/qgmolmaq/95.%20Theme%20List%20Float.mp3"
+    },
+    {
+      "number": 96,
+      "title": "Theme List Over",
+      "filename": "96_Theme List Over.mp3",
+      "size_bytes": 2025,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/dwvncasn/96.%20Theme%20List%20Over.mp3"
+    },
+    {
+      "number": 97,
+      "title": "Theme List Put",
+      "filename": "97_Theme List Put.mp3",
+      "size_bytes": 2853,
+      "cdn_url": "https://nu.vgmtreasurechest.com/soundtracks/nintendo-3ds-bios-sounds-3ds-gamerip-2011/mwxyzdqt/97.%20Theme%20List%20Put.mp3"
+    }
+  ]
+}

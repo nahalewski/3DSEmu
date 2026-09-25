@@ -43,6 +43,21 @@ import org.libsdl.app.SDLActivity;
  *                            moving any file it replaces into the backup
  *   steps                    today's steps from the phone's step counter
  *                            ("-1" none / not allowed, "-2" asking)
+ *   hinge                    the fold as the 3DS XL hinge, polled every frame:
+ *                            "seq|angle|posture|axis|foldPos|foldSize|rotation"
+ *                            seq       bumps on every change (skip parsing if equal)
+ *                            angle     degrees from the hinge sensor, -1 if none
+ *                                      (0 closed ... 180 flat)
+ *                            posture   flat | half | closed | none (no fold seen:
+ *                                      outer screen, or not a foldable)
+ *                            axis      h | v | - : the fold line runs horizontally
+ *                                      (screens above/below it) or vertically
+ *                            foldPos   the fold's centre in window pixels along the
+ *                                      other axis (y for h, x for v), -1 if none
+ *                            foldSize  the fold's thickness in pixels (0: a seam)
+ *                            rotation  display rotation 0 / 90 / 180 / 270
+ *   hinge.angle              just the raw, unsmoothed angle ("0".."180"), or ""
+ *                            when the phone has no hinge sensor (the lid stays open)
  *   dp.*                     Download Play (FoldPlay)
  *   fetch, files.*, external downloads and shared storage for the HOME
  *                            menu's emulators (FoldFetch)
@@ -87,105 +102,20 @@ public final class FoldBridge {
                 }
             }
             if (cmd.equals("steps")) return steps();
+            if (cmd.equals("hinge")) return hinge();
+            if (cmd.equals("hinge.angle")) {  // Theme Dev's lid.lua: raw degrees, "" when there is no sensor
+                hinge();
+                return hingeAngle < 0 ? "" : Float.toString(hingeAngle);
+            }
             if (cmd.equals("zip")) return zip(arg);
             if (cmd.equals("unzip")) return unzip(arg);
             if (cmd.startsWith("dp.")) return FoldPlay.call(cmd.substring(3), arg);
-            // a 3DS game in the shell: Azahar's side (the app module, found by name)
-            if (cmd.startsWith("3ds.")) return threeDs(cmd.substring(4), arg);
-            if (cmd.equals("sounds.fetch")) return soundsFetch(arg);
-            if (cmd.equals("sounds.state")) return soundsState;
             if (cmd.equals("fetch") || cmd.startsWith("files.") || cmd.equals("external")) return FoldFetch.call(cmd, arg);
         } catch (Throwable e) {
             Log.d(TAG, cmd + ": " + e);
             return "error:" + e.getMessage();
         }
         return "error:unknown " + cmd;
-    }
-
-    // ------------------------------------------------------------ system sounds
-    // The Switch's and the 3DS's own menu sounds, downloaded on the phone
-    // into the save folder (sounds/switch/, sounds/3ds/) for this phone only:
-    // never in the repository or the APK.  sounds.fetch|<save folder> starts
-    // it; sounds.state says idle / running / done:<switch>:<3ds> / error:...
-    private static final String[][] SOUND_SOURCES = {
-        // 211 Switch sounds (WAV/*.wav) from github.com/TOM-BadEN/Nintendo-Switch-Sounds-Effect
-        { "switch", "https://codeload.github.com/TOM-BadEN/Nintendo-Switch-Sounds-Effect/zip/refs/heads/main", "/WAV/" },
-        // the 3DS HOME Menu's sounds from The Sounds Resource (asset 443937)
-        { "3ds", "https://sounds.spriters-resource.com/media/assets/443/443937.zip", "" },
-    };
-    private static volatile String soundsState = "idle";
-
-    private static String soundsFetch(final String saveDir) {
-        if (soundsState.equals("running")) return soundsState;
-        soundsState = "running";
-        new Thread(new Runnable() {
-            public void run() {
-                int[] got = new int[SOUND_SOURCES.length];
-                String err = null;
-                for (int i = 0; i < SOUND_SOURCES.length; i++) {
-                    try {
-                        got[i] = fetchSounds(SOUND_SOURCES[i][1], SOUND_SOURCES[i][2],
-                            new File(saveDir, "sounds/" + SOUND_SOURCES[i][0]));
-                    } catch (Exception e) {
-                        Log.d(TAG, "sounds " + SOUND_SOURCES[i][0] + ": " + e);
-                        err = SOUND_SOURCES[i][0] + ": " + e.getMessage();
-                    }
-                }
-                soundsState = (got[0] + got[1] == 0 && err != null)
-                    ? "error:" + err : "done:" + got[0] + ":" + got[1];
-            }
-        }, "fold3ds-sounds").start();
-        return soundsState;
-    }
-
-    // every .wav in the zip at url whose path contains `within`, flattened
-    // into dir (streamed: nothing but the WAVs is written)
-    static int fetchSounds(String url, String within, File dir) throws IOException {
-        java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
-        c.setConnectTimeout(15000);
-        c.setReadTimeout(30000);
-        c.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) gen1recomp-Fold");
-        int n = 0;
-        try {
-            if (c.getResponseCode() != 200) throw new IOException("HTTP " + c.getResponseCode());
-            dir.mkdirs();
-            ZipInputStream zis = new ZipInputStream(c.getInputStream());
-            try {
-                ZipEntry e;
-                while ((e = zis.getNextEntry()) != null) {
-                    String name = e.getName();
-                    if (e.isDirectory() || !name.toLowerCase().endsWith(".wav")) continue;
-                    if (within.length() > 0 && !name.contains(within)) continue;
-                    String base = name.substring(name.lastIndexOf('/') + 1);
-                    if (base.length() == 0 || base.startsWith(".")) continue;
-                    File out = new File(dir, base);
-                    File part = new File(dir, base + ".part");
-                    OutputStream o = new FileOutputStream(part);
-                    try {
-                        copy(zis, o);
-                    } finally {
-                        o.close();
-                    }
-                    if (part.renameTo(out)) n++;
-                }
-            } finally {
-                zis.close();
-            }
-        } finally {
-            c.disconnect();
-        }
-        return n;
-    }
-
-    private static java.lang.reflect.Method threeDsCall;
-
-    private static String threeDs(String cmd, String arg) throws Exception {
-        if (threeDsCall == null) {
-            Class<?> c = Class.forName("org.citra.citra_emu.fold3ds.Fold3dsShell");
-            threeDsCall = c.getMethod("call", String.class, String.class);
-        }
-        Object r = threeDsCall.invoke(null, cmd, arg);
-        return r == null ? "" : r.toString();
     }
 
     // ------------------------------------------------------------ steps
@@ -247,6 +177,102 @@ public final class FoldBridge {
         return Long.toString(shown);
     }
 
+    // ------------------------------------------------------------ hinge
+    // The fold is the 3DS XL hinge. Two sources, both started on the first
+    // poll: the hinge-angle sensor (API 30+, the lid animation) and Jetpack
+    // WindowManager's FoldingFeature (posture, and WHERE the fold is in this
+    // window, which follows every rotation). Lua polls "hinge" each frame;
+    // the string only changes when seq does.
+
+    private static volatile float hingeAngle = -1f;
+    private static volatile String hingeFeature = "none|-|-1|0";
+    private static volatile int hingeSeq = 0;
+    private static int hingeRotation = -1;
+    private static boolean hingeStarted = false;
+
+    private static String hinge() {
+        Context c = SDLActivity.getContext();
+        if (!(c instanceof Activity)) return "0|-1|none|-|-1|0|0";
+        final Activity a = (Activity) c;
+        if (!hingeStarted) {
+            hingeStarted = true;
+            startHingeSensor(a);
+            a.runOnUiThread(new Runnable() {
+                @Override
+                public void run() { startFoldingFeature(a); }
+            });
+        }
+        int rotation = 0;
+        try {
+            rotation = a.getWindowManager().getDefaultDisplay().getRotation() * 90;
+        } catch (Throwable ignored) {}
+        if (rotation != hingeRotation) {  // a rotation alone must bump seq too (no fold on some screens)
+            hingeRotation = rotation;
+            hingeSeq++;
+        }
+        String[] f = hingeFeature.split("\\|");
+        String posture = f[0];
+        float angle = hingeAngle;
+        // no FoldingFeature while folded shut on the outer screen: the sensor
+        // still knows, so a closing lid reads as closed, not "none"
+        if (posture.equals("none") && angle >= 0 && angle < 20f) posture = "closed";
+        return hingeSeq + "|" + Math.round(angle * 10f) / 10f + "|" + posture + "|" + f[1] + "|" + f[2]
+            + "|" + f[3] + "|" + rotation;
+    }
+
+    private static void startHingeSensor(Activity a) {
+        if (Build.VERSION.SDK_INT < 30) return;
+        SensorManager m = (SensorManager) a.getSystemService(Context.SENSOR_SERVICE);
+        Sensor s = m == null ? null : m.getDefaultSensor(Sensor.TYPE_HINGE_ANGLE);
+        if (s == null) return;
+        m.registerListener(new SensorEventListener() {
+            @Override
+            public void onSensorChanged(SensorEvent e) {
+                if (e.values.length > 0 && Math.abs(e.values[0] - hingeAngle) >= 0.5f) {
+                    hingeAngle = e.values[0];
+                    hingeSeq++;
+                }
+            }
+
+            @Override
+            public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+        }, s, SensorManager.SENSOR_DELAY_GAME);
+    }
+
+    private static void startFoldingFeature(Activity a) {
+        try {
+            androidx.window.java.layout.WindowInfoTrackerCallbackAdapter t =
+                new androidx.window.java.layout.WindowInfoTrackerCallbackAdapter(
+                    androidx.window.layout.WindowInfoTracker.Companion.getOrCreate(a));
+            t.addWindowLayoutInfoListener(a, new java.util.concurrent.Executor() {
+                @Override
+                public void execute(Runnable r) { r.run(); }
+            }, new androidx.core.util.Consumer<androidx.window.layout.WindowLayoutInfo>() {
+                @Override
+                public void accept(androidx.window.layout.WindowLayoutInfo info) {
+                    String next = "none|-|-1|0";
+                    for (androidx.window.layout.DisplayFeature d : info.getDisplayFeatures()) {
+                        if (!(d instanceof androidx.window.layout.FoldingFeature)) continue;
+                        androidx.window.layout.FoldingFeature ff = (androidx.window.layout.FoldingFeature) d;
+                        boolean h = ff.getOrientation() == androidx.window.layout.FoldingFeature.Orientation.HORIZONTAL;
+                        android.graphics.Rect b = ff.getBounds();
+                        String posture = ff.getState() == androidx.window.layout.FoldingFeature.State.FLAT ? "flat" : "half";
+                        next = posture + "|" + (h ? "h" : "v") + "|" + (h ? b.centerY() : b.centerX())
+                            + "|" + (h ? b.height() : b.width());
+                        break;
+                    }
+                    if (!next.equals(hingeFeature)) {
+                        hingeFeature = next;
+                        hingeSeq++;
+                    }
+                }
+            });
+        } catch (Throwable e) {
+            // androidx.window missing or no WindowManager extensions: the sensor alone still drives the lid
+            Log.d(TAG, "hinge: no FoldingFeature (" + e + ")");
+        }
+    }
+
     // ------------------------------------------------------------ zip
 
     private static String zip(String arg) throws IOException {
@@ -303,9 +329,6 @@ public final class FoldBridge {
         if (name.contains("..") || name.startsWith("/") || name.contains("\\")) return false;
         if (name.startsWith("saves/") || name.startsWith("mods/")) return true;
         if (name.matches("downloadplay/rom/[A-Za-z0-9_.-]+\\.(gb|gbc|gba)")) return true;
-        // a DS / Virtual Console game, its save and its state (fold3ds/emucore.lua
-        // moves them from the inbox into its own folder)
-        if (name.matches("emu_inbox/(games|saves|states)/[^/]+")) return true;
         return name.matches("save(_[a-z0-9_]+)?\\.lua(\\.bak)?");
     }
 

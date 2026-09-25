@@ -36,8 +36,41 @@ local SHELL = {
 -- Japanese carts: Red, Green and Blue came in the plain grey cartridge
 local SHELL_JP = { red = { 150, 152, 160 }, blue = { 150, 152, 160 }, green = { 150, 152, 160 } }
 
+-- Game Boy (DMG) shells.  The cartridge is the SAME SHELL as the Game Boy
+-- Color's -- same outline, same cut corner, same 57 x 65 x 8 mm -- which is
+-- why the two are interchangeable in the slot.  Only the colour differs, so
+-- `shape = "gb"` reuses the gbc model and changes nothing but this table.
+--
+-- Two shells shipped: the common light grey, and a black one.
+--
+-- MEASURED from notes/cart-refs/ (Wikimedia, white-background product shots),
+-- not eyeballed -- but not by sampling the photo directly either, because that
+-- would double-count the light.  The chain:
+--
+--   1. modal shell tone across the cart, excluding near-white (background and
+--      label) and near-black (deep shadow).  The front face is the largest
+--      area in these three-quarter shots, so the mode is the lit front face:
+--        GB grey  (184, 180, 180)     GB black  (68, 68, 68)
+--   2. divide by this renderer's own front-face lighting factor.  `lit()` gives
+--      k = amb + (1 - amb) * max(0, d); the front normal is (0, 0, -1) and
+--      LZ = -0.66, so d = 0.66 and k = 0.5 + 0.5 * 0.66 = 0.83.
+--   3. base = lit / 0.83, so the front face renders back at the photographed
+--      tone instead of 0.83 of it.
+--
+-- Note these references CANNOT be used for proportions: every cart is
+-- photographed at a three-quarter angle, so a bounding box measures a
+-- foreshortened object.  Measuring them that way returns h/w 0.984 for a cart
+-- that is really 1.140 -- see notes.
+local SHELL_GB = {
+  grey  = { 222, 217, 217 },
+  black = {  82,  82,  82 },
+}
+
 -- which carts to show: "intl" or "jp" (labels/<game>_jp.png)
 C.region = "intl"
+-- Cartridge 3D skin style: "solid3d" (chunky 3D with walls/top) or "flat" (authentic flat card)
+C.style = "solid3d"
+C.peel = true -- sticker border with random peeled corner per cartridge
 
 local labels = {}
 local shown = { version = nil, since = -10 }
@@ -76,80 +109,45 @@ end
 -- Units: the cart is 1 wide; y runs down; z runs away from the viewer.
 
 local function model(shape)
-  if shape == "ds" or shape == "3ds" then
-    -- a DS game card, 35 x 33 x 3.8 mm (1 = 35 mm): rounded corners but
-    -- the top right, cut on a slant; fine grip ridges across its top; the
-    -- label in a recess filling the rest of the front; on the back a step
-    -- down to the 17 contacts along its bottom edge; the notch in its left
-    -- side.  A 3DS card is the same card with the tab on its right edge.
-    local mm = 1 / 35
-    local w, h, d = 1, 33 * mm, 3.8 * mm
-    local top, bot = -h / 2, h / 2
-    local cut, rr = 3.4 * mm, 1.1 * mm
-    local out = {}
-    local function arc(cx, cy, a0, a1)
-      for i = 0, 5 do
-        local a = a0 + (a1 - a0) * i / 5
-        out[#out + 1] = { cx + math.cos(a) * rr, cy + math.sin(a) * rr }
-      end
-    end
-    arc(-0.5 + rr, top + rr, math.pi, 1.5 * math.pi)
-    out[#out + 1] = { 0.5 - cut, top }
-    out[#out + 1] = { 0.5, top + cut }
-    if shape == "3ds" then
-      -- the tab: 1 mm proud of the right edge, 5 mm long, its ends sloped
-      local t0, t1, tw = top + 8 * mm, top + 13 * mm, 1 * mm
-      out[#out + 1] = { 0.5, t0 }
-      out[#out + 1] = { 0.5 + tw, t0 + 0.8 * mm }
-      out[#out + 1] = { 0.5 + tw, t1 - 0.8 * mm }
-      out[#out + 1] = { 0.5, t1 }
-    end
-    arc(0.5 - rr, bot - rr, 0, 0.5 * math.pi)
-    arc(-0.5 + rr, bot - rr, 0.5 * math.pi, math.pi)
-    local ridges = {}
-    for k = 0, 6 do ridges[#ridges + 1] = top + (1.4 + k * 0.75) * mm end
-    return { w = w, h = h, d = d, cut = cut, card = true, card3ds = shape == "3ds", mm = mm,
-      outline = out,
-      labelRect = { -0.5 + 2.2 * mm, top + 7.6 * mm, 1 - 4.4 * mm, h - 7.6 * mm - 2.2 * mm },
-      cardRidges = { ridges = ridges, x0 = -0.5 + 2.4 * mm, x1 = 0.5 - cut - 1.6 * mm },
-      -- the side notch (left edge): its top and length
-      cardNotch = { bot - 12 * mm, 2.4 * mm },
-      -- the back: the step to the contacts (its top), and the contacts
-      cardStep = bot - 6.2 * mm, contacts = 17 }
-  end
+  local flat = (C.style == "flat")
   if shape == "switch" then
-    -- a Switch game card, 21 x 31 x 3.3 mm (1 = 21 mm), standing tall: its
-    -- top-left corner cut on a slant, the others rounded; a few grip
-    -- ridges under its top edge; the label filling the front below them;
-    -- on the back the step to its contacts along the bottom
-    local mm = 1 / 21
-    local w, h, d = 1, 31 * mm, 3.3 * mm
-    local top, bot = -h / 2, h / 2
-    local cut, rr = 2.6 * mm, 1.2 * mm
-    local out = {}
-    local function arc(cx, cy, a0, a1)
-      for i = 0, 5 do
-        local a = a0 + (a1 - a0) * i / 5
-        out[#out + 1] = { cx + math.cos(a) * rr, cy + math.sin(a) * rr }
-      end
-    end
-    out[#out + 1] = { -0.5, top + cut }
-    out[#out + 1] = { -0.5 + cut, top }
-    arc(0.5 - rr, top + rr, 1.5 * math.pi, 2 * math.pi)
-    arc(0.5 - rr, bot - rr, 0, 0.5 * math.pi)
-    arc(-0.5 + rr, bot - rr, 0.5 * math.pi, math.pi)
-    local ridges = {}
-    for k = 0, 3 do ridges[#ridges + 1] = top + (1.3 + k * 0.8) * mm end
-    return { w = w, h = h, d = d, cut = cut, card = true, mm = mm,
+    -- Nintendo Switch game card: 31 x 21 x 3 mm, compact card
+    local w, h, d = 0.677, 1.0, (flat and 0.02 or 0.097)
+    local top, out = -h / 2, {}
+    local function add(x, y) out[#out + 1] = { x, y } end
+    add(-w / 2, top + 0.03); add(-w / 2 + 0.03, top); add(w / 2 - 0.03, top); add(w / 2, top + 0.03)
+    add(w / 2, h / 2 - 0.03); add(w / 2 - 0.03, h / 2); add(-w / 2 + 0.03, h / 2); add(-w / 2, h / 2 - 0.03)
+    return { w = w, h = h, d = d, cut = 0.03, card = true,
       outline = out,
-      labelRect = { -0.5 + 1.8 * mm, top + 5.2 * mm, 1 - 3.6 * mm, h - 5.2 * mm - 1.8 * mm },
-      cardRidges = { ridges = ridges, x0 = -0.5 + cut + 0.8 * mm, x1 = 0.5 - 1.6 * mm },
-      cardNotch = { bot - 9 * mm, 2 * mm },
-      cardStep = bot - 5 * mm, contacts = 16 }
+      labelRect = { -w / 2 + 0.04, top + 0.12, w - 0.08, h - 0.12 - 0.06 },
+      ridges = { top + 0.04 },
+      notches = { h / 2 - 0.2, 0.05 } }
+  end
+  if shape == "ds" or shape == "3ds" then
+    -- a DS game card: 35 x 33 x 3.8 mm, its top-right corner cut, grip
+    -- ridges along its top, the label filling the rest of the front.  A
+    -- 3DS card is the same with the tab on its right edge.
+    local w, h, d = 1, 1.06, (flat and 0.02 or 0.115)
+    local cut = 0.07
+    local top = -h / 2
+    local out = { { -0.5, top }, { 0.5 - cut, top }, { 0.5, top + cut } }
+    if shape == "3ds" then
+      out[#out + 1] = { 0.5, top + 0.16 }
+      out[#out + 1] = { 0.535, top + 0.18 }
+      out[#out + 1] = { 0.535, top + 0.3 }
+      out[#out + 1] = { 0.5, top + 0.32 }
+    end
+    out[#out + 1] = { 0.5, h / 2 }
+    out[#out + 1] = { -0.5, h / 2 }
+    return { w = w, h = h, d = d, cut = cut, card = true,
+      outline = out,
+      labelRect = { -0.42, top + 0.2, 0.84, h - 0.2 - 0.07 },
+      ridges = { top + 0.05, top + 0.085, top + 0.12 },
+      notches = { h / 2 - 0.3, 0.06 } }
   end
   if shape == "gba" then
     -- 57 x 35 x 7.5 mm: the top edge gently arched, the corners rounded
-    local w, h, d = 1, 0.614, 0.13
+    local w, h, d = 1, 0.614, (flat and 0.025 or 0.13)
     local top, out = -h / 2, {}
     local function add(x, y) out[#out + 1] = { x, y } end
     add(-0.5, top + 0.09); add(-0.487, top + 0.052); add(-0.462, top + 0.034)
@@ -169,7 +167,7 @@ local function model(shape)
   end
   -- the Game Boy / Game Boy Color cart (the original Game Boy's is the same
   -- shape, in its own grey)
-  local w, h, d = 1, 1.14, 0.13
+  local w, h, d = 1, 1.14, (flat and 0.025 or 0.13)
   local cut = 0.11
   return { w = w, h = h, d = d, cut = cut,
     outline = { { -0.5, -h / 2 }, { 0.5 - cut, -h / 2 }, { 0.5, -h / 2 + cut }, { 0.5, h / 2 }, { -0.5, h / 2 } },
@@ -292,8 +290,11 @@ function C.draw(r, version, t, skin)
   local gba = shape == "gba"
   local M = model(shape)
   -- a custom cart keeps its own colour; the stock carts wear the real one
+  -- a Game Boy cart wears a DMG shell unless the caller named a colour:
+  -- skin.variant = "black" picks the black one, anything else the grey.
+  local gbShell = (shape == "gb") and (SHELL_GB[skin and skin.variant] or SHELL_GB.grey) or nil
   local color = (skin and skin.cart and skin.color) or (C.region == "jp" and SHELL_JP[version])
-    or SHELL[version] or (skin and skin.color) or { 180, 180, 190 }
+    or SHELL[version] or (skin and skin.color) or gbShell or { 180, 180, 190 }
   local alpha = color[4] or 1
   -- the float: a slow bob and sway; a spin-in when the game changes
   local spin = math.max(0, 1 - (t - shown.since) / 0.55)
@@ -340,25 +341,6 @@ function C.draw(r, version, t, skin)
     local rr, gg, bb = lit(color, bnx, bny, bnz, 0.35)
     lg.setColor(rr, gg, bb, alpha)
     poly(backRev)
-    if M.card then
-      -- the card's back: the step down to its contacts, and the contacts
-      local zs = zb + 0.002
-      local sy = M.cardStep
-      local x0, x1 = -0.5 + 1.2 * M.mm, 0.5 - 1.2 * M.mm
-      lg.setColor(rr * 0.62, gg * 0.62, bb * 0.62, 1)
-      poly(frontRect(P, x0, sy, x1 - x0, M.h / 2 - sy, zs))
-      lg.setColor(rr * 1.2, gg * 1.2, bb * 1.2, 1)
-      poly(frontRect(P, x0, sy, x1 - x0, 0.3 * M.mm, zs + 0.001))
-      local n = M.contacts
-      local cx0, cw = -0.5 + 3.4 * M.mm, (1 - 6.8 * M.mm) / n
-      for i = 0, n - 1 do
-        lg.setColor(0.82, 0.66, 0.24, 1)
-        poly(frontRect(P, cx0 + i * cw + cw * 0.18, sy + 1.2 * M.mm, cw * 0.64, 4.2 * M.mm, zs + 0.002))
-      end
-      -- the moulded ridge across the top of the back
-      lg.setColor(rr * 0.8, gg * 0.8, bb * 0.8, 1)
-      poly(frontRect(P, x0 + 2 * M.mm, -M.h / 2 + 2 * M.mm, x1 - x0 - 4 * M.mm - M.cut, 0.5 * M.mm, zs))
-    end
   end
   if alpha < 1 and M.board then
     -- a see-through shell: the circuit board and its chip inside
@@ -384,30 +366,6 @@ function C.draw(r, version, t, skin)
     local fr, fg, fb = lit(color, fnx, fny, fnz, 0.55)
     lg.setColor(fr, fg, fb, alpha)
     poly(front)
-    if M.card then
-      -- the card's grip ridges: fine grooves, each with its lit edge
-      local g = M.cardRidges
-      for _, ry in ipairs(g.ridges) do
-        lg.setColor(fr * 0.66, fg * 0.66, fb * 0.66, 1)
-        poly(frontRect(P, g.x0, ry, g.x1 - g.x0, 0.32 * M.mm, zf - 0.002))
-        lg.setColor(math.min(1, fr * 1.18), math.min(1, fg * 1.18), math.min(1, fb * 1.18), 1)
-        poly(frontRect(P, g.x0, ry + 0.32 * M.mm, g.x1 - g.x0, 0.14 * M.mm, zf - 0.002))
-      end
-      -- the notch in the left side, seen as a dark bite from the front
-      local n = M.cardNotch
-      lg.setColor(fr * 0.35, fg * 0.35, fb * 0.35, 1)
-      poly(frontRect(P, -0.5, n[1], 0.9 * M.mm, n[2], zf - 0.002))
-      -- the label recess's walls: shadowed along its top and left, lit
-      -- along its bottom and right
-      local L = M.labelRect
-      local e = 0.55 * M.mm
-      lg.setColor(fr * 0.45, fg * 0.45, fb * 0.45, 1)
-      poly(frontRect(P, L[1] - e, L[2] - e, L[3] + 2 * e, e, zf - 0.003))
-      poly(frontRect(P, L[1] - e, L[2] - e, e, L[4] + 2 * e, zf - 0.003))
-      lg.setColor(math.min(1, fr * 1.25), math.min(1, fg * 1.25), math.min(1, fb * 1.25), 1)
-      poly(frontRect(P, L[1] - e, L[2] + L[4], L[3] + 2 * e, e, zf - 0.003))
-      poly(frontRect(P, L[1] + L[3], L[2] - e, e, L[4] + 2 * e, zf - 0.003))
-    end
     if M.ridges then
       -- the GBA cart's grip ridges, and the notches in its sides
       for _, ry in ipairs(M.ridges) do
@@ -454,11 +412,20 @@ function C.draw(r, version, t, skin)
     local rr, gg, bb = lit(color, fnx, fny, fnz, 0.55)
     lg.setColor(rr * 0.6, gg * 0.6, bb * 0.6, math.max(alpha, 0.9))
     poly(frontRect(P, L[1] - 0.025, L[2] - 0.025, L[3] + 0.05, L[4] + 0.05, zf - 0.002))
+
+    local shade = 0.72 + 0.28 * math.max(0, -(fnx * LX + fny * LY + fnz * LZ))
+
+    -- Sticker border: crisp die-cut white vinyl margin around the label
+    if C.peel then
+      local bw = 0.012
+      lg.setColor(0.96 * shade, 0.96 * shade, 0.94 * shade, 1)
+      poly(frontRect(P, L[1] - bw, L[2] - bw, L[3] + 2 * bw, L[4] + 2 * bw, zf - 0.003))
+    end
+
     -- a game's own label (the emulators' games: skin.labelImage, their box
     -- art or icon), else the recomp game's
     local img = (skin and skin.labelImage)
       or (not (skin and skin.noLabel) and label(version, skin and skin.labelPath)) or nil
-    local shade = 0.72 + 0.28 * math.max(0, -(fnx * LX + fny * LY + fnz * LZ))
     if img then
       -- the art filling the recess: cropped to its shape, never squeezed
       local iw, ih = img:getDimensions()
@@ -476,6 +443,68 @@ function C.draw(r, version, t, skin)
     else
       lg.setColor(0.9 * shade, 0.9 * shade, 0.92 * shade, 1)
       poly(frontRect(P, L[1], L[2], L[3], L[4], zf - 0.004))
+    end
+
+    -- Random peel corner per cartridge
+    if C.peel then
+      local tag = tostring(version or (skin and skin.cacheKey) or (skin and skin.labelPath) or "cart")
+      local h = 0
+      for i = 1, #tag do h = (h * 31 + tag:byte(i)) % 1000007 end
+      local corner = (h % 4) + 1  -- 1: TL, 2: TR, 3: BR, 4: BL
+      local peelFrac = 0.12 + (h % 5) * 0.015 -- 12% to 18% corner peel
+      local pw = L[3] * peelFrac
+      local ph = L[4] * peelFrac
+      local cx, cy, fx, fy
+
+      if corner == 1 then -- Top-Left
+        cx, cy = L[1], L[2]
+        -- Exposed cart label recess underneath
+        lg.setColor(rr * 0.48, gg * 0.48, bb * 0.48, 1)
+        poly({ { P(cx, cy, zf - 0.0035) }, { P(cx + pw, cy, zf - 0.0035) }, { P(cx, cy + ph, zf - 0.0035) } })
+        -- Drop shadow under lifted flap
+        lg.setColor(0, 0, 0, 0.32)
+        poly({ { P(cx + pw * 1.05, cy + ph * 1.05, zf - 0.0045) }, { P(cx + pw, cy, zf - 0.0045) }, { P(cx, cy + ph, zf - 0.0045) } })
+        -- White adhesive backing flap folded back
+        lg.setColor(0.94 * shade, 0.94 * shade, 0.90 * shade, 1)
+        poly({ { P(cx + pw * 0.9, cy + ph * 0.9, zf - 0.0055) }, { P(cx + pw, cy, zf - 0.0055) }, { P(cx, cy + ph, zf - 0.0055) } })
+        -- Crease line along fold
+        lg.setColor(0.78 * shade, 0.78 * shade, 0.74 * shade, 1)
+        local pA, pB = { P(cx + pw, cy, zf - 0.0056) }, { P(cx, cy + ph, zf - 0.0056) }
+        lg.line(pA[1], pA[2], pB[1], pB[2])
+      elseif corner == 2 then -- Top-Right
+        cx, cy = L[1] + L[3], L[2]
+        lg.setColor(rr * 0.48, gg * 0.48, bb * 0.48, 1)
+        poly({ { P(cx, cy, zf - 0.0035) }, { P(cx - pw, cy, zf - 0.0035) }, { P(cx, cy + ph, zf - 0.0035) } })
+        lg.setColor(0, 0, 0, 0.32)
+        poly({ { P(cx - pw * 1.05, cy + ph * 1.05, zf - 0.0045) }, { P(cx - pw, cy, zf - 0.0045) }, { P(cx, cy + ph, zf - 0.0045) } })
+        lg.setColor(0.94 * shade, 0.94 * shade, 0.90 * shade, 1)
+        poly({ { P(cx - pw * 0.9, cy + ph * 0.9, zf - 0.0055) }, { P(cx - pw, cy, zf - 0.0055) }, { P(cx, cy + ph, zf - 0.0055) } })
+        lg.setColor(0.78 * shade, 0.78 * shade, 0.74 * shade, 1)
+        local pA, pB = { P(cx - pw, cy, zf - 0.0056) }, { P(cx, cy + ph, zf - 0.0056) }
+        lg.line(pA[1], pA[2], pB[1], pB[2])
+      elseif corner == 3 then -- Bottom-Right
+        cx, cy = L[1] + L[3], L[2] + L[4]
+        lg.setColor(rr * 0.48, gg * 0.48, bb * 0.48, 1)
+        poly({ { P(cx, cy, zf - 0.0035) }, { P(cx - pw, cy, zf - 0.0035) }, { P(cx, cy - ph, zf - 0.0035) } })
+        lg.setColor(0, 0, 0, 0.32)
+        poly({ { P(cx - pw * 1.05, cy - ph * 1.05, zf - 0.0045) }, { P(cx - pw, cy, zf - 0.0045) }, { P(cx, cy - ph, zf - 0.0045) } })
+        lg.setColor(0.94 * shade, 0.94 * shade, 0.90 * shade, 1)
+        poly({ { P(cx - pw * 0.9, cy - ph * 0.9, zf - 0.0055) }, { P(cx - pw, cy, zf - 0.0055) }, { P(cx, cy - ph, zf - 0.0055) } })
+        lg.setColor(0.78 * shade, 0.78 * shade, 0.74 * shade, 1)
+        local pA, pB = { P(cx - pw, cy, zf - 0.0056) }, { P(cx, cy - ph, zf - 0.0056) }
+        lg.line(pA[1], pA[2], pB[1], pB[2])
+      elseif corner == 4 then -- Bottom-Left
+        cx, cy = L[1], L[2] + L[4]
+        lg.setColor(rr * 0.48, gg * 0.48, bb * 0.48, 1)
+        poly({ { P(cx, cy, zf - 0.0035) }, { P(cx + pw, cy, zf - 0.0035) }, { P(cx, cy - ph, zf - 0.0035) } })
+        lg.setColor(0, 0, 0, 0.32)
+        poly({ { P(cx + pw * 1.05, cy - ph * 1.05, zf - 0.0045) }, { P(cx + pw, cy, zf - 0.0045) }, { P(cx, cy - ph, zf - 0.0045) } })
+        lg.setColor(0.94 * shade, 0.94 * shade, 0.90 * shade, 1)
+        poly({ { P(cx + pw * 0.9, cy - ph * 0.9, zf - 0.0055) }, { P(cx + pw, cy, zf - 0.0055) }, { P(cx, cy - ph, zf - 0.0055) } })
+        lg.setColor(0.78 * shade, 0.78 * shade, 0.74 * shade, 1)
+        local pA, pB = { P(cx + pw, cy, zf - 0.0056) }, { P(cx, cy - ph, zf - 0.0056) }
+        lg.line(pA[1], pA[2], pB[1], pB[2])
+      end
     end
   end
   lg.pop()

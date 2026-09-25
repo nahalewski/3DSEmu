@@ -1,0 +1,541 @@
+{
+  "category": "Mii_Maker",
+  "album_slug": "mii-maker-3ds-sound-effects-3ds-gamerip-2011",
+  "description": "Mii creation, part selection, whistle, photo capture, and save SFX",
+  "total_tracks": 76,
+  "downloaded": 76,
+  "tracks": [
+    {
+      "number": 1,
+      "title": "Adjust Left",
+      "filename": "01_Adjust Left.mp3",
+      "size_bytes": 1989,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/lwcwzkbb/01.%20Adjust%20Left.mp3"
+    },
+    {
+      "number": 2,
+      "title": "Adjust Right",
+      "filename": "02_Adjust Right.mp3",
+      "size_bytes": 2133,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/ciiqffkl/02.%20Adjust%20Right.mp3"
+    },
+    {
+      "number": 3,
+      "title": "Btn Rep Touch",
+      "filename": "03_Btn Rep Touch.mp3",
+      "size_bytes": 1413,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/yivfpjay/03.%20Btn%20Rep%20Touch.mp3"
+    },
+    {
+      "number": 4,
+      "title": "Btn Rep Touchin",
+      "filename": "04_Btn Rep Touchin.mp3",
+      "size_bytes": 1125,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/ssmfrtrc/04.%20Btn%20Rep%20Touchin.mp3"
+    },
+    {
+      "number": 5,
+      "title": "Btn Rep Touchout",
+      "filename": "05_Btn Rep Touchout.mp3",
+      "size_bytes": 1341,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/kwbskyke/05.%20Btn%20Rep%20Touchout.mp3"
+    },
+    {
+      "number": 6,
+      "title": "Btn Touch",
+      "filename": "06_Btn Touch.mp3",
+      "size_bytes": 1413,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/ppcuqvgu/06.%20Btn%20Touch.mp3"
+    },
+    {
+      "number": 7,
+      "title": "Btn Touchin",
+      "filename": "07_Btn Touchin.mp3",
+      "size_bytes": 1125,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/gtawiabg/07.%20Btn%20Touchin.mp3"
+    },
+    {
+      "number": 8,
+      "title": "Btn Touchout",
+      "filename": "08_Btn Touchout.mp3",
+      "size_bytes": 1089,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/cuquavap/08.%20Btn%20Touchout.mp3"
+    },
+    {
+      "number": 9,
+      "title": "Camera Slide Left",
+      "filename": "09_Camera Slide Left.mp3",
+      "size_bytes": 4149,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/wqntcfws/09.%20Camera%20Slide%20Left.mp3"
+    },
+    {
+      "number": 10,
+      "title": "Camera Slide Left Limit",
+      "filename": "10_Camera Slide Left Limit.mp3",
+      "size_bytes": 4653,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/zqjxjcjn/10.%20Camera%20Slide%20Left%20Limit.mp3"
+    },
+    {
+      "number": 11,
+      "title": "Camera Slide Right",
+      "filename": "11_Camera Slide Right.mp3",
+      "size_bytes": 4149,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/ncvygiyr/11.%20Camera%20Slide%20Right.mp3"
+    },
+    {
+      "number": 12,
+      "title": "Camera Slide Right Limit",
+      "filename": "12_Camera Slide Right Limit.mp3",
+      "size_bytes": 4653,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/mncxfkjr/12.%20Camera%20Slide%20Right%20Limit.mp3"
+    },
+    {
+      "number": 13,
+      "title": "Camera Zoom In",
+      "filename": "13_Camera Zoom In.mp3",
+      "size_bytes": 5013,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/hhspyyug/13.%20Camera%20Zoom%20In.mp3"
+    },
+    {
+      "number": 14,
+      "title": "Camera Zoom Out",
+      "filename": "14_Camera Zoom Out.mp3",
+      "size_bytes": 5661,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/tauyiwjf/14.%20Camera%20Zoom%20Out.mp3"
+    },
+    {
+      "number": 15,
+      "title": "Cancel",
+      "filename": "15_Cancel.mp3",
+      "size_bytes": 8433,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/xwpkhfei/15.%20Cancel.mp3"
+    },
+    {
+      "number": 16,
+      "title": "Cancel Org",
+      "filename": "16_Cancel Org.mp3",
+      "size_bytes": 13077,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/zaescgbn/16.%20Cancel%20Org.mp3"
+    },
+    {
+      "number": 17,
+      "title": "Category",
+      "filename": "17_Category.mp3",
+      "size_bytes": 1413,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/msfzexaj/17.%20Category.mp3"
+    },
+    {
+      "number": 18,
+      "title": "Change Camera Btn",
+      "filename": "18_Change Camera Btn.mp3",
+      "size_bytes": 1017,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/uvtheyis/18.%20Change%20Camera%20Btn.mp3"
+    },
+    {
+      "number": 19,
+      "title": "Change Camera Disp",
+      "filename": "19_Change Camera Disp.mp3",
+      "size_bytes": 1341,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/qcmfofll/19.%20Change%20Camera%20Disp.mp3"
+    },
+    {
+      "number": 20,
+      "title": "Check",
+      "filename": "20_Check.mp3",
+      "size_bytes": 6777,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/xhqkaxki/20.%20Check.mp3"
+    },
+    {
+      "number": 21,
+      "title": "Color",
+      "filename": "21_Color.mp3",
+      "size_bytes": 17001,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/mjjtretg/21.%20Color.mp3"
+    },
+    {
+      "number": 22,
+      "title": "Connect Failure",
+      "filename": "22_Connect Failure.mp3",
+      "size_bytes": 7137,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/bldgwogp/22.%20Connect%20Failure.mp3"
+    },
+    {
+      "number": 23,
+      "title": "Connect Success",
+      "filename": "23_Connect Success.mp3",
+      "size_bytes": 9765,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/gmrxobnl/23.%20Connect%20Success.mp3"
+    },
+    {
+      "number": 24,
+      "title": "Connecting",
+      "filename": "24_Connecting.mp3",
+      "size_bytes": 60597,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/thisrcng/24.%20Connecting.mp3"
+    },
+    {
+      "number": 25,
+      "title": "Connecting2",
+      "filename": "25_Connecting2.mp3",
+      "size_bytes": 74601,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/tzsoqmpo/25.%20Connecting2.mp3"
+    },
+    {
+      "number": 26,
+      "title": "Decide",
+      "filename": "26_Decide.mp3",
+      "size_bytes": 15021,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/ydtikdig/26.%20Decide.mp3"
+    },
+    {
+      "number": 27,
+      "title": "Decide Org",
+      "filename": "27_Decide Org.mp3",
+      "size_bytes": 12429,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/hrlgxtdj/27.%20Decide%20Org.mp3"
+    },
+    {
+      "number": 28,
+      "title": "Facebox In",
+      "filename": "28_Facebox In.mp3",
+      "size_bytes": 4977,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/jvyhqhoy/28.%20Facebox%20In.mp3"
+    },
+    {
+      "number": 29,
+      "title": "Facebox Out",
+      "filename": "29_Facebox Out.mp3",
+      "size_bytes": 4401,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/afzghsqe/29.%20Facebox%20Out.mp3"
+    },
+    {
+      "number": 30,
+      "title": "Favorite Off",
+      "filename": "30_Favorite Off.mp3",
+      "size_bytes": 7317,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/vtervekl/30.%20Favorite%20Off.mp3"
+    },
+    {
+      "number": 31,
+      "title": "Favorite On",
+      "filename": "31_Favorite On.mp3",
+      "size_bytes": 19557,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/bzqhnsbd/31.%20Favorite%20On.mp3"
+    },
+    {
+      "number": 32,
+      "title": "Invert",
+      "filename": "32_Invert.mp3",
+      "size_bytes": 3393,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/nflrytxi/32.%20Invert.mp3"
+    },
+    {
+      "number": 33,
+      "title": "Making Face",
+      "filename": "33_Making Face.mp3",
+      "size_bytes": 46449,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/whywobqb/33.%20Making%20Face.mp3"
+    },
+    {
+      "number": 34,
+      "title": "Making Face Comp",
+      "filename": "34_Making Face Comp.mp3",
+      "size_bytes": 32733,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/hiuwamha/34.%20Making%20Face%20Comp.mp3"
+    },
+    {
+      "number": 35,
+      "title": "Making Face Female",
+      "filename": "35_Making Face Female.mp3",
+      "size_bytes": 106209,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/hkcgybjr/35.%20Making%20Face%20Female.mp3"
+    },
+    {
+      "number": 36,
+      "title": "Making Face Male",
+      "filename": "36_Making Face Male.mp3",
+      "size_bytes": 99369,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/hjypdzkc/36.%20Making%20Face%20Male.mp3"
+    },
+    {
+      "number": 37,
+      "title": "Mii Arrive",
+      "filename": "37_Mii Arrive.mp3",
+      "size_bytes": 8541,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/gyxvjimo/37.%20Mii%20Arrive.mp3"
+    },
+    {
+      "number": 38,
+      "title": "Mii Delete",
+      "filename": "38_Mii Delete.mp3",
+      "size_bytes": 13905,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/hstprrjr/38.%20Mii%20Delete.mp3"
+    },
+    {
+      "number": 39,
+      "title": "Mii Devide",
+      "filename": "39_Mii Devide.mp3",
+      "size_bytes": 15813,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/kauxcvxz/39.%20Mii%20Devide.mp3"
+    },
+    {
+      "number": 40,
+      "title": "Mii Footstep Left",
+      "filename": "40_Mii Footstep Left.mp3",
+      "size_bytes": 1269,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/fbsjtpue/40.%20Mii%20Footstep%20Left.mp3"
+    },
+    {
+      "number": 41,
+      "title": "Mii Footstep Right",
+      "filename": "41_Mii Footstep Right.mp3",
+      "size_bytes": 1269,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/ncxhrosw/41.%20Mii%20Footstep%20Right.mp3"
+    },
+    {
+      "number": 42,
+      "title": "Mii Gripping",
+      "filename": "42_Mii Gripping.mp3",
+      "size_bytes": 94941,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/hsutjpxr/42.%20Mii%20Gripping.mp3"
+    },
+    {
+      "number": 43,
+      "title": "Mii Gripping Sp",
+      "filename": "43_Mii Gripping Sp.mp3",
+      "size_bytes": 90117,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/tsimkoqk/43.%20Mii%20Gripping%20Sp.mp3"
+    },
+    {
+      "number": 44,
+      "title": "Mii Group Touch",
+      "filename": "44_Mii Group Touch.mp3",
+      "size_bytes": 1305,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/dkrdprnn/44.%20Mii%20Group%20Touch.mp3"
+    },
+    {
+      "number": 45,
+      "title": "Mii Icon Catch",
+      "filename": "45_Mii Icon Catch.mp3",
+      "size_bytes": 2421,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/dcauzmkp/45.%20Mii%20Icon%20Catch.mp3"
+    },
+    {
+      "number": 46,
+      "title": "Mii Icon Release",
+      "filename": "46_Mii Icon Release.mp3",
+      "size_bytes": 1413,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/tbbzveie/46.%20Mii%20Icon%20Release.mp3"
+    },
+    {
+      "number": 47,
+      "title": "Mii Icon Select",
+      "filename": "47_Mii Icon Select.mp3",
+      "size_bytes": 1413,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/vqsouepk/47.%20Mii%20Icon%20Select.mp3"
+    },
+    {
+      "number": 48,
+      "title": "Mii Icon Set In",
+      "filename": "48_Mii Icon Set In.mp3",
+      "size_bytes": 1125,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/hfcyjcgc/48.%20Mii%20Icon%20Set%20In.mp3"
+    },
+    {
+      "number": 49,
+      "title": "Mii Jump",
+      "filename": "49_Mii Jump.mp3",
+      "size_bytes": 32589,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/qzzwknia/49.%20Mii%20Jump.mp3"
+    },
+    {
+      "number": 50,
+      "title": "Mii Land",
+      "filename": "50_Mii Land.mp3",
+      "size_bytes": 3429,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/evojbgbo/50.%20Mii%20Land.mp3"
+    },
+    {
+      "number": 51,
+      "title": "Mii Land Square",
+      "filename": "51_Mii Land Square.mp3",
+      "size_bytes": 2133,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/pjbfyyyv/51.%20Mii%20Land%20Square.mp3"
+    },
+    {
+      "number": 52,
+      "title": "Mii Touch Balloon",
+      "filename": "52_Mii Touch Balloon.mp3",
+      "size_bytes": 1989,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/jkvxbnny/52.%20Mii%20Touch%20Balloon.mp3"
+    },
+    {
+      "number": 53,
+      "title": "Mii Touch Balloon No",
+      "filename": "53_Mii Touch Balloon No.mp3",
+      "size_bytes": 2277,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/gjcksinr/53.%20Mii%20Touch%20Balloon%20No.mp3"
+    },
+    {
+      "number": 54,
+      "title": "Mii Up",
+      "filename": "54_Mii Up.mp3",
+      "size_bytes": 4437,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/spwmwujm/54.%20Mii%20Up.mp3"
+    },
+    {
+      "number": 55,
+      "title": "Mii Wave",
+      "filename": "55_Mii Wave.mp3",
+      "size_bytes": 3465,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/jhljjwfj/55.%20Mii%20Wave.mp3"
+    },
+    {
+      "number": 56,
+      "title": "Ok",
+      "filename": "56_Ok.mp3",
+      "size_bytes": 9909,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/gdxbrdra/56.%20Ok.mp3"
+    },
+    {
+      "number": 57,
+      "title": "Ok Org",
+      "filename": "57_Ok Org.mp3",
+      "size_bytes": 8109,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/acjoswdc/57.%20Ok%20Org.mp3"
+    },
+    {
+      "number": 58,
+      "title": "Parts",
+      "filename": "58_Parts.mp3",
+      "size_bytes": 8325,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/enczpyyy/58.%20Parts.mp3"
+    },
+    {
+      "number": 59,
+      "title": "Parts Page Left",
+      "filename": "59_Parts Page Left.mp3",
+      "size_bytes": 2709,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/wlryucbz/59.%20Parts%20Page%20Left.mp3"
+    },
+    {
+      "number": 60,
+      "title": "Parts Page Right",
+      "filename": "60_Parts Page Right.mp3",
+      "size_bytes": 2709,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/uarkynvp/60.%20Parts%20Page%20Right.mp3"
+    },
+    {
+      "number": 61,
+      "title": "Qrcode Bow",
+      "filename": "61_Qrcode Bow.mp3",
+      "size_bytes": 6021,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/jdpozhou/61.%20Qrcode%20Bow.mp3"
+    },
+    {
+      "number": 62,
+      "title": "Qrcode Land Fall",
+      "filename": "62_Qrcode Land Fall.mp3",
+      "size_bytes": 33021,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/jkylkqbi/62.%20Qrcode%20Land%20Fall.mp3"
+    },
+    {
+      "number": 63,
+      "title": "Qrcode Land Success",
+      "filename": "63_Qrcode Land Success.mp3",
+      "size_bytes": 10773,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/nogqivbx/63.%20Qrcode%20Land%20Success.mp3"
+    },
+    {
+      "number": 64,
+      "title": "Qrcode Land Turn",
+      "filename": "64_Qrcode Land Turn.mp3",
+      "size_bytes": 4437,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/gphnvndc/64.%20Qrcode%20Land%20Turn.mp3"
+    },
+    {
+      "number": 65,
+      "title": "Qrcode Spring",
+      "filename": "65_Qrcode Spring.mp3",
+      "size_bytes": 38745,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/axjclwzk/65.%20Qrcode%20Spring.mp3"
+    },
+    {
+      "number": 66,
+      "title": "Recognized Graph Fall",
+      "filename": "66_Recognized Graph Fall.mp3",
+      "size_bytes": 5877,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/zrlfruzl/66.%20Recognized%20Graph%20Fall.mp3"
+    },
+    {
+      "number": 67,
+      "title": "Recognized Qrcode",
+      "filename": "67_Recognized Qrcode.mp3",
+      "size_bytes": 47277,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/hbmgtauz/67.%20Recognized%20Qrcode.mp3"
+    },
+    {
+      "number": 68,
+      "title": "Slider Down",
+      "filename": "68_Slider Down.mp3",
+      "size_bytes": 1701,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/noixmtjn/68.%20Slider%20Down.mp3"
+    },
+    {
+      "number": 69,
+      "title": "Slider Up",
+      "filename": "69_Slider Up.mp3",
+      "size_bytes": 1557,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/lsesdngq/69.%20Slider%20Up.mp3"
+    },
+    {
+      "number": 70,
+      "title": "Spin Left",
+      "filename": "70_Spin Left.mp3",
+      "size_bytes": 6525,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/kepoybni/70.%20Spin%20Left.mp3"
+    },
+    {
+      "number": 71,
+      "title": "Spin Right",
+      "filename": "71_Spin Right.mp3",
+      "size_bytes": 6525,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/fyblcdls/71.%20Spin%20Right.mp3"
+    },
+    {
+      "number": 72,
+      "title": "Tab",
+      "filename": "72_Tab.mp3",
+      "size_bytes": 2277,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/gdxffocu/72.%20Tab.mp3"
+    },
+    {
+      "number": 73,
+      "title": "Value Dec",
+      "filename": "73_Value Dec.mp3",
+      "size_bytes": 1701,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/qtzpaimo/73.%20Value%20Dec.mp3"
+    },
+    {
+      "number": 74,
+      "title": "Value Inc",
+      "filename": "74_Value Inc.mp3",
+      "size_bytes": 1629,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/fmtikcdm/74.%20Value%20Inc.mp3"
+    },
+    {
+      "number": 75,
+      "title": "Walksetting",
+      "filename": "75_Walksetting.mp3",
+      "size_bytes": 1269,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/bsldkmel/75.%20Walksetting.mp3"
+    },
+    {
+      "number": 76,
+      "title": "Whistle",
+      "filename": "76_Whistle.mp3",
+      "size_bytes": 8253,
+      "cdn_url": "https://lambda.vgmtreasurechest.com/soundtracks/mii-maker-3ds-sound-effects-3ds-gamerip-2011/qxrqfbqc/76.%20Whistle.mp3"
+    }
+  ]
+}

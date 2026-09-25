@@ -96,15 +96,44 @@ local function encode(st)
   out[#out + 1] = ("corner=%d"):format(st.corner or 1)
   out[#out + 1] = "outline=" .. (st.outline and "1" or "0")
   out[#out + 1] = "on=" .. (st.on and "1" or "0")
+  out[#out + 1] = "fav=" .. ((st.favorite or (st.cfg and st.cfg.favorite)) and "1" or "0")
   return table.concat(out, " ")
 end
 
 local function decode(line)
   local st = {}
   for k, v in line:gmatch("(%w+)=([%w%.%-]+)") do
-    if k == "outline" or k == "on" then st[k] = v == "1" else st[k] = tonumber(v) end
+    if k == "outline" or k == "on" or k == "fav" then
+      if k == "fav" then st.favorite = (v == "1")
+      else st[k] = (v == "1") end
+    else
+      st[k] = tonumber(v)
+    end
   end
   return st
+end
+
+local FAVORITES_FILE = "fold3ds_favorites.cfg"
+local favorites = nil
+
+local function loadFavorites()
+  if favorites ~= nil then return favorites end
+  favorites = {}
+  local ok, text = pcall(love.filesystem.read, FAVORITES_FILE)
+  if ok and type(text) == "string" then
+    for line in text:gmatch("[^\r\n]+") do
+      local f = decode(line)
+      if f.id then favorites[#favorites + 1] = f end
+    end
+  end
+  return favorites
+end
+
+local function saveFavorites()
+  if not favorites then return end
+  local lines = {}
+  for _, f in ipairs(favorites) do lines[#lines + 1] = encode(f) end
+  pcall(love.filesystem.write, FAVORITES_FILE, table.concat(lines, "\n") .. "\n")
 end
 
 local function saveList()
@@ -795,6 +824,133 @@ function S.remove()
   for i = #list, 1, -1 do deleteSticker(list[i]) end
 end
 
+function S.getFavorites()
+  return loadFavorites()
+end
+
+function S.saveFavorite(st)
+  loadFavorites()
+  if not st then return end
+  for _, f in ipairs(favorites) do
+    if f.id == st.id then
+      for _, k in ipairs(FIELDS) do f[k] = st[k] end
+      f.outline = st.outline
+      f.shape = st.shape
+      saveFavorites()
+      return
+    end
+  end
+  local copy = { id = st.id, outline = st.outline, shape = st.shape, favorite = true }
+  for _, k in ipairs(FIELDS) do copy[k] = st[k] end
+  favorites[#favorites + 1] = copy
+  saveFavorites()
+end
+
+function S.removeFavorite(id)
+  loadFavorites()
+  for i, f in ipairs(favorites) do
+    if f.id == id then
+      table.remove(favorites, i)
+      saveFavorites()
+      return true
+    end
+  end
+  return false
+end
+
+function S.toggleFavorite(st)
+  if not st then return false end
+  loadFavorites()
+  for i, f in ipairs(favorites) do
+    if f.id == st.id then
+      table.remove(favorites, i)
+      st.favorite = false
+      saveFavorites()
+      saveList()
+      return false
+    end
+  end
+  st.favorite = true
+  S.saveFavorite(st)
+  saveList()
+  return true
+end
+
+function S.addDefault(which, surf)
+  surf = surf or 0
+  local filename = (which == "distressed" or which == "aeondx_distressed")
+    and "fold3ds/skin/sticker_aeondx_distressed.png" or "fold3ds/skin/sticker_aeondx.png"
+  local ok, data = pcall(love.image.newImageData, filename)
+  if not ok or not data then return false end
+  local img = lg.newImage(data)
+  local iw, ih = img:getDimensions()
+  local c = defaults(iw, ih)
+  c.surf = surf
+  c.round = 0.05
+  c.outline = false
+  c.shape = 1
+  c.size = (surf == 0) and 0.45 or 0.22
+  c.px = (surf == 0) and 0.50 or 0.12
+  c.py = (surf == 0) and 0.50 or (surf == 1 and 0.62 or 0.82)
+  local st = { id = nextId, peels = 0, worn = 0, corner = 1, on = true, favorite = true }
+  nextId = nextId + 1
+  list[#list + 1] = st
+  for _, k in ipairs(FIELDS) do st[k] = c[k] end
+  st.outline = c.outline
+  st.surf = surf
+  st.shape = c.shape
+  local canvas = bake(img, c)
+  local okW = pcall(function()
+    canvas:newImageData():encode("png", outFile(st.id))
+    data:encode("png", srcFile(st.id))
+  end)
+  if okW then
+    loadImage(st)
+    saveList()
+    S.saveFavorite(st)
+    Sfx.play("newSticker")
+    return true
+  end
+  return false
+end
+
+function S.applyFavorite(favId, surf)
+  loadFavorites()
+  local targetFav = nil
+  for _, f in ipairs(favorites) do
+    if f.id == favId or favId == 1 then targetFav = f break end
+  end
+  if not targetFav and #favorites > 0 then targetFav = favorites[1] end
+  if not targetFav then return S.addDefault("aeondx", surf) end
+
+  local data = readImageData(srcFile(targetFav.id))
+  if not data then return S.addDefault("aeondx", surf) end
+  local img = lg.newImage(data)
+  local iw, ih = img:getDimensions()
+  local c = defaults(iw, ih)
+  for _, k in ipairs(FIELDS) do if targetFav[k] then c[k] = targetFav[k] end end
+  c.surf = surf or c.surf or 0
+  c.outline = targetFav.outline
+  c.shape = targetFav.shape or 1
+
+  local st = { id = nextId, peels = 0, worn = 0, corner = 1, on = true, favorite = true }
+  nextId = nextId + 1
+  list[#list + 1] = st
+  for _, k in ipairs(FIELDS) do st[k] = c[k] end
+  st.outline = c.outline
+  st.surf = c.surf
+  st.shape = c.shape
+  local canvas = bake(img, c)
+  pcall(function()
+    canvas:newImageData():encode("png", outFile(st.id))
+    data:encode("png", srcFile(st.id))
+  end)
+  loadImage(st)
+  saveList()
+  Sfx.play("newSticker")
+  return true
+end
+
 ---------------------------------------------------------------- picking
 
 local function pickedInfo()
@@ -931,6 +1087,8 @@ function S.save()
   for _, k in ipairs({ "cx", "cy", "cw", "ch", "round", "size", "px", "py", "rot", "shape" }) do st[k] = c[k] end
   st.outline = c.outline
   st.surf = ed.surf or 0
+  st.favorite = (c.favorite == true) or (st.favorite == true)
+  if st.favorite then S.saveFavorite(st) end
   local canvas = bake(ed.img, c)
   local okW = pcall(function()
     canvas:newImageData():encode("png", outFile(st.id))
@@ -961,6 +1119,8 @@ local function controls(r)
   if ed and (ed.surf or 0) ~= 0 then
     table.insert(rows, 1, { id = "surf", label = ed.surf == 1 and "On: top shell" or "On: bottom shell", kind = "button" })
   end
+  local isFav = (ed and ed.target and ed.target.favorite) or (ed and ed.cfg and ed.cfg.favorite)
+  rows[#rows + 1] = { id = "favorite", label = isFav and "★ In Favorites" or "☆ Favorite", kind = "button" }
   if ed and ed.target then rows[#rows + 1] = { id = "delete", label = "Delete", kind = "button", danger = true } end
   rows[#rows + 1] = { id = "save", label = "Save", kind = "button", accent = true }
   rows[#rows + 1] = { id = "cancel", label = "Cancel", kind = "button" }
@@ -1099,6 +1259,12 @@ local function tapRow(row, x)
     ed.cfg.surf = ed.surf
   elseif row.id == "outline" then
     if ed.img then ed.cfg.outline = not ed.cfg.outline end
+  elseif row.id == "favorite" then
+    if ed.target then
+      S.toggleFavorite(ed.target)
+    elseif ed.cfg then
+      ed.cfg.favorite = not ed.cfg.favorite
+    end
   elseif row.id == "pick" then
     local ok, err = S.pick()
     if not ok and err then ed.note = err end

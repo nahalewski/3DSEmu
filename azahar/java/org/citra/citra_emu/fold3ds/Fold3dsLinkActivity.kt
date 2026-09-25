@@ -13,7 +13,6 @@
 //   artic                    connect to an Artic Base server
 //   azahar?open=X            Azahar's own screens (Fold3dsMain)
 //   setup                    set Azahar up (below), then nothing else
-//   screens?mode=full|native|toggle   how 3DS games fill the Fold's screens
 //   refresh                  scan the library again
 //
 // Anything that needs Azahar's folder sets it up first, without Azahar's
@@ -71,6 +70,26 @@ class Fold3dsLinkActivity : AppCompatActivity() {
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { result ->
             if (result != null) setGamesFolder(result)
             done()
+        }
+
+    // DriverManagerFragment's picker: any file, validated as a driver zip after
+    private val driverPicker =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { result ->
+            if (result == null) {
+                done()
+                return@registerForActivityResult
+            }
+            Toast.makeText(applicationContext, R.string.installing_driver, Toast.LENGTH_SHORT).show()
+            val app = applicationContext
+            Thread {
+                val problem = Fold3dsTools.addDriver(result)
+                Fold3dsSettings.sync(app)   // drivers.tsv lists it
+                runOnUiThread {
+                    Toast.makeText(app, problem ?: "Driver added -- choose it in GPU Drivers", Toast.LENGTH_LONG)
+                        .show()
+                    done()
+                }
+            }.start()
         }
 
     // set up first, then this link
@@ -156,32 +175,20 @@ class Fold3dsLinkActivity : AppCompatActivity() {
                 return
             }
             "share_log" -> shareLog()
-            "screens" -> {
-                val mode = when (uri.getQueryParameter("mode")) {
-                    Fold3dsEmulation.FULL -> Fold3dsEmulation.FULL
-                    Fold3dsEmulation.NATIVE -> Fold3dsEmulation.NATIVE
-                    else -> if (Fold3dsEmulation.screens(this) == Fold3dsEmulation.FULL) {
-                        Fold3dsEmulation.NATIVE
-                    } else {
-                        Fold3dsEmulation.FULL
-                    }
-                }
-                Fold3dsEmulation.setScreens(this, mode)
-                Toast.makeText(
-                    this,
-                    if (mode == Fold3dsEmulation.FULL) {
-                        "3DS games: full screens (both halves of the Fold)"
-                    } else {
-                        "3DS games: native size"
-                    },
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
             "artic" -> {
                 artic()
                 return
             }
             "azahar" -> openMain(uri.getQueryParameter("open"), null)
+            "gpu_driver_add" -> {
+                driverPicker.launch(arrayOf("*/*"))
+                return
+            }
+            "system_files" -> {
+                systemFiles(uri.getQueryParameter("mode"), uri.getQueryParameter("addr"))
+                return
+            }
+            "home_menu" -> homeMenu(uri.getQueryParameter("region")?.toIntOrNull())
         }
         done()
     }
@@ -276,37 +283,11 @@ class Fold3dsLinkActivity : AppCompatActivity() {
             Fold3dsBridge.refresh(applicationContext)
             return
         }
-        // moved or deleted since the last scan: say so, and the tile goes
-        if (!stillThere(game)) {
-            Toast.makeText(
-                this,
-                "${game.title} was moved or deleted -- the HOME menu is updated",
-                Toast.LENGTH_LONG
-            ).show()
-            Fold3dsBridge.refresh(applicationContext)
-            return
-        }
+        Fold3dsSettings.sync(applicationContext)   // changes made in the HOME menu reach config.ini before boot
         start(game)
     }
 
-    private fun stillThere(game: Game): Boolean = try {
-        if (game.isInstalled) {
-            game.launchIntent // throws when the installed title's file is gone
-            true
-        } else {
-            val raw = game.description
-            when {
-                raw.startsWith("!") -> File(raw.substring(1)).exists()
-                raw.startsWith("/") -> File(raw).exists()
-                else -> contentResolver.openFileDescriptor(Uri.parse(raw), "r")?.use { true } ?: false
-            }
-        }
-    } catch (e: Exception) {
-        false
-    }
-
     private fun start(game: Game) {
-        Fold3dsEmulation.beforeLaunch(this)
         PreferenceManager.getDefaultSharedPreferences(applicationContext).edit()
             .putLong(game.keyLastPlayedTime, System.currentTimeMillis())
             .apply()
@@ -389,6 +370,44 @@ class Fold3dsLinkActivity : AppCompatActivity() {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         startActivity(Intent.createChooser(intent, getText(R.string.share_log)))
+    }
+
+    // as SystemFilesFragment's "Set Up System Files": the 3DS UI asked which console and the address
+    private fun systemFiles(mode: String?, address: String?) {
+        if ((mode != "o3ds" && mode != "n3ds") || address.isNullOrBlank()) {
+            done()
+            return
+        }
+        val old3ds = mode == "o3ds"
+        PreferenceManager.getDefaultSharedPreferences(applicationContext).edit()
+            .putString(SettingKeys.last_artic_base_addr(), address)
+            .apply()
+        Toast.makeText(this, R.string.setup_system_files_preparing, Toast.LENGTH_SHORT).show()
+        Thread {
+            NativeLibrary.uninstallSystemFiles(old3ds)
+            runOnUiThread {
+                Fold3dsSettings.sync(applicationContext)
+                start(
+                    Game(
+                        title = getString(R.string.artic_base),
+                        path = (if (old3ds) "articinio://" else "articinin://") + address,
+                        filename = ""
+                    )
+                )
+                done()
+            }
+        }.start()
+    }
+
+    // as SystemFilesFragment's "Start HOME Menu", for one region (0 Japan ... 6 Taiwan)
+    private fun homeMenu(region: Int?) {
+        val path = region?.let { NativeLibrary.getHomeMenuPath(it) }.orEmpty()
+        if (path.isEmpty()) {
+            Toast.makeText(this, "That region's HOME Menu isn't installed", Toast.LENGTH_LONG).show()
+            return
+        }
+        Fold3dsSettings.sync(applicationContext)
+        start(Game(title = getString(R.string.home_menu), path = path, filename = ""))
     }
 
     // as HomeSettingsFragment's Artic Base entry

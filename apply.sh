@@ -25,6 +25,10 @@ git checkout -q -- main.lua scripts/build_android.sh src/import/LauncherView.lua
 # the Camera applet, the volume slider's keys, Download Play)
 for p in "$HERE"/patches/*.patch; do git apply "$p"; done
 cp "$HERE"/android/*.java mobile/android/love/src/main/java/org/love2d/android/
+# FoldBridge's "hinge" reads Jetpack WindowManager's FoldingFeature (where the fold
+# is, flat/half-open) - the 3DS XL hinge. Added once; build.gradle is reset above.
+grep -q "androidx.window:window-java" mobile/android/love/build.gradle \
+  || printf '\ndependencies {\n    implementation "androidx.window:window-java:1.2.0"\n}\n' >> mobile/android/love/build.gradle
 # the layer
 rm -rf fold3ds && cp -r "$HERE/fold3ds" fold3ds
 # the community mod catalog (gen1recomp.com/mod) as of this build: shipped so
@@ -54,5 +58,5 @@ s = s.replace("-x 'data/generated/*' -x 'assets/generated/*')", "-x 'data/genera
 p.write_text(s)
 PY
 export GEN1RECOMP_ANDROID_APPLICATION_ID="${GEN1RECOMP_ANDROID_APPLICATION_ID:-com.nahalewski.gen1recompfold}"
-export GEN1RECOMP_ANDROID_APP_NAME="${GEN1RECOMP_ANDROID_APP_NAME:-gen1recomp Fold}"
+export GEN1RECOMP_ANDROID_APP_NAME="${GEN1RECOMP_ANDROID_APP_NAME:-AeonDX}"
 bash scripts/build_android.sh "$@"

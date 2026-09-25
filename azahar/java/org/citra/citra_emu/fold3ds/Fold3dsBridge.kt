@@ -69,18 +69,12 @@ object Fold3dsBridge {
     fun install(app: Application) {
         app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             override fun onActivityResumed(activity: Activity) {
-                if (activity.javaClass.name == SHELL) {
-                    refresh(activity.applicationContext)
-                    Fold3dsShell.onShellResumed()
-                }
+                if (activity.javaClass.name == SHELL) refresh(activity.applicationContext)
             }
 
             override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
             override fun onActivityStarted(activity: Activity) {}
-            override fun onActivityPaused(activity: Activity) {
-                // a 3DS game in the shell waits while the HOME menu is away
-                if (activity.javaClass.name == SHELL) Fold3dsShell.onShellPaused()
-            }
+            override fun onActivityPaused(activity: Activity) {}
             override fun onActivityStopped(activity: Activity) {}
             override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
             override fun onActivityDestroyed(activity: Activity) {}
@@ -106,6 +100,7 @@ object Fold3dsBridge {
         if (!queued.compareAndSet(false, true)) return
         executor.execute {
             queued.set(false)
+            Fold3dsSettings.sync(context)   // apply the HOME menu's setting changes, publish the snapshot
             try {
                 scan(context)
             } catch (e: Throwable) {
