@@ -1137,6 +1137,104 @@ end
 -- icon turning in 3D (a slab, its edge a darker shade) above the app's
 -- own title, English or Japanese with SKINS > CARTRIDGE ARTWORK
 -- (fold3ds/icons3ds/<id>.png, fold3ds/banners/<id>_en|jp.png).
+-- A 3DS game's banner on the top screen, as the HOME menu shows a game:
+-- a stage in the colour of its icon, light turning slowly behind the game
+-- card, and the title bubble below -- icon, title, publisher.
+local function ctrColour(t)
+  local key = "ctrcol:" .. (t.key or t.id or "")
+  if state.images[key] == nil then
+    local c
+    if t.hasIcon then
+      local ok, d = pcall(love.image.newImageData, "fold3ds_azahar/icons/" .. t.key .. ".png")
+      if ok and d then
+        local r, g, b, n = 0, 0, 0, 0
+        local w, h = d:getDimensions()
+        for y = 0, h - 1, 2 do
+          for x = 0, w - 1, 2 do
+            local pr, pg, pb, pa = d:getPixel(x, y)
+            -- the colourful pixels count most
+            local sat = math.max(pr, pg, pb) - math.min(pr, pg, pb)
+            local wgt = pa * (0.15 + sat)
+            r, g, b, n = r + pr * wgt, g + pg * wgt, b + pb * wgt, n + wgt
+          end
+        end
+        if n > 0 then c = { r / n, g / n, b / n } end
+      end
+    end
+    if not c then
+      -- no icon: a colour of its own from the name
+      local hsh = 0
+      for i = 1, #(t.name or "") do hsh = (hsh * 31 + t.name:byte(i)) % 360 end
+      local hue = hsh / 60
+      local x = 1 - math.abs(hue % 2 - 1)
+      local rgb = ({ { 1, x, 0 }, { x, 1, 0 }, { 0, 1, x }, { 0, x, 1 }, { x, 0, 1 }, { 1, 0, x } })[math.floor(hue) + 1]
+      c = { 0.25 + rgb[1] * 0.6, 0.25 + rgb[2] * 0.6, 0.25 + rgb[3] * 0.6 }
+    end
+    state.images[key] = c
+  end
+  return state.images[key]
+end
+
+local function drawCtrBanner(r, P, t, nh, pad)
+  local c = ctrColour(t)
+  local time = state.time
+  local bubH = nh * 1.9
+  local stage = { x = r.x, y = P.y - pad * 0.5, w = r.w, h = r.y + r.h - bubH - pad * 0.6 - (P.y - pad * 0.5) }
+  -- the stage: its colour fading to white at the top
+  local bands = 24
+  for i = 0, bands - 1 do
+    local k = (i + 0.5) / bands * 0.55
+    lg.setColor(1 - (1 - c[1]) * k, 1 - (1 - c[2]) * k, 1 - (1 - c[3]) * k, 1)
+    local y0 = stage.y + stage.h * i / bands
+    lg.rectangle("fill", stage.x, y0, stage.w, stage.h / bands + 1)
+  end
+  -- light turning behind the card
+  local cx, cy = stage.x + stage.w / 2, stage.y + stage.h * 0.5
+  local R = stage.w
+  for i = 0, 11 do
+    local a0 = time * 0.15 + i * math.pi / 6
+    lg.setColor(1, 1, 1, 0.16)
+    lg.polygon("fill", cx, cy, cx + math.cos(a0) * R, cy + math.sin(a0) * R,
+      cx + math.cos(a0 + 0.2) * R, cy + math.sin(a0 + 0.2) * R)
+  end
+  drawTopTile({ x = P.x, y = stage.y, w = P.w, h = stage.h }, t)
+  -- the title bubble
+  local bx, by, bw = r.x + pad, r.y + r.h - bubH - pad * 0.4, r.w - 2 * pad
+  lg.setColor(0, 0, 0, 0.12)
+  lg.rectangle("fill", bx, by + bubH * 0.06, bw, bubH, bubH * 0.22, bubH * 0.22)
+  lg.setColor(1, 1, 1, 1)
+  lg.rectangle("fill", bx, by, bw, bubH, bubH * 0.22, bubH * 0.22)
+  lg.setColor(0.82, 0.83, 0.86, 1)
+  lg.setLineWidth(1)
+  lg.rectangle("line", bx, by, bw, bubH, bubH * 0.22, bubH * 0.22)
+  local is = bubH * 0.72
+  local ix, iy = bx + bubH * 0.14, by + (bubH - is) / 2
+  local icon = Azahar.icon(t)
+  if icon then
+    local iw, ih = icon:getDimensions()
+    lg.setColor(1, 1, 1, 1)
+    lg.draw(icon, ix, iy, 0, is / iw, is / ih)
+  else
+    lg.setColor(c[1], c[2], c[3], 1)
+    lg.rectangle("fill", ix, iy, is, is, is * 0.15, is * 0.15)
+    local f = font(is * 0.55)
+    lg.setFont(f)
+    lg.setColor(1, 1, 1, 1)
+    lg.printf(Azahar.initial(t.name), ix, iy + (is - f:getHeight()) / 2, is, "center")
+  end
+  local tx, tw = ix + is + bubH * 0.2, bw - is - bubH * 0.5
+  local tf = font(bubH * 0.3)
+  local sf = font(bubH * 0.22)
+  local total = tf:getHeight() + sf:getHeight() * 1.1
+  local ty = by + (bubH - total) / 2
+  lg.setFont(tf)
+  lg.setColor(0.16, 0.16, 0.18, 1)
+  lg.printf(t.name or "", tx, ty, tw, "left")
+  lg.setFont(sf)
+  lg.setColor(0.45, 0.46, 0.5, 1)
+  lg.printf(t.sub or "Nintendo 3DS", tx, ty + tf:getHeight() * 1.05, tw, "left")
+end
+
 local function appletBanner(r, id, t)
   local function image(key, path)
     if state.images[key] == nil then
@@ -1320,6 +1418,11 @@ local function drawTop3DS(r, banner)
   end
   -- a 3DS game, the Azahar folder or one of its icons: that, not a cartridge
   local other = Home.showing() and Home.topTile(state.subject)
+  if other and other.ctr then
+    drawCtrBanner(r, P, other, nh, pad)
+    lg.pop()
+    return
+  end
   if other then
     drawTopTile(P, other)
     local nf = font(nh * 0.6)

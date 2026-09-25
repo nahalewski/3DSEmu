@@ -171,6 +171,9 @@ upstream's own Android build script.
   on the open shells instead: the editor's *On: top shell / On: bottom
   shell* row picks which one.  They sit under the screens and buttons,
   so they never cover them, and they are cut to the shell.
+* **3DS game banners**: a 3DS game picked on the HOME grid shows as the
+  3DS shows software: its card on a stage in its icon's colour, light
+  turning behind it, and the title bubble below (icon, title, publisher).
 * **Startup, as a 3DS starts**: the boot screen and its jingle, then the
   *Health & Safety Information* warning (its real HOME Menu title, EN or
   JP with the artwork setting) until a touch or a button, then the HOME
