@@ -1,6 +1,6 @@
 -- The 3DS theme's HOME menu, as the 3DS draws its bottom screen:
 --
---   * the applet bar across the top -- Camera, Settings, Mods, Find, Online,
+--   * the applet bar across the top -- Camera, Download Play, Settings, Mods, Find, Online,
 --     Skins, Import, Save Sync, Exit -- with the two icon-size buttons on its
 --     right;
 --   * the icon grid: one tile per game, laid out in columns (down, then
@@ -52,6 +52,7 @@ local GAME_LETTERS = {
 -- the applet bar (always there, not rearranged)
 local APPLETS = {
   { id = "camera", name = "Camera", camera = true },
+  { id = "downloadplay", name = "Download Play", dlplay = true },
   { id = "settings", name = "Settings", icon = "settings", color = { 70, 140, 220 }, modal = "settings" },
   { id = "mods", name = "Mods", icon = "puzzle", color = { 236, 176, 30 }, tab = "mods" },
   { id = "find", name = "Find Mods", icon = "search", color = { 246, 130, 40 }, tab = "find" },
@@ -148,6 +149,8 @@ function H.tiles(imp)
 end
 
 function H.showing() return st.open == nil end
+-- the applet the d-pad has picked on the bar, if any (its banner shows on top)
+function H.barFocus() return st.bar and APPLETS[st.bar] and APPLETS[st.bar].id or nil end
 function H.opened() return st.open end
 ---------------------------------------------------------------- play meter
 
@@ -201,6 +204,10 @@ local function openTile(imp, t)
   end
   if t.camera then
     if ctx.openCamera then ctx.openCamera() end
+    return
+  end
+  if t.dlplay then
+    if ctx.openDlplay then ctx.openDlplay() end
     return
   end
   st.open = t

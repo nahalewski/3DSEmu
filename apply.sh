@@ -16,10 +16,13 @@ J=mobile/android/love/src/jni/love/src
 git checkout -q -- main.lua scripts/build_android.sh src/import/LauncherView.lua \
   $J/modules/system/System.cpp $J/modules/system/wrap_System.cpp \
   $J/common/android.h $J/common/android.cpp \
-  mobile/android/app/src/main/AndroidManifest.xml mobile/android/app/proguard-rules.pro
+  mobile/android/app/src/main/AndroidManifest.xml mobile/android/app/proguard-rules.pro \
+  mobile/android/app/build.gradle mobile/android/love/build.gradle \
+  mobile/android/love/src/main/java/org/love2d/android/GameActivity.java
 # the launcher's compact bottom-screen layout (active only under LauncherView.fold),
 # the Android picker's "image" kind (the cover sticker), and the camera bridge
-# (love.system.foldCamera -> FoldCamera.java, the Camera applet)
+# (love.system.foldCamera -> FoldCamera / FoldRecorder / FoldBridge / FoldPlay:
+# the Camera applet, the volume slider's keys, Download Play)
 for p in "$HERE"/patches/*.patch; do git apply "$p"; done
 cp "$HERE"/android/*.java mobile/android/love/src/main/java/org/love2d/android/
 # the layer

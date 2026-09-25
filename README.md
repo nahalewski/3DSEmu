@@ -79,6 +79,27 @@ upstream's own Android build script.
   wait in SKINS (*Put the fallen ones back*).  Stickers keep their
   proportions, stay on the lid's flat face and are cut to the shell's
   shape.
+* **Download Play (3DS theme)**: the orange icon on the applet bar.
+  Picking it (d-pad) shows its banner turning in 3D under the top screen's
+  panel, as the 3DS does.  *Send a game* packs a game's saves
+  (`saves/<game>/`, `save_<game>.lua` and backups) and, if asked, the
+  installed mods; *Receive a game* finds phones that are sending, lists
+  them, and receives with a progress bar and the link speed; *Install*
+  (tap twice) unpacks it, moving every file it replaces into
+  `downloadplay/backup_<time>/`.  The ROM and the data extracted from it
+  never travel: each phone imports its own.  The transfer is Google's
+  Nearby Connections (`android/FoldPlay.java`): the phones find each other
+  over Bluetooth and the files move over Wi-Fi Direct / Wi-Fi whenever
+  that is faster.  Android asks for Nearby devices permission the first
+  time.  `POKEPORT_FOLD_FAKEDP=1` stands in for a second phone on a
+  desktop.
+* **L / R on the HOME menu**: the L-camera and camera-R buttons sit in
+  the top screen's lower corners (3DS theme); L, R or a tap on either
+  opens the Camera, as on the 3DS.  (ZL / ZR still resize the icons.)
+* **Volume slider**: the VOL slider on the top half's left edge moves:
+  drag it (top loud, bottom off) and it sets the app's volume.  The
+  phone's volume keys move it too, without Android's volume popup
+  (Settings > 3DS Shell > Volume keys move the 3DS slider).
 * **Boot screen**: the first time the menu comes up on the open 3DS, the
   G1R Deluxe logo fills both screens (`fold3ds/boot/top.jpg`,
   `bottom.jpg`, cut to 5:3 and 4:3) with a slow push-in and a light

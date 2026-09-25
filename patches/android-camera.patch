@@ -1,18 +1,33 @@
+diff --git a/mobile/android/app/build.gradle b/mobile/android/app/build.gradle
+index 9a1e7354..052e7ee2 100644
+--- a/mobile/android/app/build.gradle
++++ b/mobile/android/app/build.gradle
+@@ -12,7 +12,7 @@ android {
+         versionName project.properties["app.version_name"]
+         // NDK r25 no longer supports API 16; API 19 is Android 4.4 and keeps
+         // the native toolchain and package-installer bridge on a supported ABI.
+-        minSdk 19
++        minSdk 23  // fold3ds: Camera2, MediaCodec input images, Nearby Connections
+         // Android 16 / API 36: current Android distribution target.
+         compileSdk 36
+         targetSdk 36
 diff --git a/mobile/android/app/proguard-rules.pro b/mobile/android/app/proguard-rules.pro
-index acb9bc2d..e6c62245 100644
+index acb9bc2d..68c5cf16 100644
 --- a/mobile/android/app/proguard-rules.pro
 +++ b/mobile/android/app/proguard-rules.pro
-@@ -18,3 +18,5 @@
+@@ -18,3 +18,7 @@
  
  -keep class org.love2d.android.GameActivity { *; }
  -keep class org.libsdl.app.** { *; }
 +-keep class org.love2d.android.FoldCamera { *; }
 +-keep class org.love2d.android.FoldRecorder { *; }
++-keep class org.love2d.android.FoldBridge { *; }
++-keep class org.love2d.android.FoldPlay { *; }
 diff --git a/mobile/android/app/src/main/AndroidManifest.xml b/mobile/android/app/src/main/AndroidManifest.xml
-index e431119b..0452dddb 100644
+index e431119b..2b4a4ea4 100644
 --- a/mobile/android/app/src/main/AndroidManifest.xml
 +++ b/mobile/android/app/src/main/AndroidManifest.xml
-@@ -17,6 +17,13 @@
+@@ -17,6 +17,24 @@
         Requested only on the first sync call (the Pokéwalker mod's SYNC
         STEPS option); scripts/build_android.sh must not strip it. -->
    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
@@ -23,14 +38,45 @@ index e431119b..0452dddb 100644
 +  <uses-permission android:name="android.permission.RECORD_AUDIO" />
 +  <uses-feature android:name="android.hardware.camera" android:required="false" />
 +  <uses-feature android:name="android.hardware.camera.front" android:required="false" />
++  <!-- Download Play (FoldPlay, Nearby Connections): Bluetooth to find the
++       other phone, Wi-Fi Direct / Wi-Fi for the transfer. -->
++  <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
++  <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
++  <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
++  <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
++  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
++  <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
++  <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
++  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
++  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
  <!-- OpenGL ES 2.0 -->
    <uses-feature android:glEsVersion="0x00020000" />
    <!-- Touchscreen support -->
+diff --git a/mobile/android/love/build.gradle b/mobile/android/love/build.gradle
+index 956b30b0..ebf8fc87 100644
+--- a/mobile/android/love/build.gradle
++++ b/mobile/android/love/build.gradle
+@@ -10,7 +10,7 @@ android {
+     ndkVersion '25.2.9519653'
+ 
+     defaultConfig {
+-        minSdk 19
++        minSdk 23  // fold3ds: Camera2, MediaCodec input images, Nearby Connections
+         compileSdk 36
+         targetSdk 36
+         externalNativeBuild {
+@@ -118,4 +118,6 @@ android {
+ dependencies {
+     api fileTree(dir: 'libs', include: ['*.jar'])
+     api 'androidx.appcompat:appcompat:1.6.1'
++    // fold3ds Download Play: Bluetooth / Wi-Fi Direct transfers (FoldPlay.java)
++    implementation 'com.google.android.gms:play-services-nearby:19.3.0'
+ }
 diff --git a/mobile/android/love/src/jni/love/src/common/android.cpp b/mobile/android/love/src/jni/love/src/common/android.cpp
-index 49b52e44..802e310b 100644
+index 49b52e44..82e808e0 100644
 --- a/mobile/android/love/src/jni/love/src/common/android.cpp
 +++ b/mobile/android/love/src/jni/love/src/common/android.cpp
-@@ -287,6 +287,346 @@ bool syncHealthSteps()
+@@ -287,6 +287,383 @@ bool syncHealthSteps()
  	return result;
  }
  
@@ -374,14 +420,51 @@ index 49b52e44..802e310b 100644
 +	return ok;
 +}
 +
++bool foldBridgeCall(const char *cmd, const char *arg, std::string &out)
++{
++	JNIEnv *env = (JNIEnv*) SDL_AndroidGetJNIEnv();
++	jclass c = foldClass(env, "org/love2d/android/FoldBridge", "org.love2d.android.FoldBridge");
++	if (c == nullptr)
++		return false;
++	bool ok = false;
++	jmethodID m = env->GetStaticMethodID(c, "call", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
++	if (m != nullptr)
++	{
++		jstring jcmd = env->NewStringUTF(cmd ? cmd : "");
++		jstring jarg = env->NewStringUTF(arg ? arg : "");
++		jstring result = (jstring) env->CallStaticObjectMethod(c, m, jcmd, jarg);
++		env->DeleteLocalRef(jcmd);
++		env->DeleteLocalRef(jarg);
++		if (env->ExceptionCheck())
++			env->ExceptionClear();
++		else
++		{
++			ok = true;
++			if (result != nullptr)
++			{
++				const char *chars = env->GetStringUTFChars(result, nullptr);
++				out = chars ? chars : "";
++				if (chars)
++					env->ReleaseStringUTFChars(result, chars);
++			}
++		}
++		if (result != nullptr)
++			env->DeleteLocalRef(result);
++	}
++	else
++		env->ExceptionClear();
++	env->DeleteLocalRef(c);
++	return ok;
++}
++
  bool restartApp()
  {
  	JNIEnv *env = (JNIEnv*) SDL_AndroidGetJNIEnv();
 diff --git a/mobile/android/love/src/jni/love/src/common/android.h b/mobile/android/love/src/jni/love/src/common/android.h
-index f6d2dc1b..a30dfba7 100644
+index f6d2dc1b..cb333b60 100644
 --- a/mobile/android/love/src/jni/love/src/common/android.h
 +++ b/mobile/android/love/src/jni/love/src/common/android.h
-@@ -88,6 +88,32 @@ bool exportImageToGallery(const char *relativePath = nullptr);
+@@ -88,6 +88,39 @@ bool exportImageToGallery(const char *relativePath = nullptr);
   */
  bool syncHealthSteps();
  
@@ -411,11 +494,18 @@ index f6d2dc1b..a30dfba7 100644
 +bool foldRecorderStop(bool toGallery, std::string &uri);
 +int foldRecorderState();
 +
++/**
++ * The foldable layer's other native calls (org.love2d.android.FoldBridge
++ * .call): volume keys, zip / unzip, Download Play.  Returns false when the
++ * bridge could not be reached.
++ **/
++bool foldBridgeCall(const char *cmd, const char *arg, std::string &out);
++
  /**
   * Full process relaunch (GameActivity.restartApp): schedules the app's
   * launch intent and kills the process, because the in-process
 diff --git a/mobile/android/love/src/jni/love/src/modules/system/wrap_System.cpp b/mobile/android/love/src/jni/love/src/modules/system/wrap_System.cpp
-index f6462ffc..fb5f9982 100644
+index f6462ffc..4fe28396 100644
 --- a/mobile/android/love/src/jni/love/src/modules/system/wrap_System.cpp
 +++ b/mobile/android/love/src/jni/love/src/modules/system/wrap_System.cpp
 @@ -21,7 +21,12 @@
@@ -431,7 +521,7 @@ index f6462ffc..fb5f9982 100644
  #include <string>
  #include <vector>
  
-@@ -132,6 +137,106 @@ int w_syncHealthSteps(lua_State *L)
+@@ -132,6 +137,116 @@ int w_syncHealthSteps(lua_State *L)
  	return 1;
  }
  
@@ -449,6 +539,8 @@ index f6462ffc..fb5f9982 100644
 +//   foldCamera("recStop", toGallery)  -> the gallery copy's URI ("" none),
 +//                                       nil when nothing was recorded
 +//   foldCamera("recState")            -> 0 idle, 1 recording, -1 failed
++//   foldCamera("call", cmd, arg)      -> FoldBridge.call's answer (volume
++//                                       keys, zip / unzip, Download Play)
 +int w_foldCamera(lua_State *L)
 +{
 +	const char *cmd = luaL_checkstring(L, 1);
@@ -482,6 +574,14 @@ index f6462ffc..fb5f9982 100644
 +		for (int i = 0; i < 5; i++)
 +			lua_pushinteger(L, info[i]);
 +		return 5;
++	}
++	if (strcmp(cmd, "call") == 0)
++	{
++		std::string out;
++		if (!love::android::foldBridgeCall(luaL_checkstring(L, 2), luaL_optstring(L, 3, ""), out))
++			return 0;
++		luax_pushstring(L, out);
++		return 1;
 +	}
 +	if (strcmp(cmd, "recStart") == 0)
 +	{
@@ -538,7 +638,7 @@ index f6462ffc..fb5f9982 100644
  int w_restartApp(lua_State *L)
  {
  	// Does not return on success: GameActivity.restartApp exits the process
-@@ -351,6 +456,7 @@ static const luaL_Reg functions[] =
+@@ -351,6 +466,7 @@ static const luaL_Reg functions[] =
  	{ "exportImage", w_exportImage },
  	{ "syncHealthSteps", w_syncHealthSteps },
  	{ "restartApp", w_restartApp },
@@ -546,3 +646,19 @@ index f6462ffc..fb5f9982 100644
  	{ "installApk", w_installApk },
  	{ "updateShortcuts", w_updateShortcuts },
  	{ "getLaunchGame", w_getLaunchGame },
+diff --git a/mobile/android/love/src/main/java/org/love2d/android/GameActivity.java b/mobile/android/love/src/main/java/org/love2d/android/GameActivity.java
+index 544db21c..47a45413 100644
+--- a/mobile/android/love/src/main/java/org/love2d/android/GameActivity.java
++++ b/mobile/android/love/src/main/java/org/love2d/android/GameActivity.java
+@@ -480,6 +480,11 @@ public class GameActivity extends SDLActivity {
+ 
+     @Override
+     public boolean dispatchKeyEvent(KeyEvent event) {
++        // the foldable layer's 3DS volume slider takes the volume keys (no
++        // system volume popup) while it is switched on
++        if (FoldBridge.volumeKey(event)) {
++            return true;
++        }
+         // AYN's panel toggle emits virtual Right Shift, which SDL maps to a
+         // gameplay button. The setting is absent on other Android devices.
+         if (secondaryEnabled && dualScreenDisplayMode != -1

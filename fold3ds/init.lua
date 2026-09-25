@@ -45,6 +45,7 @@ local Home = require("fold3ds.home3ds")
 local Sfx = require("fold3ds.sfx")
 local Cart3D = require("fold3ds.cart3d")
 local Camera = require("fold3ds.camera")
+local Dlplay = require("fold3ds.dlplay")
 
 local DIR = "fold3ds/"
 -- shell art (full size); cut = the screen opening in the art's pixels
@@ -147,13 +148,17 @@ local function loadSettings()
   state.theme = text:match("theme=(%w+)") == "3ds" and "3ds" or "classic"
   state.shoulders = text:match("shoulders=(%d)") ~= "0"
   state.sounds = text:match("sounds=(%d)") ~= "0"
+  state.volume = tonumber(text:match("volume=([%d%.]+)")) or 1
+  state.volKeys = text:match("volkeys=(%d)") ~= "0"
+  if love.audio then love.audio.setVolume(state.volume) end
   Sfx.enabled = state.sounds
 end
 
 local function saveSettings()
   pcall(love.filesystem.write, SETTINGS_FILE, "screen=" .. tostring(state.screenMode)
     .. "\ntheme=" .. tostring(state.theme) .. "\nshoulders=" .. (state.shoulders and "1" or "0")
-    .. "\nsounds=" .. (state.sounds and "1" or "0") .. "\n")
+    .. "\nsounds=" .. (state.sounds and "1" or "0")
+    .. ("\nvolume=%.2f"):format(state.volume or 1) .. "\nvolkeys=" .. (state.volKeys and "1" or "0") .. "\n")
 end
 
 -- physical pixels per LOVE unit (Android runs high-DPI: a unit is several pixels)
@@ -243,6 +248,66 @@ local skipBoot   -- the boot screen (defined with the drawing)
 -- the Camera applet owns both screens while it is open (launcher only)
 local function cameraOn()
   return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Camera.isOpen()
+end
+
+-- Download Play owns both screens while it is open (launcher only)
+local function dlOn()
+  return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Dlplay.isOpen()
+end
+
+---------------------------------------------------------------- volume slider
+-- The shell's VOL slider (left edge of the top half): drag it, or press the
+-- phone's volume keys (they move it instead of Android's volume, with no
+-- popup, while Settings > 3DS Shell > Volume keys is on).  It sets the
+-- app's own volume; full up is the top, OFF the bottom.
+local VOL = { x = 0, top = 462, bottom = 570, knob = { 28, 50 } }   -- top_gbc.png pixels
+
+local function bridge(cmd, arg)
+  local f = love.system and love.system.foldCamera
+  if not f then return nil end
+  local ok, out = pcall(f, "call", cmd, arg or "")
+  return ok and out or nil
+end
+
+local function setVolume(v, quiet)
+  v = math.max(0, math.min(1, v))
+  if math.abs(v - (state.volume or 1)) < 0.001 then return end
+  state.volume = v
+  if love.audio then love.audio.setVolume(v) end
+  state.volSaveAt = state.time + 1
+end
+
+local function volumeKnob(L)
+  local sc = L.top.sc
+  local y = VOL.bottom - (VOL.bottom - VOL.top) * (state.volume or 1)
+  return { x = L.top.x + VOL.x * sc, y = L.top.y + y * sc, w = VOL.knob[1] * sc, h = VOL.knob[2] * sc }
+end
+
+local function volumeZone(L, x, y)
+  local sc = L.top.sc
+  local zx, zy = L.top.x + (VOL.x - 14) * sc, L.top.y + (VOL.top - 20) * sc
+  return x >= zx and x <= zx + (VOL.knob[1] + 34) * sc
+     and y >= zy and y <= zy + (VOL.bottom - VOL.top + VOL.knob[2] + 40) * sc
+end
+
+local function volumeFromY(L, y)
+  local sc = L.top.sc
+  local top = L.top.y + (VOL.top + VOL.knob[2] / 2) * sc
+  local bottom = L.top.y + (VOL.bottom + VOL.knob[2] / 2) * sc
+  setVolume(1 - (y - top) / (bottom - top))
+end
+
+local function drawVolume(L)
+  local key = "skin:vol_knob"
+  if state.images[key] == nil then
+    local ok, img = pcall(lg.newImage, DIR .. "skin/vol_knob.png")
+    state.images[key] = ok and img or false
+  end
+  local img = state.images[key]
+  if not img then return end
+  local k = volumeKnob(L)
+  lg.setColor(1, 1, 1, 1)
+  lg.draw(img, k.x, k.y, 0, L.top.sc, L.top.sc)
 end
 
 local function virtualRect()
@@ -447,6 +512,10 @@ local function press(btn, src)
     if Camera.button(btn) == "exit" then Camera.close() end
     return
   end
+  if dlOn() then
+    if Dlplay.button(btn) == "exit" then Dlplay.close() end
+    return
+  end
   if btn == "cstick" then cycleScreen() return end
   if state.kind == "game" then
     if btn == "select" and selectOpensMods(state.subject) then return end
@@ -469,6 +538,8 @@ local function press(btn, src)
       -- the HOME menu: HOME returns to it; on the grid the pads move and A opens
       if btn == "home" then Sfx.play("homeMenu"); Home.goHome(s, true) return end
       if Home.showing() then
+        -- L or R: the Camera, as on the 3DS HOME menu
+        if (btn == "l" or btn == "r") and Theme3DS.active then Camera.open() return end
         Home.button(s, btn)
         return
       end
@@ -496,7 +567,7 @@ end
 local function release(btn, src)
   if btn == "cstick" then return end
   if Sticker.editing() and state.kind ~= "game" then return end
-  if cameraOn() then return end
+  if cameraOn() or dlOn() then return end
   if src == "pad" and (btn == "up" or btn == "down") then state.padScroll = nil end
   if state.kind == "game" and GAME_TRIGGER[btn] then
     local g = state.subject
@@ -656,11 +727,13 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
   end
   if state.L and shoulderZone(state.L, x, y) then state.shoulderSeen = state.time end
   if skipBoot() then return end
+  if state.L and volumeZone(state.L, x, y) then state.volDrag = id; volumeFromY(state.L, y) return end
   local b = buttonAt(x, y)
   if M.debug then print("fold3ds buttonAt -> " .. tostring(b and b.name)) end
   if b then holdStart(id, b, x, y) return end
   if editingSticker() then Sticker.pressed(id, x, y, state.L.botCut, state.L.topCut) return end
   if cameraOn() then Camera.pressed(id, x, y) return end
+  if dlOn() then Dlplay.pressed(id, x, y) return end
   if homeTouch(id, x, y) then return end
   local cb = columnButtonAt(x, y)
   if cb then state.columnDown = cb.id; pressColumnButton(cb) return end
@@ -684,9 +757,11 @@ local function onTouchMoved(id, x, y, dx, dy, pr)
     if state.mode == "lid" then Sticker.coverMoved(id, x, y) return end
     return orig.touchmoved and orig.touchmoved(id, x, y, dx, dy, pr)
   end
+  if state.volDrag == id then volumeFromY(state.L, y) return end
   if state.held[id] then holdMove(id, x, y) return end
   if editingSticker() then Sticker.moved(id, x, y) return end
   if cameraOn() then Camera.moved(id, x, y) return end
+  if dlOn() then Dlplay.moved(id, x, y) return end
   if Home.moved(state.subject, id, x, y) then return end
   if state.vtouch[id] then
     local lx, ly = toVirtual(x, y)
@@ -700,9 +775,11 @@ local function onTouchReleased(id, x, y, dx, dy, pr)
     if state.mode == "lid" then Sticker.coverReleased(id, x, y) return end
     return orig.touchreleased and orig.touchreleased(id, x, y, dx, dy, pr)
   end
+  if state.volDrag == id then state.volDrag = nil return end
   if state.held[id] then holdEnd(id) return end
   if editingSticker() then Sticker.released(id) return end
   if cameraOn() then if Camera.released(id, x, y) == "exit" then Camera.close() end return end
+  if dlOn() then if Dlplay.released(id, x, y) == "exit" then Dlplay.close() end return end
   if Home.released(state.subject, id, x, y) then return end
   if state.arrowHeld and state.arrowHeld.id == id then arrowEnd(id) return end
   if state.vtouch[id] then
@@ -720,11 +797,15 @@ local function onMousePressed(x, y, button, istouch, presses)
     return orig.mousepressed and orig.mousepressed(x, y, button, istouch, presses)
   end
   if not istouch and button == 1 and skipBoot() then return end
+  if not istouch and button == 1 and state.L and volumeZone(state.L, x, y) then
+    state.volDrag = "mouse"; volumeFromY(state.L, y) return
+  end
   if not istouch and button == 1 then
     local b = buttonAt(x, y)
     if b then holdStart("mouse", b, x, y) return end
     if editingSticker() then Sticker.pressed("mouse", x, y, state.L.botCut, state.L.topCut) return end
     if cameraOn() then Camera.pressed("mouse", x, y) return end
+    if dlOn() then Dlplay.pressed("mouse", x, y) return end
     if homeTouch("mouse", x, y) then return end
     local cb = columnButtonAt(x, y)
     if cb then state.columnDown = cb.id; pressColumnButton(cb) return end
@@ -741,9 +822,11 @@ local function onMouseMoved(x, y, dx, dy, istouch)
     if state.mode == "lid" then if not istouch then Sticker.coverMoved("mouse", x, y) end return end
     return orig.mousemoved and orig.mousemoved(x, y, dx, dy, istouch)
   end
+  if state.volDrag == "mouse" then volumeFromY(state.L, y) return end
   if state.held.mouse then holdMove("mouse", x, y) return end
   if editingSticker() then if not istouch then Sticker.moved("mouse", x, y) end return end
   if cameraOn() then if not istouch then Camera.moved("mouse", x, y) end return end
+  if dlOn() then if not istouch then Dlplay.moved("mouse", x, y) end return end
   if not istouch and Home.moved(state.subject, "mouse", x, y) then return end
   local lx, ly = toVirtual(x, y)
   if orig.mousemoved then return orig.mousemoved(lx, ly, dx, dy, istouch) end
@@ -754,10 +837,15 @@ local function onMouseReleased(x, y, button, istouch, presses)
     if state.mode == "lid" then if not istouch then Sticker.coverReleased("mouse", x, y) end return end
     return orig.mousereleased and orig.mousereleased(x, y, button, istouch, presses)
   end
+  if state.volDrag == "mouse" and not istouch then state.volDrag = nil return end
   if state.held.mouse and not istouch then holdEnd("mouse") return end
   if editingSticker() then if not istouch then Sticker.released("mouse") end return end
   if cameraOn() then
     if not istouch and Camera.released("mouse", x, y) == "exit" then Camera.close() end
+    return
+  end
+  if dlOn() then
+    if not istouch and Dlplay.released("mouse", x, y) == "exit" then Dlplay.close() end
     return
   end
   if not istouch and Home.released(state.subject, "mouse", x, y) then return end
@@ -903,12 +991,38 @@ local function topPanel(r)
   return { x = r.x + pad, y = r.y + sh + pad, w = r.w - 2 * pad, h = r.h - sh - nh - 2 * pad }, sh, nh, pad
 end
 
-local function drawTop3DS(r)
+-- the L and R camera buttons in the top screen's lower corners (L or R
+-- opens the Camera, as on the 3DS HOME menu)
+local function drawLR(r, h, pad)
+  state.lrRects = {}
+  for k, name in ipairs({ "btn_l_camera", "btn_r_camera" }) do
+    local key = "skin:" .. name
+    if state.images[key] == nil then
+      local ok, img = pcall(lg.newImage, DIR .. "skin/" .. name .. ".png")
+      state.images[key] = ok and img or false
+      if ok then img:setFilter("linear", "linear") end
+    end
+    local img = state.images[key]
+    if img then
+      local iw, ih = img:getDimensions()
+      local s = h / ih
+      local x = k == 1 and r.x + pad or r.x + r.w - pad - iw * s
+      local y = r.y + r.h - h - pad * 0.4
+      lg.setColor(1, 1, 1, 1)
+      lg.draw(img, x, y, 0, s, s)
+      state.lrRects[k] = { x = x, y = y, w = iw * s, h = h }
+    end
+  end
+end
+
+local function drawTop3DS(r, banner)
   lg.push("all")
   lg.setScissor(r.x, r.y, r.w, r.h)
   col3({ 250, 251, 252 })
   lg.rectangle("fill", r.x, r.y, r.w, r.h)
   local P, sh, nh, pad = topPanel(r)
+  local bannerH = math.floor(r.h * 0.34)
+  if banner then P.h = r.h - sh - bannerH - 2 * pad end
   -- status bar
   local cy = r.y + pad * 0.6 + sh / 2
   local bh = sh * 0.7
@@ -981,6 +1095,21 @@ local function drawTop3DS(r)
     end
   end
   lg.setStencilTest()
+  if banner == "dlplay" then
+    -- Download Play: its banner turning under the panel, its news in it
+    local msg = Dlplay.topMessage()
+    if msg then
+      local mf = font(P.h * 0.14)
+      lg.setFont(mf)
+      col3({ 80, 82, 90 })
+      lg.printf(msg, P.x, P.y + P.h / 2 - mf:getHeight() / 2, P.w, "center")
+    end
+    local by = P.y + P.h + pad * 0.3
+    Dlplay.drawBanner({ x = r.x + r.w * 0.16, y = by, w = r.w * 0.68, h = r.y + r.h - by - pad * 0.2 }, state.time)
+    drawLR(r, bannerH * 0.26, pad)
+    lg.pop()
+    return
+  end
   -- the selected game's cartridge
   local version = launcherVersion()
   local skin
@@ -1002,6 +1131,7 @@ local function drawTop3DS(r)
   col3({ 70, 72, 78 })
   local name = (info and info.displayName or version) .. (ready and "" or "   -   import the ROM")
   lg.printf(name, r.x, r.y + r.h - nh - pad * 0.3 + (nh - nf:getHeight()) / 2, r.w, "center")
+  drawLR(r, nh * 0.72, pad)
   lg.pop()
 end
 M.topPanel = topPanel
@@ -1011,6 +1141,11 @@ M.topPanel = topPanel
 topScreenTap = function(x, y)
   local L = state.L
   if not L or state.kind == "game" or not inside(L.topCut, x, y) then return false end
+  if Theme3DS.active then
+    for _, rr in pairs(state.lrRects or {}) do
+      if inside(rr, x, y) then Camera.open() return true end
+    end
+  end
   local imp = state.subject
   if not imp then return true end
   if Theme3DS.active then
@@ -1334,8 +1469,12 @@ local function drawFrame()
     -- the cover sticker editor: the cover on top, the tools below
     Sticker.drawPreview(L.topCut, drawLidIn)
     Sticker.drawEditor(L.botCut)
+  elseif dlOn() then
+    drawTop3DS(L.topCut, "dlplay")
+    Dlplay.drawBottom(L.botCut)
   elseif homeActive() and Home.showing() then
-    if Theme3DS.active then drawTop3DS(L.topCut) else drawTopIdle(L.topCut) end
+    if Theme3DS.active then drawTop3DS(L.topCut, Home.barFocus() == "downloadplay" and "dlplay" or nil)
+    else drawTopIdle(L.topCut) end
     Home.draw(L.botCut, state.subject, state.time)
   else
     if Theme3DS.active then drawTop3DS(L.topCut) else drawTopIdle(L.topCut) end
@@ -1348,6 +1487,7 @@ local function drawFrame()
   drawBoot(L)
   lg.setColor(1, 1, 1, 1)
   lg.draw(L.top.img, L.top.x, L.top.y, 0, L.top.sc, L.top.sc)
+  drawVolume(L)
   -- FULL: the game covers the whole top panel, Game Boy Color frame included
   if state.kind == "game" and state.screenMode == "full" and canvas then
     lg.setColor(0, 0, 0, 1)
@@ -1372,6 +1512,17 @@ function backend:update(dt)
   Home.tick(dt)   -- the play meter runs whenever the app does
   Sticker.tick(dt) -- and wears the re-stuck stickers
   Camera.update(dt, cameraOn())
+  Dlplay.update(dt)
+  -- the volume keys move the slider (and are kept from Android's volume)
+  if state.volKeysSent ~= state.volKeys then
+    state.volKeysSent = state.volKeys
+    bridge("vol.capture", state.volKeys and "1" or "0")
+  end
+  if state.volKeys then
+    local n = tonumber(bridge("vol.take") or "0") or 0
+    if n ~= 0 then setVolume((state.volume or 1) + n / 10) end
+  end
+  if state.volSaveAt and state.time >= state.volSaveAt then state.volSaveAt = nil; saveSettings() end
   if M.debug and dbgFrames < 3 then dbgFrames = dbgFrames + 1 io.stdout:setvbuf("no") print("fold3ds update mode=" .. tostring(state.mode) .. " kind=" .. tostring(state.kind)) end
   if M.driverTick then M.driverTick() end
   local mode = detectMode()
@@ -1649,6 +1800,13 @@ local function controlsSection()
         state.shoulderSeen = state.time
         saveSettings()
       end },
+    { label = S("Volume keys move the 3DS slider"),
+      choices = { { value = "on", label = S("On") }, { value = "off", label = S("Off") } },
+      selected = function() return state.volKeys and "on" or "off" end,
+      select = function(v)
+        state.volKeys = v == "on"
+        saveSettings()
+      end },
     { label = S("Menu sounds"),
       choices = { { value = "on", label = S("On") }, { value = "off", label = S("Off") } },
       selected = function() return state.sounds and "on" or "off" end,
@@ -1699,7 +1857,8 @@ function M.install()
   loadSettings()
   Sticker.init({ setCanvas = real.setCanvas, font = font })
   Camera.init({ font = font })
-  Home.init({ font = font, openCamera = Camera.open, drawCameraIcon = Camera.drawIcon })
+  Dlplay.init({ font = font })
+  Home.init({ font = font, openCamera = Camera.open, drawCameraIcon = Camera.drawIcon, openDlplay = Dlplay.open })
   seedModIndex()
   wrapSettings()
   -- the virtual window: size, mode, safe area, pointer queries
