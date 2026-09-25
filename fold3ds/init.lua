@@ -51,6 +51,7 @@ local Activity = require("fold3ds.activity")
 local Notes = require("fold3ds.notes")
 local Friends = require("fold3ds.friends")
 local EmuPlay = require("fold3ds.emuplay")
+local EmuPage = require("fold3ds.emupage")
 local Emus = require("fold3ds.emus")
 
 local DIR = "fold3ds/"
@@ -290,6 +291,11 @@ end
 -- a DS / Virtual Console game playing inside the shell owns both screens
 local function emuOn()
   return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and EmuPlay.active() ~= nil
+end
+
+-- an emulator's settings page (from its folder) owns both screens
+local function pageOn()
+  return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and EmuPage.active() ~= nil
 end
 
 -- the Activity Log owns both screens while it is open (launcher only)
@@ -581,6 +587,7 @@ local function press(btn, src)
     EmuPlay.press(btn)
     return
   end
+  if pageOn() then EmuPage.button(btn) return end
   if Sticker.editing() and state.kind ~= "game" then Sticker.button(btn) return end
   if cameraOn() then
     if Camera.button(btn) == "exit" then Camera.close() end
@@ -643,6 +650,7 @@ end
 
 local function release(btn, src)
   if emuOn() then EmuPlay.release(btn) return end
+  if pageOn() then return end
   if btn == "cstick" then return end
   if Sticker.editing() and state.kind ~= "game" then return end
   if cameraOn() or dlOn() or esOn() or actOn() or appOn() then return end
@@ -816,6 +824,7 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
   if M.debug then print("fold3ds buttonAt -> " .. tostring(b and b.name)) end
   if b then holdStart(id, b, x, y) return end
   if emuOn() then EmuPlay.touch("pressed", id, x, y) return end
+  if pageOn() then EmuPage.pressed(id, x, y) return end
   if editingSticker() then Sticker.pressed(id, x, y, state.L.botCut, state.L.topCut) return end
   if cameraOn() then Camera.pressed(id, x, y) return end
   if dlOn() then Dlplay.pressed(id, x, y) return end
@@ -853,6 +862,7 @@ local function onTouchMoved(id, x, y, dx, dy, pr)
   if esOn() then Eshop.moved(id, x, y) return end
   if actOn() then Activity.moved(id, x, y) return end
   if emuOn() then EmuPlay.touch("moved", id, x, y) return end
+  if pageOn() then EmuPage.moved(id, x, y) return end
   do local _, m = appOn(); if m then m.moved(id, x, y) return end end
   if Home.moved(state.subject, id, x, y) then return end
   if state.vtouch[id] then
@@ -875,6 +885,7 @@ local function onTouchReleased(id, x, y, dx, dy, pr)
   if esOn() then eshopDone(Eshop.released(id, x, y)) return end
   if actOn() then if Activity.released(id, x, y) == "exit" then Activity.close() end return end
   if emuOn() then EmuPlay.touch("released", id, x, y) return end
+  if pageOn() then EmuPage.released(id, x, y) return end
   do local _, m = appOn(); if m then appExit(m, m.released(id, x, y)) return end end
   if Home.released(state.subject, id, x, y) then return end
   if state.arrowHeld and state.arrowHeld.id == id then arrowEnd(id) return end
@@ -911,6 +922,7 @@ local function onMousePressed(x, y, button, istouch, presses)
     if esOn() then Eshop.pressed("mouse", x, y) return end
     if actOn() then Activity.pressed("mouse", x, y) return end
     if emuOn() then EmuPlay.touch("pressed", "mouse", x, y) return end
+    if pageOn() then EmuPage.pressed("mouse", x, y) return end
     do local _, m = appOn(); if m then m.pressed("mouse", x, y) return end end
     if homeTouch("mouse", x, y) then return end
     local cb = columnButtonAt(x, y)
@@ -936,6 +948,7 @@ local function onMouseMoved(x, y, dx, dy, istouch)
   if esOn() then if not istouch then Eshop.moved("mouse", x, y) end return end
   if actOn() then if not istouch then Activity.moved("mouse", x, y) end return end
   if emuOn() then if not istouch then EmuPlay.touch("moved", "mouse", x, y) end return end
+  if pageOn() then if not istouch then EmuPage.moved("mouse", x, y) end return end
   do local _, m = appOn(); if m then if not istouch then m.moved("mouse", x, y) end return end end
   if not istouch and Home.moved(state.subject, "mouse", x, y) then return end
   local lx, ly = toVirtual(x, y)
@@ -968,6 +981,10 @@ local function onMouseReleased(x, y, button, istouch, presses)
   end
   if emuOn() then
     if not istouch then EmuPlay.touch("released", "mouse", x, y) end
+    return
+  end
+  if pageOn() then
+    if not istouch then EmuPage.released("mouse", x, y) end
     return
   end
   do
@@ -1464,6 +1481,11 @@ local function drawTop3DS(r, banner)
   if banner == "app:activity" then
     Activity.drawTop({ x = r.x, y = P.y, w = r.w, h = r.y + r.h - P.y - nh * 0.2 })
     drawLR(r, nh * 0.72, pad)
+    lg.pop()
+    return
+  end
+  if type(banner) == "string" and banner:match("^emupage:") then
+    EmuPage.drawTop({ x = r.x, y = P.y, w = r.w, h = r.y + r.h - P.y - nh * 0.2 })
     lg.pop()
     return
   end
@@ -2063,6 +2085,11 @@ local function drawFrame()
     -- a DS / Virtual Console game in the shell: both screens
     EmuPlay.drawTop(L.topCut, state.screenMode ~= "gbc")
     EmuPlay.drawBottom(L.botCut, state.screenMode ~= "gbc")
+  elseif pageOn() then
+    -- an emulator's settings page: its title and help on top, rows below
+    local P = select(1, EmuPage.active())
+    drawTop3DS(L.topCut, "emupage:" .. P.id)
+    EmuPage.drawBottom(L.botCut)
   elseif cameraOn() then
     -- the Camera applet: the picture on top, the controls below
     Camera.drawTop(L.topCut)
@@ -2141,6 +2168,15 @@ function backend:update(dt)
     Activity.playing(v, info and info.displayName or v, dt)
   else
     local _, et = EmuPlay.update(dt)
+    -- a word from an emulator (a game added, a state saved, ...)
+    for _, ep in ipairs(Emus.providers()) do
+      local okm, msg = pcall(function() return ep.message and ep.message() end)
+      if okm and msg then toast(msg) end
+      if et and ep.toast then
+        local okt, text, at = pcall(ep.toast)
+        if okt and text and at ~= state.emuToastAt then state.emuToastAt = at; toast(text) end
+      end
+    end
     if et then Activity.playing(et.id, et.name, dt) else Activity.playing(nil) end
   end
   Activity.tick(dt, state.time)
@@ -2546,6 +2582,11 @@ function M.install()
     openActivity = Activity.open, openApp = function(id) if APPS[id] then APPS[id].open() end end })
   Notes.init({ font = font, setCanvas = real.setCanvas })
   EmuPlay.init({ font = font })
+  EmuPage.init({ font = font, icon = function(id) return image("icons3ds/" .. id .. ".png") end })
+  do
+    local open = Emus.open
+    Emus.open = function(t) EmuPage.opened(t and t.emu) return open(t) end
+  end
   Friends.init({ font = font, favourite = Activity.favourite })
   seedModIndex()
   wrapSettings()
@@ -2605,11 +2646,11 @@ function M.install()
   -- typing a name or a comment in the Friend List
   local textinput, keypressed = love.textinput, love.keypressed
   love.textinput = function(t, ...)
-    if Friends.textinput(t) then return end
+    if Friends.textinput(t) or EmuPage.textinput(t) then return end
     if textinput then return textinput(t, ...) end
   end
   love.keypressed = function(k, ...)
-    if Friends.keypressed(k) then return end
+    if Friends.keypressed(k) or EmuPage.keypressed(k) then return end
     if keypressed then return keypressed(k, ...) end
   end
   -- the frame
