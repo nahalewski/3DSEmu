@@ -81,17 +81,18 @@ upstream's own Android build script.
   shape.
 * **Download Play (3DS theme)**: the orange icon on the applet bar.
   Picking it (d-pad) shows its banner turning in 3D under the top screen's
-  panel, as the 3DS does.  *Send a game* packs a game's saves
-  (`saves/<game>/`, `save_<game>.lua` and backups) and, if asked, the
-  installed mods; *Receive a game* finds phones that are sending, lists
+  panel, as the 3DS does.  *Send* packs a game's saves
+  (`saves/<game>/`, `save_<game>.lua` and backups), the installed mods,
+  or both (the *Sends:* button picks; mods only skips the game list); *Receive a game* finds phones that are sending, lists
   them, and receives with a progress bar and the link speed; *Install*
   (tap twice) unpacks it, moving every file it replaces into
   `downloadplay/backup_<time>/`.  The ROM and the data extracted from it
   never travel: each phone imports its own.  The transfer is Google's
   Nearby Connections (`android/FoldPlay.java`): the phones find each other
   over Bluetooth and the files move over Wi-Fi Direct / Wi-Fi whenever
-  that is faster.  Android asks for Nearby devices permission the first
-  time.  `POKEPORT_FOLD_FAKEDP=1` stands in for a second phone on a
+  that is faster.  Android asks for Nearby devices and Location the
+  first time (Nearby needs location on every Android version); if one is
+  refused, *Allow and try again* asks again.  `POKEPORT_FOLD_FAKEDP=1` stands in for a second phone on a
   desktop.
 * **L / R on the HOME menu**: the L-camera and camera-R buttons sit in
   the top screen's lower corners (3DS theme); L, R or a tap on either
