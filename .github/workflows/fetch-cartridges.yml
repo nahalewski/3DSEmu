@@ -25,7 +25,7 @@ jobs:
         run: |
           mkdir -p art/launchbox art/gametdb
           python3 - <<'PY'
-          import io, os, re, time, urllib.request, zipfile
+          import io, os, re, time, urllib.error, urllib.parse, urllib.request, zipfile
           import xml.etree.ElementTree as ET
           UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"}
           def get(url, timeout=300):
@@ -33,8 +33,29 @@ jobs:
 
           # ---- LaunchBox
           log = []
+          def status(url):
+              try:
+                  r = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60)
+                  return r.status
+              except urllib.error.HTTPError as e:
+                  return e.code
+              except Exception as e:
+                  return str(e)
+          for u in ["https://gamesdb.launchbox-app.com/", "https://gamesdb.launchbox-app.com/Metadata.zip",
+                    "https://images.launchbox-app.com/", "https://gamesdb.launchbox-app.com/games/search?search=pokemon"]:
+              log.append("STATUS\t%s\t%s" % (u, status(u)))
+              print(log[-1])
+          data = None
+          for attempt in range(4):
+              try:
+                  data = get("https://gamesdb.launchbox-app.com/Metadata.zip", 900)
+                  break
+              except Exception as e:
+                  print("Metadata.zip attempt", attempt, e)
+                  time.sleep(30)
           try:
-              data = get("https://gamesdb.launchbox-app.com/Metadata.zip", 900)
+              if data is None:
+                  raise RuntimeError("Metadata.zip unavailable")
               print("Metadata.zip", len(data))
               z = zipfile.ZipFile(io.BytesIO(data))
               xmlname = [n for n in z.namelist() if n.lower().endswith("metadata.xml")][0]
@@ -78,6 +99,38 @@ jobs:
           except Exception as e:
               print("launchbox failed:", e)
               log.append("LAUNCHBOX FAILED\t%s" % e)
+              # the site's own pages: search, each game's images page
+              import html as H
+              seen = set()
+              for q in ["pokemon red", "pokemon blue", "pokemon yellow", "pokemon green", "pokemon gold",
+                        "pokemon silver", "pokemon crystal", "pokemon firered", "pokemon leafgreen",
+                        "pocket monsters"]:
+                  for url in ["https://gamesdb.launchbox-app.com/games/search?search=" + urllib.parse.quote(q),
+                              "https://gamesdb.launchbox-app.com/games/results/" + urllib.parse.quote(q)]:
+                      try:
+                          page = get(url, 60).decode("utf-8", "replace")
+                      except Exception as e2:
+                          log.append("SEARCH FAILED\t%s\t%s" % (url, e2))
+                          continue
+                      for gid in re.findall(r"/games/details/(\d+)", page):
+                          if gid in seen:
+                              continue
+                          seen.add(gid)
+                          try:
+                              ip = get("https://gamesdb.launchbox-app.com/games/images/" + gid, 60).decode("utf-8", "replace")
+                          except Exception as e3:
+                              log.append("IMAGES FAILED\t%s\t%s" % (gid, e3))
+                              continue
+                          title = H.unescape((re.findall(r"<title>([^<]*)", ip) or [gid])[0])
+                          for src in set(re.findall(r"https://images\.launchbox-app\.com/[^\"'\s)]+", ip)):
+                              safe = re.sub(r"[^A-Za-z0-9._-]+", "_", "%s__%s__%s" % (gid, title[:60], src.rsplit("/", 1)[-1]))
+                              try:
+                                  open(os.path.join("art/launchbox", safe), "wb").write(get(src, 120))
+                                  log.append("IMG\t%s\t%s\t%s" % (title, src, safe))
+                              except Exception:
+                                  pass
+                              time.sleep(0.1)
+                      time.sleep(0.5)
 
           # ---- GameTDB: 3DS ECLP (every art kind and region it may have)
           for kind in ["cover", "coverHQ", "coverM", "coverfull", "coverfullHQ", "box", "cart", "cartHQ", "disc", "3D"]:
