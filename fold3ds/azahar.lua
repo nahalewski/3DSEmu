@@ -67,6 +67,21 @@ local function split(line)
   return out
 end
 
+-- No-Intro names by product code (fold3ds/emudb/ctr.tsv, tools/make_emudb.py),
+-- read once
+local names
+local function noIntro(code)
+  if not code then return nil end
+  if not names then
+    names = {}
+    local ok, text = pcall(love.filesystem.read, "fold3ds/emudb/ctr.tsv")
+    if ok and type(text) == "string" then
+      for k, v in text:gmatch("([^\t\n]+)\t([^\n]+)") do names[k] = v end
+    end
+  end
+  return names[code]
+end
+
 local function parse(text)
   local status, games = nil, {}
   st.userDir, st.gamesDir = nil, nil
@@ -87,6 +102,7 @@ local function parse(text)
         tdb = f[9] ~= "" and f[9] or nil, hasCart = f[10] == "1",
         file = f[11] ~= "" and f[11] or nil, titleId = f[12],
       }
+      games[#games].nointro = noIntro(games[#games].tdb)
     end
   end
   return status, games
