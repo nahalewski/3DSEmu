@@ -387,6 +387,7 @@ end
 
 function H.draw(r, imp, time)
   st.hit = {}
+  st.barRects = {}
   local dt = st.lastT and clamp(time - st.lastT, 0, 0.1) or 0
   st.lastT = time
   local tiles = H.tiles(imp)
@@ -431,8 +432,18 @@ function H.draw(r, imp, time)
       if okI then Icons.draw(a.icon, ix, iy, s, a.color, 1) end
     end
     hit("applet", x, r.y, aw, barH, { applet = a })
+    st.barRects[i] = { x + (aw - s) / 2, r.y + (barH - s) / 2, s, s }
   end
-  sizeButtons(r.x + r.w - pad - sizeW, r.y + pad * 0.6, sizeW, barH - pad * 1.2)
+  local sx, sy, sh = r.x + r.w - pad - sizeW, r.y + pad * 0.6, barH - pad * 1.2
+  sizeButtons(sx, sy, sizeW, sh)
+  st.barRects[#APPLETS + 1] = { sx + sizeW * 0.25 - sh * 0.4, sy + sh * 0.1, sh * 0.8, sh * 0.8 }
+  st.barRects[#APPLETS + 2] = { sx + sizeW * 0.75 - sh * 0.4, sy + sh * 0.1, sh * 0.8, sh * 0.8 }
+  -- the d-pad's place on the bar
+  local br = st.bar and st.barRects[st.bar]
+  if br then
+    local k = br[3] * 0.12
+    brackets(br[1] - k, br[2] - k, br[3] + 2 * k, br[4] + 2 * k, time)
+  end
 
   local obH = math.floor(r.h * 0.14)
   local oy = r.y + r.h - obH
@@ -529,7 +540,7 @@ function H.draw(r, imp, time)
   end
   if selRect and not st.lift then
     local s = selRect[3]
-    brackets(selRect[1] - s * 0.1, selRect[2] - s * 0.1, s * 1.2, s * 1.2, time)
+    if not st.bar then brackets(selRect[1] - s * 0.1, selRect[2] - s * 0.1, s * 1.2, s * 1.2, time) end
   end
   -- more to the right / left: the half-round arrow tabs at the edges
   local function edgeTab(side)
@@ -661,6 +672,7 @@ local function moveTile(from, to)
 end
 
 function H.pressed(imp, id, x, y)
+  st.bar = nil
   local tc = { x0 = x, y0 = y, x = x, y = y, t0 = now(), lastX = x, lastT = now() }
   st.touches[id] = tc
   -- a second finger on the grid: pinch to resize
@@ -784,6 +796,31 @@ function H.button(imp, name)
   local rows = LEVELS[st.level].rows
   local s = st.sel
   local g = st.grid
+  -- on the applet bar: left / right along it, A opens, down (or B) back
+  -- to the icons
+  if st.bar then
+    local count = #APPLETS + 2
+    if name == "left" or name == "right" then
+      local b = clamp(st.bar + (name == "right" and 1 or -1), 1, count)
+      Sfx.play(b ~= st.bar and "over" or "edge")
+      st.bar = b
+    elseif name == "down" or name == "b" then
+      st.lastBar, st.bar = st.bar, nil
+      Sfx.play("over")
+    elseif name == "a" then
+      if st.bar <= #APPLETS then
+        Sfx.play("touch")
+        openTile(imp, APPLETS[st.bar])
+      elseif g then
+        setLevel(st.level + (st.bar == #APPLETS + 1 and -1 or 1), g, n)
+      end
+    elseif name == "up" then
+      Sfx.play("edge")
+    else
+      return false
+    end
+    return true
+  end
   if name == "a" then openTile(imp, tiles[s]) return true end
   if name == "x" and g then setLevel(st.level - 1, g, n) return true end
   if name == "y" and g then setLevel(st.level + 1, g, n) return true end
@@ -793,6 +830,12 @@ function H.button(imp, name)
   if (name == "l" or name == "r") and g then
     st.vel = (name == "r" and 1 or -1) * g.w * 3.2
     Sfx.play("strip")
+    return true
+  end
+  if name == "up" and ((s - 1) % rows == 0 or n == 0) then
+    -- off the top row: up onto the applet bar
+    st.bar = st.lastBar or 1
+    Sfx.play("over")
     return true
   end
   if name == "up" then if (s - 1) % rows > 0 then s = s - 1 end
