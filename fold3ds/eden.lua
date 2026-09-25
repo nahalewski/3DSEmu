@@ -131,13 +131,66 @@ function P.poll(time)
 end
 function P.status() return st.status end
 function P.games() return st.games end
-function P.icon(t)
-  if not (t and t.key and t.hasIcon) then return nil end
-  return image(t.key, DIR .. "icons/" .. t.key .. ".png")
+-- the eShop's art for a game (fold3ds/emudb/nx.tsv, made at build time
+-- from blawar/titledb by tools/make_nx_art.py): icon and banner file names
+-- under ESHOP, by the base game's title id
+local ESHOP = "https://img-eshop.cdn.nintendo.net/i/"
+local artText
+local function eshopArt(t)
+  local id = t and t.programId and t.programId:upper()
+  if not id or #id ~= 16 then return nil end
+  id = id:sub(1, 13) .. "000"
+  if artText == nil then
+    local ok, text = pcall(love.filesystem.read, "fold3ds/emudb/nx.tsv")
+    artText = ok and type(text) == "string" and text or false
+  end
+  if not artText then return nil end
+  local icon, banner = artText:match("\n" .. id .. "\t(%x*)\t(%x*)")
+  if not icon then icon, banner = artText:match("^" .. id .. "\t(%x*)\t(%x*)") end
+  if not icon then return nil end
+  return { icon = icon ~= "" and icon or nil, banner = banner ~= "" and banner or nil, id = id }
 end
-function P.iconPath(t) return t and t.key and t.hasIcon and (DIR .. "icons/" .. t.key .. ".png") or nil end
--- no photo of Switch cartridges yet: the UI draws its own
-function P.cart() return nil end
+
+-- a picture downloaded on the phone once (fold3ds_eden/art/): nil until it
+-- is there; asks for it the first time
+local fetching = {}
+local function fetched(hash)
+  if not hash then return nil end
+  local file = DIR .. "art/" .. hash .. ".jpg"
+  if love.filesystem.getInfo(file, "file") then return image(hash, file) end
+  if not fetching[hash] then
+    fetching[hash] = true
+    local ok, Core = pcall(require, "fold3ds.emucore")
+    if ok and Core and Core.fetch then pcall(Core.fetch, ESHOP .. hash .. ".jpg", file) end
+  end
+  return nil
+end
+
+-- the game's own square icon (Eden reads it from the game), else the eShop's
+function P.icon(t)
+  if not (t and t.key) then return nil end
+  if t.hasIcon then
+    local img = image(t.key, DIR .. "icons/" .. t.key .. ".png")
+    if img then return img end
+  end
+  local a = eshopArt(t)
+  return a and fetched(a.icon) or nil
+end
+function P.iconPath(t)
+  if t and t.key and t.hasIcon then return DIR .. "icons/" .. t.key .. ".png" end
+  local a = eshopArt(t)
+  local file = a and a.icon and (DIR .. "art/" .. a.icon .. ".jpg")
+  return file and love.filesystem.getInfo(file, "file") and file or nil
+end
+-- the game's banner (the eShop's), shown as its card
+function P.cart(t)
+  local a = eshopArt(t)
+  return a and fetched(a.banner) or nil
+end
+-- the 3D Switch game card: dark grey, the banner or icon as its label
+function P.cartSkin(t)
+  return { shape = "switch", color = { 38, 38, 42 }, labelImage = P.cart(t) or P.icon(t), cart = true }
+end
 P.open = open
 -- full screen in Eden's own EmulationActivity (in-shell play comes later)
 function P.play(t) return t and t.key and open("play?key=" .. t.key) or false end

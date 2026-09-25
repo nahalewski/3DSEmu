@@ -45,6 +45,9 @@ checkout() {
 mkdir -p "$B"
 
 # ---------------------------------------------------------------- 1. the 3DS HOME menu
+# Switch game art: blawar/titledb -> fold3ds/emudb/nx.tsv (title id -> the
+# eShop icon and banner, fetched on the phone once; skipped when offline)
+python3 "$HERE/tools/make_nx_art.py" || true
 say "gen1recomp + fold3ds -> game.love"
 "$HERE/apply.sh" --package-only
 G="$B/gen1recomp"
