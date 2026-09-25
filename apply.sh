@@ -12,14 +12,43 @@ fi
 cd "$HERE/build/gen1recomp"
 git fetch -q origin "$UPSTREAM_COMMIT" 2>/dev/null || true
 git checkout -q "$UPSTREAM_COMMIT"
-git checkout -q -- main.lua scripts/build_android.sh
+J=mobile/android/love/src/jni/love/src
+git checkout -q -- main.lua scripts/build_android.sh src/import/LauncherView.lua \
+  $J/modules/system/System.cpp $J/modules/system/wrap_System.cpp \
+  $J/common/android.h $J/common/android.cpp \
+  mobile/android/app/src/main/AndroidManifest.xml mobile/android/app/proguard-rules.pro \
+  mobile/android/app/build.gradle mobile/android/love/build.gradle \
+  mobile/android/love/src/main/java/org/love2d/android/GameActivity.java
+# the launcher's compact bottom-screen layout (active only under LauncherView.fold),
+# the Android picker's "image" kind (the cover sticker), and the camera bridge
+# (love.system.foldCamera -> FoldCamera / FoldRecorder / FoldBridge / FoldPlay:
+# the Camera applet, the volume slider's keys, Download Play)
+for p in "$HERE"/patches/*.patch; do git apply "$p"; done
+cp "$HERE"/android/*.java mobile/android/love/src/main/java/org/love2d/android/
 # the layer
 rm -rf fold3ds && cp -r "$HERE/fold3ds" fold3ds
+# the community mod catalog (gen1recomp.com/mod) as of this build: shipped so
+# FIND lists every mod before the first live fetch.  Keeps the committed copy
+# when offline.
+python3 - <<'PY2' || true
+import json, urllib.request
+url = "https://raw.githubusercontent.com/bryanthaboi/gen1recomp-mod-index/main/site/data/index.json"
+try:
+    body = urllib.request.urlopen(url, timeout=30).read()
+    doc = json.loads(body)
+    assert doc.get("schema_version") == 1 and isinstance(doc.get("mods"), list)
+    open("fold3ds/modindex/index.json", "wb").write(body)
+    print("mod catalog: %d mods" % len(doc["mods"]))
+except Exception as e:
+    print("mod catalog: keeping the bundled copy (%s)" % e)
+PY2
 # hook it into main.lua (last lines) and package it into game.love
 printf '\n-- the Android foldable layer (fold3ds/): a 3DS on a foldable, the lid on its cover\npcall(function() require("fold3ds").install() end)\n' >> main.lua
 python3 - <<'PY'
 import re, pathlib
 p = pathlib.Path("scripts/build_android.sh"); s = p.read_text()
+# the Camera applet records video with sound: keep the microphone permission
+s = s.replace('    "android.permission.RECORD_AUDIO",\n', "")
 s = s.replace("main.lua conf.lua src data assets tools/save-editor \\", "main.lua conf.lua src data assets fold3ds tools/save-editor \\")
 s = s.replace("-x 'data/generated/*' -x 'assets/generated/*')", "-x 'data/generated/*' -x 'assets/generated/*' -x 'fold3ds/dev/*')")
 p.write_text(s)

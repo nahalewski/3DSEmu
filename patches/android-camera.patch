@@ -1,0 +1,664 @@
+diff --git a/mobile/android/app/build.gradle b/mobile/android/app/build.gradle
+index 9a1e7354..052e7ee2 100644
+--- a/mobile/android/app/build.gradle
++++ b/mobile/android/app/build.gradle
+@@ -12,7 +12,7 @@ android {
+         versionName project.properties["app.version_name"]
+         // NDK r25 no longer supports API 16; API 19 is Android 4.4 and keeps
+         // the native toolchain and package-installer bridge on a supported ABI.
+-        minSdk 19
++        minSdk 23  // fold3ds: Camera2, MediaCodec input images, Nearby Connections
+         // Android 16 / API 36: current Android distribution target.
+         compileSdk 36
+         targetSdk 36
+diff --git a/mobile/android/app/proguard-rules.pro b/mobile/android/app/proguard-rules.pro
+index acb9bc2d..68c5cf16 100644
+--- a/mobile/android/app/proguard-rules.pro
++++ b/mobile/android/app/proguard-rules.pro
+@@ -18,3 +18,7 @@
+ 
+ -keep class org.love2d.android.GameActivity { *; }
+ -keep class org.libsdl.app.** { *; }
++-keep class org.love2d.android.FoldCamera { *; }
++-keep class org.love2d.android.FoldRecorder { *; }
++-keep class org.love2d.android.FoldBridge { *; }
++-keep class org.love2d.android.FoldPlay { *; }
+diff --git a/mobile/android/app/src/main/AndroidManifest.xml b/mobile/android/app/src/main/AndroidManifest.xml
+index e431119b..2b4a4ea4 100644
+--- a/mobile/android/app/src/main/AndroidManifest.xml
++++ b/mobile/android/app/src/main/AndroidManifest.xml
+@@ -17,6 +17,24 @@
+        Requested only on the first sync call (the Pokéwalker mod's SYNC
+        STEPS option); scripts/build_android.sh must not strip it. -->
+   <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
++  <!-- The foldable layer's Camera applet (fold3ds/camera.lua,
++       org.love2d.android.FoldCamera): asked for the first time it opens. -->
++  <uses-permission android:name="android.permission.CAMERA" />
++  <!-- and the sound of its videos (FoldRecorder), asked with the camera -->
++  <uses-permission android:name="android.permission.RECORD_AUDIO" />
++  <uses-feature android:name="android.hardware.camera" android:required="false" />
++  <uses-feature android:name="android.hardware.camera.front" android:required="false" />
++  <!-- Download Play (FoldPlay, Nearby Connections): Bluetooth to find the
++       other phone, Wi-Fi Direct / Wi-Fi for the transfer. -->
++  <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
++  <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
++  <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
++  <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
++  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
++  <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
++  <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
++  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
++  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+ <!-- OpenGL ES 2.0 -->
+   <uses-feature android:glEsVersion="0x00020000" />
+   <!-- Touchscreen support -->
+diff --git a/mobile/android/love/build.gradle b/mobile/android/love/build.gradle
+index 956b30b0..ebf8fc87 100644
+--- a/mobile/android/love/build.gradle
++++ b/mobile/android/love/build.gradle
+@@ -10,7 +10,7 @@ android {
+     ndkVersion '25.2.9519653'
+ 
+     defaultConfig {
+-        minSdk 19
++        minSdk 23  // fold3ds: Camera2, MediaCodec input images, Nearby Connections
+         compileSdk 36
+         targetSdk 36
+         externalNativeBuild {
+@@ -118,4 +118,6 @@ android {
+ dependencies {
+     api fileTree(dir: 'libs', include: ['*.jar'])
+     api 'androidx.appcompat:appcompat:1.6.1'
++    // fold3ds Download Play: Bluetooth / Wi-Fi Direct transfers (FoldPlay.java)
++    implementation 'com.google.android.gms:play-services-nearby:19.3.0'
+ }
+diff --git a/mobile/android/love/src/jni/love/src/common/android.cpp b/mobile/android/love/src/jni/love/src/common/android.cpp
+index 49b52e44..82e808e0 100644
+--- a/mobile/android/love/src/jni/love/src/common/android.cpp
++++ b/mobile/android/love/src/jni/love/src/common/android.cpp
+@@ -287,6 +287,383 @@ bool syncHealthSteps()
+ 	return result;
+ }
+ 
++// ---- the foldable layer's camera (fold3ds)
++
++static jclass foldCameraClass(JNIEnv *env)
++{
++	jclass c = env->FindClass("org/love2d/android/FoldCamera");
++	if (c != nullptr)
++		return c;
++	env->ExceptionClear();
++	// a thread without the app's class loader: ask the activity's
++	void *rawActivity = SDL_AndroidGetActivity();
++	if (rawActivity == nullptr)
++		return nullptr;
++	jobject act = (jobject) rawActivity;
++	jclass actClass = env->GetObjectClass(act);
++	jmethodID getLoader = env->GetMethodID(actClass, "getClassLoader", "()Ljava/lang/ClassLoader;");
++	jobject loader = getLoader ? env->CallObjectMethod(act, getLoader) : nullptr;
++	env->DeleteLocalRef(actClass);
++	env->DeleteLocalRef(act);
++	if (loader == nullptr)
++	{
++		env->ExceptionClear();
++		return nullptr;
++	}
++	jclass loaderClass = env->FindClass("java/lang/ClassLoader");
++	jmethodID loadClass = env->GetMethodID(loaderClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
++	jstring name = env->NewStringUTF("org.love2d.android.FoldCamera");
++	c = (jclass) env->CallObjectMethod(loader, loadClass, name);
++	env->DeleteLocalRef(name);
++	env->DeleteLocalRef(loaderClass);
++	env->DeleteLocalRef(loader);
++	if (env->ExceptionCheck())
++	{
++		env->ExceptionClear();
++		return nullptr;
++	}
++	return c;
++}
++
++static int foldCameraInt(const char *name, const char *sig, int a = 0, int b = 0)
++{
++	JNIEnv *env = (JNIEnv*) SDL_AndroidGetJNIEnv();
++	jclass c = foldCameraClass(env);
++	if (c == nullptr)
++		return -1;
++	jmethodID m = env->GetStaticMethodID(c, name, sig);
++	int result = -1;
++	if (m == nullptr)
++		env->ExceptionClear();
++	else if (strcmp(sig, "()I") == 0)
++		result = env->CallStaticIntMethod(c, m);
++	else
++		result = env->CallStaticIntMethod(c, m, (jint) a, (jint) b);
++	if (env->ExceptionCheck())
++	{
++		env->ExceptionClear();
++		result = -1;
++	}
++	env->DeleteLocalRef(c);
++	return result;
++}
++
++int foldCameraAvailable()
++{
++	int r = foldCameraInt("available", "()I");
++	return r < 0 ? 0 : r;
++}
++
++int foldCameraStart(int facing, int width)
++{
++	return foldCameraInt("start", "(II)I", facing, width);
++}
++
++int foldCameraState()
++{
++	return foldCameraInt("state", "()I");
++}
++
++void foldCameraStop()
++{
++	JNIEnv *env = (JNIEnv*) SDL_AndroidGetJNIEnv();
++	jclass c = foldCameraClass(env);
++	if (c == nullptr)
++		return;
++	jmethodID m = env->GetStaticMethodID(c, "stop", "()V");
++	if (m != nullptr)
++		env->CallStaticVoidMethod(c, m);
++	env->ExceptionClear();
++	env->DeleteLocalRef(c);
++}
++
++bool foldCameraInfo(int info[5])
++{
++	JNIEnv *env = (JNIEnv*) SDL_AndroidGetJNIEnv();
++	jclass c = foldCameraClass(env);
++	if (c == nullptr)
++		return false;
++	bool ok = false;
++	jmethodID m = env->GetStaticMethodID(c, "info", "()[I");
++	jintArray arr = m ? (jintArray) env->CallStaticObjectMethod(c, m) : nullptr;
++	if (env->ExceptionCheck())
++		env->ExceptionClear();
++	else if (arr != nullptr && env->GetArrayLength(arr) >= 5)
++	{
++		jint v[5];
++		env->GetIntArrayRegion(arr, 0, 5, v);
++		for (int i = 0; i < 5; i++)
++			info[i] = (int) v[i];
++		ok = true;
++	}
++	if (arr != nullptr)
++		env->DeleteLocalRef(arr);
++	env->DeleteLocalRef(c);
++	return ok;
++}
++
++static inline unsigned char clampByte(int v)
++{
++	return (unsigned char) (v < 0 ? 0 : (v > 255 ? 255 : v));
++}
++
++bool foldCameraFrame(unsigned char *rgba, int width, int height)
++{
++	if (rgba == nullptr || width <= 0 || height <= 0 || (width & 1) || (height & 1))
++		return false;
++	JNIEnv *env = (JNIEnv*) SDL_AndroidGetJNIEnv();
++	jclass c = foldCameraClass(env);
++	if (c == nullptr)
++		return false;
++	jmethodID m = env->GetStaticMethodID(c, "frame", "()[B");
++	jbyteArray arr = m ? (jbyteArray) env->CallStaticObjectMethod(c, m) : nullptr;
++	env->DeleteLocalRef(c);
++	if (env->ExceptionCheck())
++	{
++		env->ExceptionClear();
++		return false;
++	}
++	if (arr == nullptr)
++		return false;
++	const int cw = width / 2, ch = height / 2;
++	const jsize need = (jsize) (width * height + 2 * cw * ch);
++	bool ok = false;
++	if (env->GetArrayLength(arr) == need)
++	{
++		jbyte *yuv = env->GetByteArrayElements(arr, nullptr);
++		if (yuv != nullptr)
++		{
++			const unsigned char *Y = (const unsigned char *) yuv;
++			const unsigned char *U = Y + width * height;
++			const unsigned char *V = U + cw * ch;
++			// full-range BT.601 (the camera's JFIF YUV), 10-bit fixed point
++			for (int y = 0; y < height; y++)
++			{
++				const unsigned char *yr = Y + y * width;
++				const unsigned char *ur = U + (y >> 1) * cw;
++				const unsigned char *vr = V + (y >> 1) * cw;
++				unsigned char *o = rgba + (size_t) y * width * 4;
++				for (int x = 0; x < width; x++)
++				{
++					int yy = yr[x] << 10;
++					int u = ur[x >> 1] - 128, v = vr[x >> 1] - 128;
++					o[0] = clampByte((yy + 1436 * v) >> 10);
++					o[1] = clampByte((yy - 352 * u - 731 * v) >> 10);
++					o[2] = clampByte((yy + 1815 * u) >> 10);
++					o[3] = 255;
++					o += 4;
++				}
++			}
++			env->ReleaseByteArrayElements(arr, yuv, JNI_ABORT);
++			ok = true;
++		}
++	}
++	env->DeleteLocalRef(arr);
++	return ok;
++}
++
++static jclass foldClass(JNIEnv *env, const char *slashName, const char *dotName)
++{
++	jclass c = env->FindClass(slashName);
++	if (c != nullptr)
++		return c;
++	env->ExceptionClear();
++	void *rawActivity = SDL_AndroidGetActivity();
++	if (rawActivity == nullptr)
++		return nullptr;
++	jobject act = (jobject) rawActivity;
++	jclass actClass = env->GetObjectClass(act);
++	jmethodID getLoader = env->GetMethodID(actClass, "getClassLoader", "()Ljava/lang/ClassLoader;");
++	jobject loader = getLoader ? env->CallObjectMethod(act, getLoader) : nullptr;
++	env->DeleteLocalRef(actClass);
++	env->DeleteLocalRef(act);
++	if (loader == nullptr)
++	{
++		env->ExceptionClear();
++		return nullptr;
++	}
++	jclass loaderClass = env->FindClass("java/lang/ClassLoader");
++	jmethodID loadClass = env->GetMethodID(loaderClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
++	jstring name = env->NewStringUTF(dotName);
++	c = (jclass) env->CallObjectMethod(loader, loadClass, name);
++	env->DeleteLocalRef(name);
++	env->DeleteLocalRef(loaderClass);
++	env->DeleteLocalRef(loader);
++	if (env->ExceptionCheck())
++	{
++		env->ExceptionClear();
++		return nullptr;
++	}
++	return c;
++}
++
++int foldRecorderStart(const char *path, int width, int height, int fps)
++{
++	if (path == nullptr)
++		return -1;
++	JNIEnv *env = (JNIEnv*) SDL_AndroidGetJNIEnv();
++	jclass c = foldClass(env, "org/love2d/android/FoldRecorder", "org.love2d.android.FoldRecorder");
++	if (c == nullptr)
++		return -1;
++	int result = -1;
++	jmethodID m = env->GetStaticMethodID(c, "start", "(Ljava/lang/String;III)I");
++	if (m != nullptr)
++	{
++		jstring jpath = env->NewStringUTF(path);
++		result = env->CallStaticIntMethod(c, m, jpath, (jint) width, (jint) height, (jint) fps);
++		env->DeleteLocalRef(jpath);
++	}
++	if (env->ExceptionCheck())
++	{
++		env->ExceptionClear();
++		result = -1;
++	}
++	env->DeleteLocalRef(c);
++	return result;
++}
++
++int foldRecorderState()
++{
++	JNIEnv *env = (JNIEnv*) SDL_AndroidGetJNIEnv();
++	jclass c = foldClass(env, "org/love2d/android/FoldRecorder", "org.love2d.android.FoldRecorder");
++	if (c == nullptr)
++		return -1;
++	jmethodID m = env->GetStaticMethodID(c, "state", "()I");
++	int result = m ? env->CallStaticIntMethod(c, m) : -1;
++	if (env->ExceptionCheck())
++	{
++		env->ExceptionClear();
++		result = -1;
++	}
++	env->DeleteLocalRef(c);
++	return result;
++}
++
++bool foldRecorderFrame(const unsigned char *rgba, int width, int height)
++{
++	if (rgba == nullptr || width <= 0 || height <= 0 || (width & 1) || (height & 1))
++		return false;
++	JNIEnv *env = (JNIEnv*) SDL_AndroidGetJNIEnv();
++	jclass c = foldClass(env, "org/love2d/android/FoldRecorder", "org.love2d.android.FoldRecorder");
++	if (c == nullptr)
++		return false;
++	jmethodID m = env->GetStaticMethodID(c, "frame", "([B)Z");
++	if (m == nullptr)
++	{
++		env->ExceptionClear();
++		env->DeleteLocalRef(c);
++		return false;
++	}
++	const int cw = width / 2, ch = height / 2;
++	const jsize size = (jsize) (width * height + 2 * cw * ch);
++	jbyteArray arr = env->NewByteArray(size);
++	bool ok = false;
++	if (arr != nullptr)
++	{
++		jbyte *out = env->GetByteArrayElements(arr, nullptr);
++		if (out != nullptr)
++		{
++			unsigned char *Y = (unsigned char *) out;
++			unsigned char *U = Y + width * height;
++			unsigned char *V = U + cw * ch;
++			// BT.601 limited range (what H.264 players expect), 8-bit fixed point
++			for (int y = 0; y < height; y++)
++			{
++				const unsigned char *p = rgba + (size_t) y * width * 4;
++				unsigned char *yr = Y + y * width;
++				for (int x = 0; x < width; x++, p += 4)
++					yr[x] = (unsigned char) (((66 * p[0] + 129 * p[1] + 25 * p[2] + 128) >> 8) + 16);
++			}
++			for (int y = 0; y < ch; y++)
++			{
++				for (int x = 0; x < cw; x++)
++				{
++					// the average of the 2 x 2 block
++					const unsigned char *a = rgba + ((size_t) (2 * y) * width + 2 * x) * 4;
++					const unsigned char *b = a + (size_t) width * 4;
++					int r = (a[0] + a[4] + b[0] + b[4]) >> 2;
++					int g = (a[1] + a[5] + b[1] + b[5]) >> 2;
++					int bl = (a[2] + a[6] + b[2] + b[6]) >> 2;
++					U[y * cw + x] = (unsigned char) (((-38 * r - 74 * g + 112 * bl + 128) >> 8) + 128);
++					V[y * cw + x] = (unsigned char) (((112 * r - 94 * g - 18 * bl + 128) >> 8) + 128);
++				}
++			}
++			env->ReleaseByteArrayElements(arr, out, 0);
++			ok = env->CallStaticBooleanMethod(c, m, arr);
++			if (env->ExceptionCheck())
++			{
++				env->ExceptionClear();
++				ok = false;
++			}
++		}
++		env->DeleteLocalRef(arr);
++	}
++	env->DeleteLocalRef(c);
++	return ok;
++}
++
++bool foldRecorderStop(bool toGallery, std::string &uri)
++{
++	JNIEnv *env = (JNIEnv*) SDL_AndroidGetJNIEnv();
++	jclass c = foldClass(env, "org/love2d/android/FoldRecorder", "org.love2d.android.FoldRecorder");
++	if (c == nullptr)
++		return false;
++	bool ok = false;
++	jmethodID m = env->GetStaticMethodID(c, "stop", "(Z)Ljava/lang/String;");
++	jstring result = m ? (jstring) env->CallStaticObjectMethod(c, m, (jboolean) toGallery) : nullptr;
++	if (env->ExceptionCheck())
++		env->ExceptionClear();
++	else if (result != nullptr)
++	{
++		const char *chars = env->GetStringUTFChars(result, nullptr);
++		uri = chars ? chars : "";
++		if (chars)
++			env->ReleaseStringUTFChars(result, chars);
++		ok = true;
++	}
++	if (result != nullptr)
++		env->DeleteLocalRef(result);
++	env->DeleteLocalRef(c);
++	return ok;
++}
++
++bool foldBridgeCall(const char *cmd, const char *arg, std::string &out)
++{
++	JNIEnv *env = (JNIEnv*) SDL_AndroidGetJNIEnv();
++	jclass c = foldClass(env, "org/love2d/android/FoldBridge", "org.love2d.android.FoldBridge");
++	if (c == nullptr)
++		return false;
++	bool ok = false;
++	jmethodID m = env->GetStaticMethodID(c, "call", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
++	if (m != nullptr)
++	{
++		jstring jcmd = env->NewStringUTF(cmd ? cmd : "");
++		jstring jarg = env->NewStringUTF(arg ? arg : "");
++		jstring result = (jstring) env->CallStaticObjectMethod(c, m, jcmd, jarg);
++		env->DeleteLocalRef(jcmd);
++		env->DeleteLocalRef(jarg);
++		if (env->ExceptionCheck())
++			env->ExceptionClear();
++		else
++		{
++			ok = true;
++			if (result != nullptr)
++			{
++				const char *chars = env->GetStringUTFChars(result, nullptr);
++				out = chars ? chars : "";
++				if (chars)
++					env->ReleaseStringUTFChars(result, chars);
++			}
++		}
++		if (result != nullptr)
++			env->DeleteLocalRef(result);
++	}
++	else
++		env->ExceptionClear();
++	env->DeleteLocalRef(c);
++	return ok;
++}
++
+ bool restartApp()
+ {
+ 	JNIEnv *env = (JNIEnv*) SDL_AndroidGetJNIEnv();
+diff --git a/mobile/android/love/src/jni/love/src/common/android.h b/mobile/android/love/src/jni/love/src/common/android.h
+index f6d2dc1b..cb333b60 100644
+--- a/mobile/android/love/src/jni/love/src/common/android.h
++++ b/mobile/android/love/src/jni/love/src/common/android.h
+@@ -88,6 +88,39 @@ bool exportImageToGallery(const char *relativePath = nullptr);
+  */
+ bool syncHealthSteps();
+ 
++/**
++ * The foldable layer's camera (fold3ds, org.love2d.android.FoldCamera): a
++ * Camera2 preview from the rear (facing 0) or front (1) camera.
++ * foldCameraStart / foldCameraState return FoldCamera's state (3 running).
++ * foldCameraInfo fills {width, height, rotation, mirror, serial}.
++ * foldCameraFrame converts the newest frame, if there is a new one of that
++ * size, to RGBA8 into `rgba` (width * height * 4 bytes).
++ **/
++int foldCameraAvailable();
++int foldCameraStart(int facing, int width);
++int foldCameraState();
++void foldCameraStop();
++bool foldCameraInfo(int info[5]);
++bool foldCameraFrame(unsigned char *rgba, int width, int height);
++
++/**
++ * The Camera applet's video recorder (org.love2d.android.FoldRecorder):
++ * start an MP4 of width x height at `path`, feed it RGBA8 frames (converted
++ * here to YUV 4:2:0), stop it (optionally copying it to the gallery; the
++ * copy's content URI lands in `uri`).  States: 0 idle, 1 recording, -1 failed.
++ **/
++int foldRecorderStart(const char *path, int width, int height, int fps);
++bool foldRecorderFrame(const unsigned char *rgba, int width, int height);
++bool foldRecorderStop(bool toGallery, std::string &uri);
++int foldRecorderState();
++
++/**
++ * The foldable layer's other native calls (org.love2d.android.FoldBridge
++ * .call): volume keys, zip / unzip, Download Play.  Returns false when the
++ * bridge could not be reached.
++ **/
++bool foldBridgeCall(const char *cmd, const char *arg, std::string &out);
++
+ /**
+  * Full process relaunch (GameActivity.restartApp): schedules the app's
+  * launch intent and kills the process, because the in-process
+diff --git a/mobile/android/love/src/jni/love/src/modules/system/wrap_System.cpp b/mobile/android/love/src/jni/love/src/modules/system/wrap_System.cpp
+index f6462ffc..4fe28396 100644
+--- a/mobile/android/love/src/jni/love/src/modules/system/wrap_System.cpp
++++ b/mobile/android/love/src/jni/love/src/modules/system/wrap_System.cpp
+@@ -21,7 +21,12 @@
+ // LOVE
+ #include "wrap_System.h"
+ #include "sdl/System.h"
++#include "image/ImageData.h"
++#ifdef LOVE_ANDROID
++#include "common/android.h"
++#endif
+ 
++#include <cstring>
+ #include <string>
+ #include <vector>
+ 
+@@ -132,6 +137,116 @@ int w_syncHealthSteps(lua_State *L)
+ 	return 1;
+ }
+ 
++// The foldable layer's camera (fold3ds/camera.lua).  Android only; elsewhere
++// every command returns nil.
++//   foldCamera("available")          -> bit 0 rear, bit 1 front
++//   foldCamera("start", facing, w)   -> state (0 off, 1 asking, 2 opening,
++//                                       3 running, <0 failed / none / refused)
++//   foldCamera("state") -> state;  foldCamera("stop")
++//   foldCamera("info")  -> width, height, rotation, mirror, serial
++//   foldCamera("frame", imageData)   -> true when a new frame was written
++//                                       (an rgba8 ImageData of that size)
++//   foldCamera("recStart", path, w, h, fps) -> recorder state (1 recording)
++//   foldCamera("recFrame", imageData) -> true when the frame was taken
++//   foldCamera("recStop", toGallery)  -> the gallery copy's URI ("" none),
++//                                       nil when nothing was recorded
++//   foldCamera("recState")            -> 0 idle, 1 recording, -1 failed
++//   foldCamera("call", cmd, arg)      -> FoldBridge.call's answer (volume
++//                                       keys, zip / unzip, Download Play)
++int w_foldCamera(lua_State *L)
++{
++	const char *cmd = luaL_checkstring(L, 1);
++#ifdef LOVE_ANDROID
++	if (strcmp(cmd, "available") == 0)
++	{
++		lua_pushinteger(L, love::android::foldCameraAvailable());
++		return 1;
++	}
++	if (strcmp(cmd, "start") == 0)
++	{
++		lua_pushinteger(L, love::android::foldCameraStart((int) luaL_optinteger(L, 2, 0),
++			(int) luaL_optinteger(L, 3, 960)));
++		return 1;
++	}
++	if (strcmp(cmd, "state") == 0)
++	{
++		lua_pushinteger(L, love::android::foldCameraState());
++		return 1;
++	}
++	if (strcmp(cmd, "stop") == 0)
++	{
++		love::android::foldCameraStop();
++		return 0;
++	}
++	if (strcmp(cmd, "info") == 0)
++	{
++		int info[5] = { 0, 0, 0, 0, 0 };
++		if (!love::android::foldCameraInfo(info))
++			return 0;
++		for (int i = 0; i < 5; i++)
++			lua_pushinteger(L, info[i]);
++		return 5;
++	}
++	if (strcmp(cmd, "call") == 0)
++	{
++		std::string out;
++		if (!love::android::foldBridgeCall(luaL_checkstring(L, 2), luaL_optstring(L, 3, ""), out))
++			return 0;
++		luax_pushstring(L, out);
++		return 1;
++	}
++	if (strcmp(cmd, "recStart") == 0)
++	{
++		const char *path = luaL_checkstring(L, 2);
++		lua_pushinteger(L, love::android::foldRecorderStart(path, (int) luaL_checkinteger(L, 3),
++			(int) luaL_checkinteger(L, 4), (int) luaL_optinteger(L, 5, 30)));
++		return 1;
++	}
++	if (strcmp(cmd, "recState") == 0)
++	{
++		lua_pushinteger(L, love::android::foldRecorderState());
++		return 1;
++	}
++	if (strcmp(cmd, "recFrame") == 0)
++	{
++		love::image::ImageData *d = luax_checktype<love::image::ImageData>(L, 2);
++		bool ok = false;
++		if (d->getFormat() == PIXELFORMAT_RGBA8)
++		{
++			love::thread::Lock lock(d->getMutex());
++			ok = love::android::foldRecorderFrame((const unsigned char *) d->getData(),
++				d->getWidth(), d->getHeight());
++		}
++		luax_pushboolean(L, ok);
++		return 1;
++	}
++	if (strcmp(cmd, "recStop") == 0)
++	{
++		std::string uri;
++		if (!love::android::foldRecorderStop(luax_optboolean(L, 2, false), uri))
++			return 0;
++		luax_pushstring(L, uri);
++		return 1;
++	}
++	if (strcmp(cmd, "frame") == 0)
++	{
++		love::image::ImageData *d = luax_checktype<love::image::ImageData>(L, 2);
++		bool ok = false;
++		if (d->getFormat() == PIXELFORMAT_RGBA8)
++		{
++			love::thread::Lock lock(d->getMutex());
++			ok = love::android::foldCameraFrame((unsigned char *) d->getData(),
++				d->getWidth(), d->getHeight());
++		}
++		luax_pushboolean(L, ok);
++		return 1;
++	}
++#else
++	LOVE_UNUSED(cmd);
++#endif
++	return 0;
++}
++
+ int w_restartApp(lua_State *L)
+ {
+ 	// Does not return on success: GameActivity.restartApp exits the process
+@@ -351,6 +466,7 @@ static const luaL_Reg functions[] =
+ 	{ "exportImage", w_exportImage },
+ 	{ "syncHealthSteps", w_syncHealthSteps },
+ 	{ "restartApp", w_restartApp },
++	{ "foldCamera", w_foldCamera },
+ 	{ "installApk", w_installApk },
+ 	{ "updateShortcuts", w_updateShortcuts },
+ 	{ "getLaunchGame", w_getLaunchGame },
+diff --git a/mobile/android/love/src/main/java/org/love2d/android/GameActivity.java b/mobile/android/love/src/main/java/org/love2d/android/GameActivity.java
+index 544db21c..47a45413 100644
+--- a/mobile/android/love/src/main/java/org/love2d/android/GameActivity.java
++++ b/mobile/android/love/src/main/java/org/love2d/android/GameActivity.java
+@@ -480,6 +480,11 @@ public class GameActivity extends SDLActivity {
+ 
+     @Override
+     public boolean dispatchKeyEvent(KeyEvent event) {
++        // the foldable layer's 3DS volume slider takes the volume keys (no
++        // system volume popup) while it is switched on
++        if (FoldBridge.volumeKey(event)) {
++            return true;
++        }
+         // AYN's panel toggle emits virtual Right Shift, which SDL maps to a
+         // gameplay button. The setting is absent on other Android devices.
+         if (secondaryEnabled && dualScreenDisplayMode != -1
