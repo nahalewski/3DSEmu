@@ -45,6 +45,17 @@ icons on the bottom screen.  Azahar is added to it:
   The icons are in `fold3ds/icons3ds/` (`az_<page>.png`,
   `azahar.png` for the folder), drawn by `tools/make_azahar_icons.py`.
   Replace any PNG to restyle it.
+* **The Switch HOME Menu.**  The *Switch HOME Menu* applet on the 3DS
+  HOME menu's bar swaps it for the Nintendo Switch's HOME menu across the
+  whole inner screen (`fold3ds/homenx.lua`): your icon (Play Activity),
+  the clock, Wi-Fi and battery across the top; one row of big square
+  software icons that slides sideways, the selected one framed in blue
+  with its name above; the round buttons -- Nintendo eShop, Album, 3DS
+  HOME Menu, System Settings; the button guide along the bottom.  Basic
+  White or Basic Black (System Settings > Themes).  A starts, X shows a
+  recomp game's manual.  The *3DS HOME Menu* button, or System Settings >
+  HOME Menu, goes back to the 3DS HOME menu; the choice is remembered
+  (`fold3ds_ui.cfg`).
 * **The 3DS skin is the only skin.**  The Classic launcher look and the
   THEME card are gone; the bottom screen is always the HOME menu.
 * **First run.**  Until Azahar has its folder, a *Set Up 3DS* tile takes
@@ -170,7 +181,14 @@ upstream's own Android build script.
   or X / Y), and every change animates the icons from their old slots to
   their new ones.  Hold an icon until it lifts to drag it somewhere else;
   size and order are remembered.  Tap to select, tap again or A to open;
-  Manual opens a game's manage page.  An opened icon shows its page
+  Manual opens a game's electronic manual on the bottom screen, as the
+  3DS does: pages written for each recomp game (getting started, the
+  controls on the Fold, the adventure, battles, what is only in that
+  version, and gen1recomp's options, rulesets, mods, online play and
+  saves; `fold3ds/manualtext.lua`), a Contents list, the contents on the
+  top screen with the chapter being read lifted out, and Game Options for
+  the game's manage page.  Scans of your own printed manual go in front
+  of them (`fold3ds/manuals/<version>/`).  An opened icon shows its page
   (light theme: white panels, HOME-menu blue selection) under a back bar;
   back, B or HOME returns to the menu.  The top screen is the 3DS's
   too: the status bar (signal, Internet, the play coins, date and time,

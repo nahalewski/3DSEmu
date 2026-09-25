@@ -26,7 +26,7 @@
 -- there (not built in) is skipped.
 local E = {}
 
-local MODULES = { "fold3ds.azahar", "fold3ds.melonds", "fold3ds.vc" }
+local MODULES = { "fold3ds.azahar", "fold3ds.melonds", "fold3ds.vc", "fold3ds.eden" }
 
 local list, byId = nil, {}
 

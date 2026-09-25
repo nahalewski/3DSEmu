@@ -10,7 +10,7 @@
 --   * the play meter: the blue bar fills with time spent in the app, and
 --     every 12 hours it fills it pays a coin and starts over (up to 99999
 --     coins, kept in fold3ds_coins.cfg);
---   * the Manual / Open bar across the bottom.
+--   * the Manual / Open bar across the bottom (Manual: the game's manual).
 --
 -- Sizes: 1 row of 4 across up to 5 rows of 9 across (the size buttons, a
 -- pinch, or X / Y).  Changing size animates: every tile glides and scales
@@ -71,6 +71,7 @@ local APPLETS = {
   { id = "skins", name = "Skins", icon = "paintbrush", color = { 40, 130, 230 }, tab = "skins" },
   { id = "importers", name = "Import", icon = "download", color = { 90, 180, 60 }, tab = "importers" },
   { id = "sync", name = "Save Sync", icon = "arrow-left-right", color = { 20, 170, 170 }, modal = "sync" },
+  { id = "switchui", name = "Switch HOME Menu", switchui = true },
   { id = "exit", name = "Exit", icon = "x", color = { 226, 56, 60 }, exit = true },
 }
 
@@ -305,6 +306,10 @@ local function openTile(imp, t)
     if imp._quitApp then imp:_quitApp() end
     return
   end
+  if t.switchui then
+    if ctx.toSwitch then ctx.toSwitch() end
+    return
+  end
   if t.camera then
     if ctx.openCamera then ctx.openCamera() end
     return
@@ -335,16 +340,28 @@ local function openTile(imp, t)
   end
 end
 
--- Manual: the game's manage page (ROM, saves, carts)
+-- the game's manage page (ROM, saves, carts)
+local function manage(imp, t)
+  openTile(imp, t)
+  imp._gameManage = t.id
+end
+
+-- Manual: a recomp game's electronic manual on the bottom screen (its Game
+-- Options go on to the manage page), else straight to the manage page; an
+-- emulator's game shows its options
 local function manual(imp, t)
   if t and t.emuGame then
     if Emus.hasManual(t) then Sfx.play("open"); Emus.manual(t) end
     return
   end
   if not imp or not t or not t.game then return end
-  openTile(imp, t)
-  imp._gameManage = t.id
+  if ctx.openManual and ctx.openManual(t.id, function() manage(imp, t) end) then return end
+  manage(imp, t)
 end
+
+-- the Switch HOME menu (fold3ds.homenx) opens tiles and manuals the same way
+H.openTile = function(imp, t) return openTile(imp, t) end
+H.manual = function(imp, t) return manual(imp, t) end
 
 -- open an applet on the bar by its id (the eShop's Open goes to Mods)
 function H.openApplet(imp, id)
@@ -774,6 +791,8 @@ function H.draw(r, imp, time)
       lg.draw(img, ix, iy, 0, s / iw, s / ih)
     elseif a.camera and ctx.drawCameraIcon then
       ctx.drawCameraIcon(ix, iy, s)
+    elseif a.switchui and ctx.drawSwitchIcon then
+      ctx.drawSwitchIcon(ix, iy, s)
     else
       local okI, Icons = pcall(require, "src.ui.kit.Icons")
       if okI then Icons.draw(a.icon, ix, iy, s, a.color, 1) end
