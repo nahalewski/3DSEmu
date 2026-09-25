@@ -80,19 +80,30 @@ index e2d84e6..e481f5f 100644
 +-keep class org.libsdl.app.** { *; }
 +-keep class org.citra.citra_emu.fold3ds.** { *; }
 diff --git a/src/android/app/src/main/AndroidManifest.xml b/src/android/app/src/main/AndroidManifest.xml
-index 022a4f6..b14ff8e 100644
+index 022a4f6..918ff40 100644
 --- a/src/android/app/src/main/AndroidManifest.xml
 +++ b/src/android/app/src/main/AndroidManifest.xml
-@@ -33,10 +33,23 @@
+@@ -33,10 +33,34 @@
      <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
      <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
  
-+    <!-- fold3ds: what gen1recomp's own app asks for (link play, its updater,
++    <!-- fold3ds: what gen1recomp's own app asks for (link play, Download Play, its updater,
 +         the Pokewalker step bridge, controllers) -->
 +    <uses-permission android:name="android.permission.VIBRATE" />
 +    <uses-permission android:name="android.permission.BLUETOOTH" />
 +    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 +    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
++    <!-- Download Play (FoldPlay, Nearby Connections): Bluetooth to find the
++         other phone, Wi-Fi Direct / Wi-Fi for the transfer -->
++    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
++    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
++    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
++    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
++    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
++    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
++    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
++    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
++    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 +    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
 +    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
 +    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
@@ -109,7 +120,7 @@ index 022a4f6..b14ff8e 100644
          android:appCategory="game"
          android:allowBackup="false"
          android:supportsRtl="true"
-@@ -46,19 +59,82 @@
+@@ -46,19 +70,82 @@
          <meta-data android:name="android.game_mode_config"
              android:resource="@xml/game_mode_config" />
  

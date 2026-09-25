@@ -2,9 +2,9 @@
 """Draws the 3DS HOME menu's Azahar icons: the Azahar folder, Close Folder,
 and one icon per settings page / tool in the folder (see fold3ds/azahar.lua's
 A.ITEMS).  Glossy rounded squares with a white glyph, like the 3DS's own
-applets.  Output: shell/fold3ds/icons3ds/<id>.png (128 x 128).
+applets.  Output: fold3ds/icons3ds/<id>.png (128 x 128).
 
-    pip install pillow && python3 shell/tools/make_azahar_icons.py
+    pip install pillow && python3 tools/make_azahar_icons.py
 
 Drop in your own PNG under the same name to replace any of them.
 """

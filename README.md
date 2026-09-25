@@ -3,9 +3,9 @@
 ## 3DS Fold: Azahar with the 3DS HOME menu (`build.sh`)
 
 One app that is both things at once: [Azahar](https://github.com/azahar-emu/azahar),
-the 3DS emulator, is the base Android app, and it opens on the 3DS HOME menu
-from [3dsfoldrecomp](https://github.com/nahalewski/3dsfoldrecomp).  The
-HOME menu is unchanged: same shell, top screen, applet bar, icon grid, play
+the 3DS emulator, is the base Android app, and it opens on this repo's 3DS
+HOME menu (the fold3ds layer on gen1recomp, described below).  The HOME menu
+is unchanged: same shell, top screen, applet bar, icon grid, play
 coins, camera, stickers, sounds, and the recomp games playing from their
 icons on the bottom screen.  Azahar is added to it:
 
@@ -27,8 +27,8 @@ icons on the bottom screen.  Azahar is added to it:
   the folder and its icons fill the grid, with Close Folder first and the
   folder's name on the play-meter row.  B, HOME or Close Folder closes
   it.  Each icon opens that page directly; Back returns to the folder.
-  The icons are in `shell/fold3ds/icons3ds/` (`az_<page>.png`,
-  `azahar.png` for the folder), drawn by `shell/tools/make_azahar_icons.py`.
+  The icons are in `fold3ds/icons3ds/` (`az_<page>.png`,
+  `azahar.png` for the folder), drawn by `tools/make_azahar_icons.py`.
   Replace any PNG to restyle it.
 * **The 3DS skin is the only skin.**  The Classic launcher look and the
   THEME card are gone; the bottom screen is always the HOME menu.
@@ -44,12 +44,11 @@ icons on the bottom screen.  Azahar is added to it:
 
 How it fits together:
 
-    build.sh                 fetches both at pinned commits, applies the layers, builds
-    shell/                   the layer on 3dsfoldrecomp (the HOME menu, LÖVE)
-      fold3ds/azahar.lua       reads Azahar's library, opens Azahar (love.system.openURL)
-      fold3ds/icons3ds/        the Azahar folder's icons
-      patches/                 home3ds.lua (3DS tiles, the folder), init.lua (top screen, 3DS skin only)
-      tools/                   the icon generator
+    build.sh                 apply.sh --package-only, then Azahar at a pinned commit + azahar/, builds
+    fold3ds/azahar.lua       reads Azahar's library, opens Azahar (love.system.openURL)
+    fold3ds/home3ds.lua      + 3DS game tiles and the Azahar folder
+    fold3ds/init.lua         + the top screen for them; the 3DS skin as the only skin
+    fold3ds/icons3ds/        the Azahar folder's icons (tools/make_azahar_icons.py draws them)
     azahar/                  the layer on Azahar (Android)
       patches/                 :love module, launcher, app id, three small hooks
       java/.../fold3ds/        Fold3dsBridge (library -> HOME menu), Fold3dsLinkActivity
@@ -72,10 +71,10 @@ Needs the Android SDK (platforms 35 and 36, build-tools 36, CMake 3.30.3,
 NDK 27.3.13750724 for Azahar and NDK 25.2.9519653 for LÖVE), JDK 17, git
 and python3.  GitHub Actions runs it on every push to `pixel-fold`
 (`.github/workflows/build-3ds-fold.yml`) and attaches the APK to a Release.
-`SHELL_COMMIT` / `AZAHAR_COMMIT` pick other commits of either project.
+`AZAHAR_COMMIT` picks another Azahar commit.  (`build-apk.yml` still builds
+the gen1recomp-only APK with `apply.sh`.)
 
-Desktop testing of the HOME menu works as below (from
-`build/3dsfoldrecomp/build/gen1recomp`).  `POKEPORT_FOLD_FAKEAZAHAR=1` adds
+Desktop testing of the HOME menu works as below.  `POKEPORT_FOLD_FAKEAZAHAR=1` adds
 three made-up 3DS games to the grid.
 
 ## gen1recomp Fold on its own (`apply.sh`)

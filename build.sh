@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # Builds the 3DS Fold APK: Azahar (the 3DS emulator) as the base Android
-# app, with the 3DS HOME menu from 3dsfoldrecomp (gen1recomp, its launcher
-# and the fold3ds layer, on LÖVE) as the screen it opens on.
+# app, with this repo's 3DS HOME menu (gen1recomp, its launcher and the
+# fold3ds layer, on LÖVE) as the screen it opens on.
 #
-#   1. 3dsfoldrecomp at a pinned commit, plus this repo's shell/ layer
-#      (fold3ds/azahar.lua, the Azahar icons, shell/patches/) -- its own
-#      apply.sh then prepares gen1recomp and packs game.love (--package-only);
+#   1. this repo's apply.sh prepares gen1recomp with fold3ds/ and packs
+#      game.love (--package-only);
 #   2. Azahar at a pinned commit (with its submodules), plus this repo's
 #      azahar/ layer (azahar/patches/, the Kotlin bridge, resources), with
 #      the prepared love-android module linked in as :love and game.love in
@@ -19,8 +18,6 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 B="$HERE/build"
-SHELL_REPO="${SHELL_REPO:-https://github.com/nahalewski/3dsfoldrecomp.git}"
-SHELL_COMMIT="${SHELL_COMMIT:-7bb0889bcdfd317aa07c4b961f12db84bd678393}"
 AZAHAR_REPO="${AZAHAR_REPO:-https://github.com/azahar-emu/azahar.git}"
 AZAHAR_COMMIT="${AZAHAR_COMMIT:-56d99197957f9c89609def36514319d961ce01eb}"
 TASK="${FOLD3DS_GRADLE_TASK:-assembleVanillaRelWithDebInfoLite}"
@@ -43,14 +40,9 @@ checkout() {
 mkdir -p "$B"
 
 # ---------------------------------------------------------------- 1. the 3DS HOME menu
-say "3dsfoldrecomp $SHELL_COMMIT"
-S="$B/3dsfoldrecomp"
-checkout "$SHELL_REPO" "$SHELL_COMMIT" "$S"
-cp -r "$HERE/shell/fold3ds/." "$S/fold3ds/"
-for p in "$HERE"/shell/patches/*.patch; do git -C "$S" apply "$p"; done
 say "gen1recomp + fold3ds -> game.love"
-(cd "$S" && ./apply.sh --package-only)
-G="$S/build/gen1recomp"
+"$HERE/apply.sh" --package-only
+G="$B/gen1recomp"
 LOVE_MODULE="$G/mobile/android/love"
 GAME_LOVE="$G/mobile/android/app/src/embed/assets/game.love"
 [ -f "$GAME_LOVE" ] || { echo "no game.love at $GAME_LOVE" >&2; exit 1; }
