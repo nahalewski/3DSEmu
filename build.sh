@@ -62,6 +62,8 @@ for p in "$HERE"/azahar/patches/*.patch; do git -C "$A" apply "$p"; done
 APP="$A/src/android/app/src/main"
 mkdir -p "$APP/java/org/citra/citra_emu/fold3ds" "$APP/assets" "$APP/res/xml"
 cp "$HERE"/azahar/java/org/citra/citra_emu/fold3ds/*.kt "$APP/java/org/citra/citra_emu/fold3ds/"
+# the frame buffer's address for the 3DS shell (listed in jni/CMakeLists.txt by the patch)
+cp "$HERE"/azahar/jni/*.cpp "$APP/jni/"
 cp -r "$HERE/azahar/res/." "$APP/res/"
 # gen1recomp's own app resources that LÖVE's Java reaches by name: the
 # launcher art, the game shortcuts' icons, the updater's file provider

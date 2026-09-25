@@ -311,6 +311,16 @@ index c16b95e..bd34976 100644
      }
  
      override fun onSaveInstanceState(outState: Bundle) {
+diff --git a/src/android/app/src/main/jni/CMakeLists.txt b/src/android/app/src/main/jni/CMakeLists.txt
+index 251788e..eb2b90d 100644
+--- a/src/android/app/src/main/jni/CMakeLists.txt
++++ b/src/android/app/src/main/jni/CMakeLists.txt
+@@ -1,4 +1,5 @@
+ add_library(citra-android SHARED
++    fold3ds_frames.cpp
+     android_common/android_common.cpp
+     android_common/android_common.h
+     applets/mii_selector.cpp
 diff --git a/src/android/gradle.properties b/src/android/gradle.properties
 index 1d09488..c6dfe49 100644
 --- a/src/android/gradle.properties
