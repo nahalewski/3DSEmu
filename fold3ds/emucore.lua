@@ -57,6 +57,10 @@ local KEY = { a = 1, b = 2, select = 4, start = 8, right = 16, left = 32, up = 6
 
 local CACHE = "emu_cache/"
 
+-- POKEPORT_FOLD_FAKEEMU=1: no core needed -- a few made-up DS, GB, GBC and
+-- GBA games whose screens are test patterns (for building the UI on a PC)
+local FAKE = os.getenv and os.getenv("POKEPORT_FOLD_FAKEEMU") == "1"
+
 ---------------------------------------------------------------- the core
 
 local C, loadError
@@ -114,7 +118,8 @@ local function core()
   return nil
 end
 
-function E.available() return core() ~= nil end
+function E.available() return FAKE or core() ~= nil end
+function E.fake() return FAKE end
 
 ---------------------------------------------------------------- the bridge (Java)
 
@@ -254,7 +259,7 @@ local function pickRoot()
 end
 
 function E.root() pickRoot() return st.root end
-function E.sharedOk() return not android() or bridge("files.ok") == "1" end
+function E.sharedOk() return FAKE or not android() or bridge("files.ok") == "1" end
 function E.askShared() return bridge("files.ask") end
 
 ---------------------------------------------------------------- the library
@@ -390,7 +395,27 @@ local function scan()
   if changed then saveCache() end
 end
 
+local FAKE_GAMES = {
+  { sys = "ds", name = "Pokemon - Platinum Version", code = "CPUE" },
+  { sys = "ds", name = "New Super Mario Bros.", code = "A2DE" },
+  { sys = "gb", name = "Tetris", crc = "46DF91AD" },
+  { sys = "gbc", name = "Pokemon - Crystal Version", crc = "3358E30A" },
+  { sys = "gba", name = "Pokemon - Emerald Version", crc = "1F1C08FB" },
+}
+
 function E.games()
+  if FAKE then
+    if not st.fakeGames then
+      st.fakeGames = {}
+      for i, g in ipairs(FAKE_GAMES) do
+        local key = ("fake%d"):format(i)
+        st.fakeGames[i] = { id = (g.sys == "ds" and "nds_" or "vc_") .. key, key = key, core = true, fake = true,
+          sys = g.sys, system = g.sys == "ds" and "nds" or g.sys, name = g.name, code = g.code, crc = g.crc,
+          nointro = nil, base = key, sub = SYS_LABEL[g.sys] }
+      end
+    end
+    return st.fakeGames
+  end
   if not st.scanned then scan() end
   return st.games
 end
@@ -399,7 +424,7 @@ function E.rescan() st.scanned = false; st.images = {} end
 
 -- a look at the games folder now and then (a game copied in joins the grid)
 function E.poll(time)
-  if time < st.scanAt then return end
+  if FAKE or time < st.scanAt then return end
   st.scanAt = time + 5
   if core() then
     local before = #st.games
@@ -448,7 +473,7 @@ end
 
 -- the tile's icon: a DS game's own banner icon, else its box art
 function E.icon(t)
-  if not t or not t.core then return nil end
+  if not t or not t.core or t.fake then return nil end
   if t.hasIcon then
     local i = img(CACHE .. "icons/" .. t.key .. ".png")
     if i then i:setFilter("nearest", "nearest") return i end
@@ -471,6 +496,7 @@ function E.iconPath(t)
 end
 
 function E.boxArt(t)
+  if t and t.fake then return nil end
   local b = img(boxFile(t))
   if not b then
     wantArt(t)
@@ -554,7 +580,50 @@ end
 local function saveFile(t) return path("saves", t.base .. ".sav") end
 local function stateFile(t) return path("states", t.base .. ".state") end
 
+-- a fake game's screen: colour bars, a moving stripe, the frame count
+local function fakeFrame(i, w, h, n)
+  local d = run.data[i]
+  if not d then
+    d = love.image.newImageData(w, h, "rgba8")
+    run.data[i] = d
+  end
+  local p = ffi.cast("uint8_t*", d:getFFIPointer())
+  local bars = { { 255, 255, 255 }, { 255, 255, 0 }, { 0, 255, 255 }, { 0, 255, 0 },
+                 { 255, 0, 255 }, { 255, 0, 0 }, { 0, 0, 255 }, { 20, 20, 20 } }
+  local stripe = n % w
+  for y = 0, h - 1 do
+    for x = 0, w - 1 do
+      local c = bars[math.floor(x * 8 / w) + 1]
+      local k = (y * w + x) * 4
+      local lit = (x == stripe or y == n % h) and 0 or 1
+      local shade = i == 1 and 0.6 or 1
+      p[k] = c[1] * lit * shade; p[k + 1] = c[2] * lit * shade; p[k + 2] = c[3] * lit * shade; p[k + 3] = 255
+    end
+  end
+  -- the DS touch point: a white dot
+  if i == 1 and run.touch then
+    for dy = -3, 3 do
+      for dx = -3, 3 do
+        local x, y = run.touch[1] + dx, run.touch[2] + dy
+        if x >= 0 and y >= 0 and x < w and y < h then
+          local k = (y * w + x) * 4
+          p[k], p[k + 1], p[k + 2] = 255, 255, 255
+        end
+      end
+    end
+  end
+  if run.images[i] then run.images[i]:replacePixels(d) else run.images[i] = lg.newImage(d) end
+  run.images[i]:setFilter("nearest", "nearest")
+end
+
 function E.play(t)
+  if FAKE then
+    run.t = t
+    run.acc, run.keys, run.touch, run.frame = 0, 0, nil, 0
+    run.menu, run.fast, run.slow = false, false, false
+    run.data, run.images = {}, {}
+    return true
+  end
   local lib = core()
   if not lib then
     E.message = E.NAME .. " is not in this build of the app"
@@ -591,6 +660,7 @@ function E.current() return run.t end
 function E.system() return run.t and run.t.sys end
 
 function E.stop()
+  if FAKE then run.t = nil; run.data, run.images = {}, {} return end
   local lib = core()
   if not run.t or not lib then return end
   lib.ec_flush()
@@ -604,18 +674,21 @@ end
 local function toast(text) run.toast = { text = text, at = love.timer.getTime() } end
 
 function E.saveState()
+  if FAKE then toast("State saved") return end
   local lib = core()
   if not run.t or not lib then return end
   toast(lib.ec_save_state(stateFile(run.t)) == 1 and "State saved" or "Could not save the state")
 end
 
 function E.loadState()
+  if FAKE then toast("State loaded") return end
   local lib = core()
   if not run.t or not lib then return end
   toast(lib.ec_load_state(stateFile(run.t)) == 1 and "State loaded" or "No saved state")
 end
 
 function E.reset()
+  if FAKE then toast("Reset") return end
   local lib = core()
   if run.t and lib then lib.ec_reset(); toast("Reset") end
 end
@@ -667,6 +740,14 @@ end
 
 -- every frame the app runs: the game's frames due since the last one
 function E.update(dt)
+  if FAKE and run.t then
+    if run.menu then return end
+    run.frame = (run.frame or 0) + 1
+    local w, h = E.screenSize(run.t.sys)
+    fakeFrame(0, w, h, run.frame)
+    if run.t.sys == "ds" then fakeFrame(1, w, h, run.frame) end
+    return
+  end
   local lib = core()
   if not run.t or not lib then return end
   local now = love.timer.getTime()
