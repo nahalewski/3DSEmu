@@ -1103,14 +1103,60 @@ local function drawLR(r, h, pad)
   end
 end
 
+-- A HOME bar app's banner, as the 3DS shows it when the app is picked: its
+-- icon turning in 3D (a slab, its edge a darker shade) above the app's
+-- own title, English or Japanese with SKINS > CARTRIDGE ARTWORK
+-- (fold3ds/icons3ds/<id>.png, fold3ds/banners/<id>_en|jp.png).
+local function appletBanner(r, id, t)
+  local function image(key, path)
+    if state.images[key] == nil then
+      local ok, im = pcall(lg.newImage, path)
+      state.images[key] = ok and im or false
+      if ok then im:setFilter("linear", "linear") end
+    end
+    return state.images[key] or nil
+  end
+  local icon = image("icon:" .. id, DIR .. "icons3ds/" .. id .. ".png")
+  local jp = Cart3D.region == "jp"
+  local title = image("banner:" .. id .. (jp and "_jp" or "_en"), DIR .. "banners/" .. id .. (jp and "_jp" or "_en") .. ".png")
+  local th = r.h * 0.3
+  if icon then
+    local iw, ih = icon:getDimensions()
+    local s = (r.h - th) * 0.82 / ih
+    local cx, cy = r.x + r.w / 2, r.y + (r.h - th) * 0.5
+    local cycle = (t % 5) / 5
+    local turn = cycle < 0.35 and 0 or (cycle - 0.35) / 0.65
+    turn = turn * turn * (3 - 2 * turn)
+    local a = turn * math.pi * 2 + 0.2 * math.sin(t * 1.2)
+    local ca, sa = math.cos(a), math.sin(a)
+    local bob = math.sin(t * 1.5) * r.h * 0.02
+    lg.setColor(0, 0, 0, 0.12)
+    lg.ellipse("fill", cx, cy + ih * s * 0.55, iw * s * 0.42 * math.max(0.3, math.abs(ca)), r.h * 0.03)
+    for k = 8, 1, -1 do
+      local sh = 0.45 + 0.25 * k / 8
+      lg.setColor(sh, sh, sh, 1)
+      lg.draw(icon, cx + sa * iw * s * 0.1 * k / 8, cy + bob, 0, s * ca, s, iw / 2, ih / 2)
+    end
+    local lit = ca >= 0 and 1 or 0.8
+    lg.setColor(lit, lit, lit, 1)
+    lg.draw(icon, cx, cy + bob, 0, s * ca, s, iw / 2, ih / 2)
+  end
+  if title then
+    local tw, tt = title:getDimensions()
+    local s = math.min(r.w * 0.8 / tw, th * 0.8 / tt)
+    lg.setColor(1, 1, 1, 1)
+    lg.draw(title, r.x + (r.w - tw * s) / 2, r.y + r.h - th + (th - tt * s) / 2, 0, s, s)
+  end
+end
+
 local function drawTop3DS(r, banner)
   lg.push("all")
   lg.setScissor(r.x, r.y, r.w, r.h)
   col3({ 250, 251, 252 })
   lg.rectangle("fill", r.x, r.y, r.w, r.h)
   local P, sh, nh, pad = topPanel(r)
-  local bannerH = math.floor(r.h * 0.34)
-  if banner == "dlplay" then P.h = r.h - sh - bannerH - 2 * pad end
+  local bannerH = math.floor(r.h * 0.42)
+  if banner then P.h = r.h - sh - bannerH - 2 * pad end
   -- status bar
   local cy = r.y + pad * 0.6 + sh / 2
   local bh = sh * 0.7
@@ -1210,6 +1256,14 @@ local function drawTop3DS(r, banner)
     -- the eShop: its own page below the status bar
     Eshop.drawTop({ x = r.x, y = P.y, w = r.w, h = r.y + r.h - P.y - nh * 0.2 })
     drawLR(r, nh * 0.72, pad)
+    lg.pop()
+    return
+  end
+  if banner and banner ~= "dlplay" then
+    -- another HOME bar app picked: its banner under the panel
+    local by = P.y + P.h + pad * 0.3
+    appletBanner({ x = r.x + r.w * 0.16, y = by, w = r.w * 0.68, h = r.y + r.h - by - pad * 0.2 }, banner, state.time)
+    drawLR(r, bannerH * 0.26, pad)
     lg.pop()
     return
   end
@@ -1608,7 +1662,8 @@ local function drawFrame()
     Eshop.drawBottom(L.botCut)
   elseif homeActive() and Home.showing() then
     local focus = Home.barFocus()
-    if Theme3DS.active then drawTop3DS(L.topCut, focus == "downloadplay" and "dlplay" or focus == "eshop" and "eshop" or nil)
+    local banners = { downloadplay = "dlplay", eshop = "eshop", camera = "camera", settings = "settings" }
+    if Theme3DS.active then drawTop3DS(L.topCut, banners[focus or ""])
     else drawTopIdle(L.topCut) end
     Home.draw(L.botCut, state.subject, state.time)
   else
