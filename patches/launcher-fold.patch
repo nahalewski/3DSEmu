@@ -1,0 +1,589 @@
+diff --git a/src/import/LauncherView.lua b/src/import/LauncherView.lua
+index 8ef7511d..36c25db5 100644
+--- a/src/import/LauncherView.lua
++++ b/src/import/LauncherView.lua
+@@ -156,6 +156,8 @@ local function armMouse(imp, x, y)
+   local shielded = imp._modalUpNow
+   imp._mouseAt = {
+     x = x, y = y,
++    strip = not shielded and LauncherView.fold and (imp._foldTabMax or 0) > 0
++      and inRect(imp._foldStripRect, x, y) or false,
+     region = not shielded and tabScrollMax(imp) > 0
+       and inRect(imp._tabRegionRect, x, y) or false,
+     page = not shielded and (imp._pageScrollMax or 0) > 0 or false,
+@@ -204,7 +206,10 @@ function LauncherView.update(imp, dt)
+     if ddx * ddx + ddy * ddy > TAP_SLOP2 then
+       start.dragged = true
+     end
+-    if start.dragged then
++    if start.dragged and start.strip then
++      local lastX = start.lastX or start.x
++      imp._foldTabX = clamp((imp._foldTabX or 0) - (mx - lastX), 0, imp._foldTabMax or 0)
++    elseif start.dragged then
+       local last = start.lastY or start.y
+       local move = -(my - last)
+       if move ~= 0 and start.region then
+@@ -222,6 +227,7 @@ function LauncherView.update(imp, dt)
+       if move ~= 0 then Kit.dragAdd(move) end
+     end
+     start.lastY = my
++    start.lastX = mx
+   elseif not down and imp._mouseAt then
+     local start = imp._mouseAt
+     imp._mouseAt = nil
+@@ -266,6 +272,8 @@ function LauncherView.touchpressed(imp, id, x, y)
+   imp._touchAt[tostring(id)] = {
+     x = x, y = y, started = love.timer.getTime(),
+     region = not shielded and tabScrollMax(imp) > 0 and inRect(imp._tabRegionRect, x, y),
++    strip = not shielded and LauncherView.fold and (imp._foldTabMax or 0) > 0
++      and inRect(imp._foldStripRect, x, y) or nil,
+     page = not shielded,
+     picker = picker and inRect(picker.rect, x, y) and picker or nil,
+   }
+@@ -279,7 +287,10 @@ function LauncherView.touchmoved(imp, id, x, y)
+     if ddx * ddx + ddy * ddy > TAP_SLOP2 then
+       start.dragged = true
+     end
+-    if start.dragged then
++    if start.dragged and start.strip then
++      local lastX = start.lastX or start.x
++      imp._foldTabX = clamp((imp._foldTabX or 0) - (x - lastX), 0, imp._foldTabMax or 0)
++    elseif start.dragged then
+       local last = start.lastY or start.y
+       local move = -(y - last)
+       if move ~= 0 and start.picker then
+@@ -297,6 +308,7 @@ function LauncherView.touchmoved(imp, id, x, y)
+       end
+     end
+     start.lastY = y
++    start.lastX = x
+   end
+ end
+ 
+@@ -550,6 +562,8 @@ local function cartSkin(imp, version)
+            sparkle = sparkle, holo = holo,
+            name = row.title, cart = row, cartId = row.id }
+ end
++-- fold3ds: the 3DS theme's top screen draws its own 3D cart in these colours
++LauncherView.foldCartSkin = cartSkin
+ 
+ local CART_DRAG_SLOP = 8
+ local TAU = math.pi * 2
+@@ -1568,7 +1582,190 @@ local function headerChrome(imp)
+   return c
+ end
+ 
++-- FOLD (LauncherView.fold, set by the Android foldable layer while the
++-- launcher sits in the 3DS bottom screen): no wordmark, and one header row
++-- -- the game dropdown and the tabs in a strip that scrolls left and right
++-- by dragging, with sync / settings / quit pinned to its right.
++local function foldHeaderMetrics(m)
++  local tabW, dropW, labelH = headerTabMetrics(m)
++  local gap = math.floor(6 * m.s)
++  local clusterN = 3
++  local clusterW = clusterN * m.chip + (clusterN - 1) * gap
++  local rowH = m.chip + labelH + math.floor(3 * m.s)
++  return tabW, dropW, labelH, gap, clusterW, rowH
++end
++
++local function foldHeaderHeight(m)
++  local _, _, _, _, _, rowH = foldHeaderMetrics(m)
++  return m.railH + math.floor(6 * m.s) + rowH + math.floor(6 * m.s) + 1
++end
++
++-- a tab's caption, scaled down to its width when it would run over
++local function foldLabel(text, x, y, w, color)
++  local tw = Kit.textWidth("micro", text)
++  if tw <= w or tw <= 0 then
++    Kit.textCenter("micro", text, x, y, w, color)
++    return
++  end
++  local k = w / tw
++  love.graphics.push()
++  love.graphics.translate(x, y + Kit.textHeight("micro") * (1 - k) / 2)
++  love.graphics.scale(k, k)
++  Kit.text("micro", text, 0, 0, color)
++  love.graphics.pop()
++end
++
++local function buildFoldHeader(imp, m)
++  local y = m.top
++  Theme.versionRail(m.x, y, m.w, m.railH)
++  y = y + m.railH
++  local tabW, dropW, labelH, gap, clusterW, rowH = foldHeaderMetrics(m)
++  local tabH = m.chip
++  local ty = y + math.floor(6 * m.s)
++  local chrome = headerChrome(imp)
++
++  -- Sizes: tabs, dropdown and the pinned cluster (sync, gear, quit) all
++  -- shrink together to fit one row while they stay tappable; only on a
++  -- screen too narrow even for that does the strip scroll, with arrows.
++  local n = #HEADER_TABS
++  local cb = m.chip                      -- cluster button size
++  -- the fold layer may carry sync / settings / quit in its own side column
++  local clusterOut = LauncherView.foldClusterOut
++  local avail = m.w - 2 * m.pad
++  local want = dropW + n * (gap + tabW) + (clusterOut and 0 or (gap + 3 * cb + 2 * gap))
++  if want > avail then
++    local minTab = math.max(Kit.tapMin(), math.floor(m.chip * 0.8))
++    local g = math.max(2, math.floor(gap * 0.6))
++    local k = clusterOut and (avail - n * g) / (dropW + n * tabW)
++      or (avail - (n + 3) * g) / (dropW + n * tabW + 3 * cb)
++    tabW = math.max(minTab, math.floor(tabW * k))
++    dropW = math.max(math.floor(minTab * 1.45), math.floor(dropW * k))
++    cb = math.max(minTab, math.floor(cb * k))
++    gap = g
++  end
++  local cgap = gap
++  clusterW = clusterOut and -gap or (3 * cb + 2 * cgap)
++
++  -- the pinned cluster, right to left: quit, gear, sync
++  local rx = m.x + m.w - m.pad - cb
++  if not clusterOut then
++  local cy0 = ty + math.floor((tabH - cb) / 2)
++  btn(imp, rx - 2 * (cb + cgap), cy0, cb, cb, "tab-sync", "", chrome.sync)
++  do
++    local eng = imp._sync
++    if eng and eng.busy and eng:busy() then
++      local sx0 = rx - 2 * (cb + cgap)
++      Kit.spinner(sx0 + cb - math.floor(8 * m.s), cy0 + math.floor(8 * m.s),
++        math.max(2, math.floor(4 * m.s)))
++    end
++  end
++  btn(imp, rx - (cb + cgap), cy0, cb, cb, "gear", "", chrome.gear)
++  btn(imp, rx, cy0, cb, cb, "quit", "", chrome.quit)
++  end
++
++  -- the strip
++  local sx = m.x + m.pad
++  local sw = math.max(0, m.x + m.w - m.pad - clusterW - gap - sx)
++  local contentW = dropW + n * (gap + tabW)
++  if contentW > sw then
++    local chev = math.max(math.floor(m.chip * 0.5), 16)
++    local maxX0 = math.max(0, contentW - (sw - 2 * chev))
++    local at0 = clamp(imp._foldTabX or 0, 0, maxX0)
++    local step = (tabW + gap) * 2
++    local function arrow(x, dir, enabled, action)
++      btn(imp, x, ty, chev - 2, tabH, dir < 0 and "tab-strip-left" or "tab-strip-right", "", {
++        kind = "ghost", enabled = enabled, action = action })
++      local cx, cyy, a = x + (chev - 2) / 2, ty + tabH / 2, math.floor(chev * 0.22)
++      Theme.col(PAL.text, enabled and 1 or 0.3)
++      love.graphics.polygon("fill", cx - dir * a * 0.6, cyy - a, cx - dir * a * 0.6, cyy + a, cx + dir * a * 0.8, cyy)
++      love.graphics.setColor(1, 1, 1, 1)
++    end
++    arrow(sx, -1, at0 > 0, function() imp._foldTabX = clamp((imp._foldTabX or 0) - step, 0, maxX0) end)
++    arrow(sx + sw - chev + 2, 1, at0 < maxX0, function() imp._foldTabX = clamp((imp._foldTabX or 0) + step, 0, maxX0) end)
++    sx, sw = sx + chev, sw - 2 * chev
++  end
++  local maxX = math.max(0, contentW - sw)
++  local strip = imp._foldStripRect
++  if not strip then strip = {}; imp._foldStripRect = strip end
++  strip.x, strip.y, strip.w, strip.h = sx, ty, sw, rowH
++  imp._foldTabMax = maxX
++  local at = clamp(imp._foldTabX or 0, 0, maxX)
++  -- keep the focused tab (pad / keyboard ring), or a newly opened one, in view
++  local focus = Kit._ringShown and Kit.focusId
++  if imp.tab ~= imp._foldTabShown then
++    imp._foldTabShown = imp.tab
++    focus = "tab-game"
++    for _, t in ipairs(HEADER_TABS) do
++      if t.id == imp.tab then focus = t.key end
++    end
++    imp._foldTabFocus = nil
++  end
++  if focus and focus ~= imp._foldTabFocus then
++    local fx
++    if focus == "tab-game" then fx = 0 end
++    for i, t in ipairs(HEADER_TABS) do
++      if t.key == focus then fx = dropW + gap + (i - 1) * (tabW + gap) end
++    end
++    if fx then
++      local fw = fx == 0 and dropW or tabW
++      at = clamp(math.max(fx + fw - sw, math.min(at, fx)), 0, maxX)
++    end
++  end
++  imp._foldTabFocus = focus
++  imp._foldTabX = at
++
++  Kit.pushClip(sx, ty - math.floor(2 * m.s), sw, rowH + math.floor(4 * m.s))
++  local tx = sx - at
++  local game = currentGame(imp)
++  chrome.game.color = game.color
++  chrome.game.letter = game.letter
++  chrome.game.letterBold = true
++  chrome.game.active = imp.tab == game.id
++  chrome.game.ring = nil
++  local gameDown = Kit.hover(tx, ty, dropW, tabH) and Kit.mouseDown
++  btn(imp, tx, ty, dropW, tabH, "tab-game", "", chrome.game)
++  do
++    local cw = math.floor(7 * m.s)
++    local ccx = tx + dropW - math.floor(14 * m.s)
++    local ccy = ty + tabH / 2 + (gameDown and math.floor(1 * m.s) or 0)
++    if love.graphics.polygon then
++      Theme.col(chrome.game.active and PAL.inverse or PAL.ink, gameDown and 1 or 0.9)
++      love.graphics.polygon("fill",
++        ccx - cw, ccy - cw * 0.5, ccx + cw, ccy - cw * 0.5, ccx, ccy + cw * 0.8)
++      love.graphics.setColor(1, 1, 1, 1)
++    end
++  end
++  foldLabel(Strings("GAMES"), tx, ty + tabH + 3 * m.s, dropW, PAL.muted)
++  tx = tx + dropW + gap
++  for _, t in ipairs(HEADER_TABS) do
++    local o = t.opts
++    o.active = imp.tab == t.id
++    o.image = t.icon
++    o.action = chrome.tab[t.id]
++    btn(imp, tx, ty, tabW, tabH, t.key, "", o)
++    if t.beta then overlayBeta(tx, ty, tabW, tabH, m) end
++    foldLabel(Strings(TAB_LABELS[t.id]), tx, ty + tabH + 3 * m.s, tabW,
++      o.active and PAL.text or PAL.muted)
++    tx = tx + tabW + gap
++  end
++  Kit.popClip()
++  -- edge fades say there is more strip to drag to
++  local fadeW = math.floor(14 * m.s)
++  for i = 0, fadeW - 1 do
++    local a = ((fadeW - i) / fadeW) ^ 2
++    if at > 0 then Theme.fill(sx + i, ty, 1, rowH, PAL.bg, a) end
++    if at < maxX then Theme.fill(sx + sw - 1 - i, ty, 1, rowH, PAL.bg, a) end
++  end
++
++  y = ty + rowH + math.floor(6 * m.s)
++  Theme.fill(m.x, y, m.w, 1, PAL.line, Theme.A.hairline)
++  return y + 1
++end
++
+ local function buildHeader(imp, m)
++  -- FOLD, 3DS theme: the HOME menu (the foldable layer) replaces the header
++  if LauncherView.foldNoHeader then return m.top end
++  if LauncherView.fold then return buildFoldHeader(imp, m) end
+   local y = m.top
+   Theme.versionRail(m.x, y, m.w, m.railH)
+   y = y + m.railH
+@@ -2201,7 +2398,7 @@ local function buildGamePanel(imp, x, y, w, availH, m, version, budgetH)
+   local sy = y + (titleH - tagH) / 2
+   if not inline then tx, sy = x, y + titleH + math.floor(4 * m.s) end
+   Kit.tag(tx, sy, statusW, tagH, status, statusColor)
+-  if ready then
++  if ready and not LauncherView.fold then
+     local hx = tx + statusW + gap
+     Kit.text("micro", Kit.ellipsize("micro", Strings("(PRESS THE CART TO PLAY)"), math.max(0, x + w - hx)),
+       hx, sy + (tagH - Kit.textHeight("micro")) / 2, PAL.muted)
+@@ -2209,7 +2406,7 @@ local function buildGamePanel(imp, x, y, w, availH, m, version, budgetH)
+   if not inline then titleH = titleH + math.floor(4 * m.s) + tagH end
+   -- Extra gap under the title when the cart is showing: 12px left the 3D
+   -- shell sitting on the hairline.  Scaled, and still small on a phone.
+-  local afterTitle = math.floor((ready and 22 or 12) * m.s)
++  local afterTitle = math.floor((ready and not LauncherView.fold and 22 or 12) * m.s)
+   local cy = y + titleH + afterTitle
+   local remaining = availH - (titleH + afterTitle)
+   local budgetLeft = math.max(remaining,
+@@ -2237,7 +2434,31 @@ local function buildGamePanel(imp, x, y, w, availH, m, version, budgetH)
+   local mdl = romModel(imp, version, info, ready, locked)
+   local ly = cy
+ 
+-  if ready then
++  if ready and LauncherView.fold then
++    -- FOLD: the cartridge is on the top screen (tap it to play); down here
++    -- a plain Play button and the manage pencil
++    local mgW = m.btnH
++    local bgap = math.floor(8 * m.s)
++    btn(imp, lx, ly, lw - mgW - bgap, m.btnH, "play-" .. version, Strings("Play"), {
++      kind = "accent", font = "button",
++      action = function() imp:play(version, true) end })
++    btn(imp, lx + lw - mgW, ly, mgW, mgW, "manage-" .. version, "", {
++      face = "invert", icon = "pencil",
++      action = function() imp._gameManage = version end,
++    })
++    ly = ly + m.btnH + gap
++    btn(imp, lx, ly, lw, m.btnH, "carts-" .. version,
++      Strings("Custom Carts"), {
++        kind = "ghost", font = "small",
++        action = function()
++          imp._cartPopup = version
++          imp._cartNotice = nil
++        end,
++      })
++    ly = ly + m.btnH + gap
++    local sealH = buildCartCard(imp, lx, ly, lw, m, version)
++    if sealH > 0 then ly = ly + sealH + gap end
++  elseif ready then
+     -- Preserve shell proportions.
+     local playH = math.floor(clamp(remaining * 0.52, 112 * m.s, 260 * m.s))
+     local mgW = math.max(Kit.tapMin(), math.floor(34 * m.s))
+@@ -2462,6 +2683,19 @@ local function buildModsPanel(imp, x, y, w, availH, m)
+   -- (Import, Updates, Sort) directly on the bar across screen sizes, placing
+   -- bulk actions (Enable all / Disable all) into More... on compact viewports.
+   local bh = m.btnH
++  if LauncherView.fold then
++    -- FOLD: the community catalog (every mod on gen1recomp.com/mod, each
++    -- downloaded from its author's GitHub release) sits one tap away
++    btn(imp, x, cy, w, bh, "mods-download", Strings("Download mods"), {
++      kind = "good", font = "small",
++      action = function()
++        if imp.findKind == "carts" and imp._setFindKind then
++          imp:_setFindKind("mods")
++        end
++        imp:_switchTab("find")
++      end })
++    cy = cy + bh + math.floor(8 * m.s)
++  end
+   local importLabel = imp:_modsImportButtonLabel()
+   local importW = Kit.textWidth("small", importLabel) + math.floor(24 * m.s)
+ 
+@@ -3180,6 +3414,81 @@ local function buildSkinsPanel(imp, x, y, w, availH, m)
+       action = function() imp:chooseSkin() end })
+   cy = cy + bh + gap
+ 
++  -- FOLD: the bottom screen's look -- the launcher as it ships, or dressed
++  -- like the 3DS HOME menu
++  local theme = LauncherView.fold and LauncherView.foldTheme
++  if theme then
++    local th = Kit.textHeight("small")
++    local cardH = gap * 3 + th + math.floor(4 * m.s) + bh
++    Kit.card(x, cy, w, cardH)
++    Kit.caption(x + gap, cy + gap, "THEME")
++    local by = cy + gap * 2 + th + math.floor(4 * m.s)
++    local half = (w - gap * 3) * 0.5
++    local current = theme.get()
++    btn(imp, x + gap, by, half, bh, "skins-theme-classic", Strings("Classic"), {
++      kind = current == "classic" and "accent" or "ghost", font = "small",
++      action = function() theme.set("classic") end })
++    btn(imp, x + gap * 2 + half, by, half, bh, "skins-theme-3ds", Strings("3DS"), {
++      kind = current == "3ds" and "accent" or "ghost", font = "small",
++      action = function() theme.set("3ds") end })
++    cy = cy + cardH + gap
++  end
++
++  -- FOLD: the top screen cartridges' artwork -- the English-language
++  -- releases or the Japanese ones (labels, and Japan's grey carts)
++  local art = LauncherView.fold and LauncherView.foldArtwork
++  if art then
++    local th = Kit.textHeight("small")
++    local cardH = gap * 3 + th + math.floor(4 * m.s) + bh
++    Kit.card(x, cy, w, cardH)
++    Kit.caption(x + gap, cy + gap, "CARTRIDGE ARTWORK")
++    local by = cy + gap * 2 + th + math.floor(4 * m.s)
++    local half = (w - gap * 3) * 0.5
++    local current = art.get()
++    btn(imp, x + gap, by, half, bh, "skins-art-en", Strings("EN"), {
++      kind = current == "intl" and "accent" or "ghost", font = "small",
++      action = function() art.set("intl") end })
++    btn(imp, x + gap * 2 + half, by, half, bh, "skins-art-jp", Strings("JP"), {
++      kind = current == "jp" and "accent" or "ghost", font = "small",
++      action = function() art.set("jp") end })
++    cy = cy + cardH + gap
++  end
++
++  -- FOLD: the cover sticker -- a picture of the player's own on the closed
++  -- lid, cropped and edged by the foldable layer's editor
++  local sticker = LauncherView.fold and LauncherView.foldSticker
++  if sticker then
++    local on, fallen = 0, 0
++    if sticker.count then on, fallen = sticker.count() end
++    local th = Kit.textHeight("small")
++    local rows = fallen > 0 and 2 or 1
++    local cardH = gap * (2 + rows) + th * 2 + math.floor(4 * m.s) + bh * rows
++    Kit.card(x, cy, w, cardH)
++    Kit.caption(x + gap, cy + gap, "COVER STICKERS")
++    local line
++    if on == 0 and fallen == 0 then line = Strings("Stick your own pictures on the cover")
++    elseif fallen > 0 then line = Strings("%d on the cover, %d fell off", on, fallen)
++    else line = on == 1 and Strings("1 on the cover -- peel it there") or Strings("%d on the cover -- peel them there", on) end
++    Kit.text("small", Kit.ellipsize("small", line, w - gap * 2),
++      x + gap, cy + gap + th + math.floor(4 * m.s), on > 0 and PAL.green or PAL.muted)
++    local by = cy + gap * 2 + th * 2 + math.floor(4 * m.s)
++    local half = (w - gap * 3) * 0.5
++    btn(imp, x + gap, by, on > 0 and half or (w - gap * 2), bh, "skins-sticker",
++      Strings("Add a sticker"), {
++        kind = "accent", font = "small", action = function() sticker.open() end })
++    if on > 0 then
++      btn(imp, x + gap * 2 + half, by, half, bh, "skins-sticker-edit",
++        Strings("Edit the top one"), { font = "small",
++          action = function() sticker.open("top") end })
++    end
++    if fallen > 0 then
++      btn(imp, x + gap, by + bh + gap, w - gap * 2, bh, "skins-sticker-back",
++        Strings("Put the fallen ones back"), { kind = "good", font = "small",
++          action = function() sticker.putBack() end })
++    end
++    cy = cy + cardH + gap
++  end
++
+   if imp._skinNotice then
+     cy = cy + Kit.textWrapped("small", imp._skinNotice.text, x, cy, w,
+       imp._skinNotice.ok and PAL.green or PAL.red, 2) + gap
+@@ -3633,6 +3942,8 @@ end
+ -- competing with the panel for a short window's height, so the mark and the
+ -- link share one line and the trust warning is capped at a single line.
+ local function footerHeight(imp, m)
++  -- FOLD: the mark, the updater and Patch notes live in Settings instead
++  if LauncherView.fold then return 0 end
+   -- Top pad + mark/update row + optional notes wrap row + gap + the FULL
+   -- wrapped trust message + bottom pad.  The message wraps to as many lines
+   -- as it needs: truncating a trust warning defeats its purpose, and the
+@@ -3647,6 +3958,7 @@ local function footerHeight(imp, m)
+ end
+ 
+ local function buildFooter(imp, m, y)
++  if LauncherView.fold then return end
+   Theme.fill(m.x, y, m.w, 1, PAL.line, Theme.A.hairline)
+   local cy = y + math.floor(8 * m.s)
+   -- The BCG mark is dark ink; invert it for the black field.
+@@ -3756,7 +4068,7 @@ local function modalAmount()
+   return p
+ end
+ 
+-local function modalPanel(m, w, h)
++local function modalPanel(m, w, h, full)
+   -- A near-opaque scrim, not a tint.  At 0.82 the header and the wordmark
+   -- still read through the settings panel and the screen looked like two
+   -- layouts fighting rather than one panel on top ("the settings is covering
+@@ -3769,6 +4081,8 @@ local function modalPanel(m, w, h)
+   local ph = math.floor(math.min(h, m.H - 2 * m.pad))
+   local px = math.floor((m.W - pw) / 2)
+   local py = math.floor((m.H - ph) / 2)
++  -- a whole screen (the fold's Settings), not a card over the page
++  if full then px, py, pw, ph = 0, 0, m.W, m.H end
+   modalRect.x, modalRect.y, modalRect.w, modalRect.h = px, py, pw, ph
+   if amt < 1 and not modalTransform and love.graphics and love.graphics.push then
+     local s = 0.96 + 0.04 * amt
+@@ -3778,7 +4092,11 @@ local function modalPanel(m, w, h)
+     love.graphics.translate(-m.W / 2, -m.H / 2)
+     modalTransform = true
+   end
+-  Kit.card(px, py, pw, ph, true)
++  if full then
++    Theme.fill(px, py, pw, ph, PAL.bg, 1)
++  else
++    Kit.card(px, py, pw, ph, true)
++  end
+   Kit.blockClicks = Transition.active()
+   return px, py, pw, ph
+ end
+@@ -5526,10 +5844,22 @@ local function buildSettingsModal(imp, m)
+   local model = imp._settings
+   local SaveData = require("src.core.SaveData")
+   local pad, gap = math.floor(18 * m.s), math.floor(8 * m.s)
++  if LauncherView.fold then pad = math.floor(10 * m.s) end
+   local px, py, pw, ph = modalPanel(m, math.floor(600 * m.s),
+-    math.floor(math.min(m.H - 2 * m.pad, m.H * 0.92)))
++    math.floor(math.min(m.H - 2 * m.pad, m.H * 0.92)), LauncherView.fold)
+   if model.confirm then Kit.blockClicks = true end
+   local x, cy, width = px + pad, py + pad, pw - 2 * pad
++  local fold = LauncherView.fold
++  if fold then
++    -- FOLD: one short title row; Troubleshooting and Done ride in the list
++    Kit.textBold("button", Strings("Settings"), x,
++      cy + (m.btnH - Kit.textHeight("button")) / 2, PAL.heading)
++    if model.flash then
++      local fx = x + Kit.textWidth("button", Strings("Settings")) + gap * 2
++      Kit.text("small", Kit.ellipsize("small", model.flash, math.max(0, x + width - m.btnH - gap - fx)),
++        fx, cy + (m.btnH - Kit.textHeight("small")) / 2, PAL.green)
++    end
++  else
+   Kit.textBold("title", Strings("Settings"), x, cy, PAL.heading)
+   local subtitleW = width - m.btnH - gap
+   if model.flash then
+@@ -5539,10 +5869,16 @@ local function buildSettingsModal(imp, m)
+     Kit.text("small", Strings("Saved automatically"), x,
+       cy + Kit.textHeight("title") + math.floor(3 * m.s), PAL.muted)
+   end
++  end
+   btn(imp, x + width - m.btnH, cy, m.btnH, m.btnH, "settings-close", "", {
+     face = "invert", icon = "x", action = function() imp:_closeSettings() end })
+-  cy = cy + Kit.textHeight("title") + Kit.textHeight("small") + math.floor(20 * m.s)
++  if fold then
++    cy = cy + m.btnH + gap
++  else
++    cy = cy + Kit.textHeight("title") + Kit.textHeight("small") + math.floor(20 * m.s)
++  end
+   local footerY = py + ph - pad - m.btnH
++  if fold then footerY = py + ph - pad + gap * 2 end
+   local viewH = math.max(0, footerY - gap * 2 - cy)
+   local rowW = width - Kit.scrollGutter(m.s)
+   local inset = math.floor(12 * m.s)
+@@ -5574,6 +5910,8 @@ local function buildSettingsModal(imp, m)
+     item.top = total
+     if item.header then
+       item.h = Kit.textHeight("button") + (item.hint and Kit.textHeight("micro") + 4 * m.s or 0) + gap * 2
++    elseif item.row.custom then
++      item.h = item.row.custom.height(m, inner)
+     else
+       item.stacked = item.row.choices ~= nil or Kit.textWidth("small", item.label)
+         + math.floor(210 * m.s) > inner
+@@ -5604,6 +5942,8 @@ local function buildSettingsModal(imp, m)
+           Kit.text("micro", item.hint, x, ry + gap + Kit.textHeight("button") + 4 * m.s, PAL.muted)
+         end
+       end
++    elseif item.row.custom then
++      if visible then item.row.custom.draw(imp, m, x, ry, rowW, item.h) end
+     else
+       local row, key = item.row, "set-" .. i
+       local rowEnabled = not row.safeModeBlocked or not SaveData.isSafeMode(model.opts)
+@@ -5682,7 +6022,11 @@ local function buildSettingsModal(imp, m)
+       end
+     end
+   end
+-  Kit.scrollEnd(x, cy, width, viewH, model.scroll, maxAt, PAL.surface)
++  Kit.scrollEnd(x, cy, width, viewH, model.scroll, maxAt, fold and PAL.bg or PAL.surface)
++  if fold then
++    if model.confirm then buildConfirmModal(imp, m, model.confirm) end
++    return
++  end
+   Theme.stroke(x, footerY - gap, width, 1, PAL.line, 0.25, 1)
+   local doneW = math.max(chipWidth(Strings("Done"), m), math.floor(80 * m.s))
+   btn(imp, x, footerY, width - doneW - gap, m.btnH, "settings-bug", Strings("Troubleshooting"), {
+@@ -6650,6 +6994,8 @@ end
+ -- whether the window is tall enough BEFORE anything draws.  Keep in sync
+ -- with buildHeader (rail, logo row, tab row, hairline).
+ local function headerHeight(m)
++  if LauncherView.foldNoHeader then return 0 end
++  if LauncherView.fold then return foldHeaderHeight(m) end
+   local _, _, labelH, rows = headerTabMetrics(m)
+   return m.railH + m.logoH + math.floor(12 * m.s) + math.floor(6 * m.s)
+     + rows * (m.chip + labelH) + (rows - 1) * math.floor(4 * m.s)
+@@ -6661,6 +7007,8 @@ end
+ -- pinned Play block used to walk up over the cards on a short window, which
+ -- is unusable, and the footer simply lives below the fold until scrolled to.
+ local function minPanelHeight(m)
++  -- FOLD: the header stays put and only the panel under it scrolls
++  if LauncherView.fold then return 0 end
+   -- One column stacks the ROM card and the slot card in a single pile, so it
+   -- needs more room than the side-by-side layout; two columns only have to
+   -- fit the taller of the two.  Both numbers came DOWN sharply when the
+@@ -6869,6 +7217,34 @@ function LauncherView.draw(imp)
+     imp:_commitOnlineField()
+   end
+   imp._onlineFieldHit = nil
++  -- FOLD, 3DS theme: the selected game's cartridge, drawn into the canvas
++  -- the foldable layer shows on the top screen.  Inert: no clicks, no
++  -- focus, the pointer parked at its centre so it only idles.
++  local topCart = LauncherView.foldTopCart
++  if topCart and topCart.canvas and topCart.version then
++    local cw, ch = topCart.canvas:getDimensions()
++    local block, mx, my = Kit.blockClicks, Kit.mouseX, Kit.mouseY
++    Kit.blockClicks = true
++    Kit.mouseX, Kit.mouseY = cw / 2, ch / 2
++    love.graphics.push("all")
++    love.graphics.setCanvas({ topCart.canvas, stencil = true })
++    love.graphics.origin()
++    love.graphics.setScissor()
++    love.graphics.clear(0, 0, 0, 0)
++    local version = topCart.version
++    local skin = cartSkin(imp, version)
++    local h = math.floor(ch * 0.9)
++    local w = math.floor(h * 0.88)
++    if skin.shape == "gba" then
++      w = math.floor(cw * 0.8)
++      h = math.floor(math.min(ch * 0.8, w / CartShape.GBA_ASPECT))
++      w = math.floor(h * CartShape.GBA_ASPECT)
++    end
++    pcall(cartridgeButton, imp, math.floor((cw - w) / 2), math.floor((ch - h) / 2), w, h,
++      "topcart-" .. version, skin, function() end, version)
++    love.graphics.pop()
++    Kit.blockClicks, Kit.mouseX, Kit.mouseY = block, mx, my
++  end
+   Kit.endFrame()
+   drawPadCursor(imp)
+ 

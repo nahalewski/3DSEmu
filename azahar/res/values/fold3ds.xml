@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- the app's name on the phone's launcher -->
+    <string name="fold3ds_app_name" translatable="false">gen1recomp Fold</string>
+
+    <!-- Fold3dsLinkActivity: nothing of its own shows, only the dialogs and
+         pickers it opens, over the 3DS HOME menu -->
+    <style name="Theme.Fold3ds.Link" parent="Theme.Citra.Blue">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+</resources>

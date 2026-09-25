@@ -1,0 +1,99 @@
+# Builds the 3DS Fold APK (Azahar + the 3DS HOME menu, see build.sh) on
+# every push to pixel-fold, or by hand from the Actions tab, and attaches it
+# to a GitHub Release so it can be downloaded straight to the phone.  Signed
+# with ci/debug.keystore, the same fixed debug key 3dsfoldrecomp's builds use
+# (not a secret), so it installs over gen1recomp Fold and keeps its saves.
+name: Build 3DS Fold APK
+
+on:
+  push:
+    branches: [pixel-fold]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# one build at a time: a push while one runs waits (only the newest waits),
+# so every build gets to finish instead of racing a dozen others
+concurrency:
+  group: build-3ds-fold-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPILERCHECK: content
+      CCACHE_SLOPPINESS: time_macros
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Disk space (Azahar and its submodules are large)
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /usr/local/share/boost
+          df -h .
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK packages
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            "platforms;android-35" "platforms;android-36" "build-tools;36.0.0" \
+            "cmake;3.30.3" "ndk;27.3.13750724" "ndk;25.2.9519653" > /dev/null
+          # each module picks its own NDK by its ndkVersion (Azahar 27.3, LÖVE 25.2)
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+
+      - name: Tools
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ccache
+          echo "NDK_CCACHE=$(which ccache)" >> "$GITHUB_ENV"
+
+      - name: Debug signing key
+        run: |
+          mkdir -p ~/.android
+          cp ci/debug.keystore ~/.android/debug.keystore
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ${{ env.CCACHE_DIR }}
+          key: fold3ds-${{ runner.os }}-${{ hashFiles('build.sh', 'azahar/patches/*') }}-${{ github.sha }}
+          restore-keys: |
+            fold3ds-${{ runner.os }}-${{ hashFiles('build.sh', 'azahar/patches/*') }}-
+            fold3ds-${{ runner.os }}-
+
+      - name: Build
+        run: ./build.sh
+
+      - name: Collect the APK
+        id: apk
+        run: |
+          src=$(ls build/out/*.apk | head -1)
+          out="3ds-fold-${GITHUB_RUN_NUMBER}.apk"
+          cp "$src" "$out"
+          echo "file=$out" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 3ds-fold-apk
+          path: ${{ steps.apk.outputs.file }}
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: 3ds-fold-${{ github.run_number }}
+          name: 3DS Fold build ${{ github.run_number }}
+          body: |
+            Built from ${{ github.sha }} (${{ github.ref_name }}).
+            Azahar with the 3DS HOME menu.  Download the .apk below on the phone and install it.
+          files: ${{ steps.apk.outputs.file }}
+          make_latest: true
