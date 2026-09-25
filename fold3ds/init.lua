@@ -50,6 +50,7 @@ local Eshop = require("fold3ds.eshop")
 local Activity = require("fold3ds.activity")
 local Notes = require("fold3ds.notes")
 local Friends = require("fold3ds.friends")
+local EmuPlay = require("fold3ds.emuplay")
 local Emus = require("fold3ds.emus")
 
 local DIR = "fold3ds/"
@@ -258,6 +259,11 @@ local onInnerEye -- the inner camera lens (defined with the drawing)
 -- the Camera applet owns both screens while it is open (launcher only)
 local function cameraOn()
   return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Camera.isOpen()
+end
+
+-- a DS / Virtual Console game playing inside the shell owns both screens
+local function emuOn()
+  return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and EmuPlay.active() ~= nil
 end
 
 -- the Activity Log owns both screens while it is open (launcher only)
@@ -543,6 +549,7 @@ end
 
 local function press(btn, src)
   if skipBoot() then return end
+  if emuOn() then EmuPlay.press(btn) return end
   if Sticker.editing() and state.kind ~= "game" then Sticker.button(btn) return end
   if cameraOn() then
     if Camera.button(btn) == "exit" then Camera.close() end
@@ -604,6 +611,7 @@ local function press(btn, src)
 end
 
 local function release(btn, src)
+  if emuOn() then EmuPlay.release(btn) return end
   if btn == "cstick" then return end
   if Sticker.editing() and state.kind ~= "game" then return end
   if cameraOn() or dlOn() or esOn() or actOn() or appOn() then return end
@@ -776,6 +784,7 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
   local b = buttonAt(x, y)
   if M.debug then print("fold3ds buttonAt -> " .. tostring(b and b.name)) end
   if b then holdStart(id, b, x, y) return end
+  if emuOn() then EmuPlay.touch("pressed", id, x, y) return end
   if editingSticker() then Sticker.pressed(id, x, y, state.L.botCut, state.L.topCut) return end
   if cameraOn() then Camera.pressed(id, x, y) return end
   if dlOn() then Dlplay.pressed(id, x, y) return end
@@ -812,6 +821,7 @@ local function onTouchMoved(id, x, y, dx, dy, pr)
   if dlOn() then Dlplay.moved(id, x, y) return end
   if esOn() then Eshop.moved(id, x, y) return end
   if actOn() then Activity.moved(id, x, y) return end
+  if emuOn() then EmuPlay.touch("moved", id, x, y) return end
   do local _, m = appOn(); if m then m.moved(id, x, y) return end end
   if Home.moved(state.subject, id, x, y) then return end
   if state.vtouch[id] then
@@ -833,6 +843,7 @@ local function onTouchReleased(id, x, y, dx, dy, pr)
   if dlOn() then if Dlplay.released(id, x, y) == "exit" then Dlplay.close() end return end
   if esOn() then eshopDone(Eshop.released(id, x, y)) return end
   if actOn() then if Activity.released(id, x, y) == "exit" then Activity.close() end return end
+  if emuOn() then EmuPlay.touch("released", id, x, y) return end
   do local _, m = appOn(); if m then appExit(m, m.released(id, x, y)) return end end
   if Home.released(state.subject, id, x, y) then return end
   if state.arrowHeld and state.arrowHeld.id == id then arrowEnd(id) return end
@@ -868,6 +879,7 @@ local function onMousePressed(x, y, button, istouch, presses)
     if dlOn() then Dlplay.pressed("mouse", x, y) return end
     if esOn() then Eshop.pressed("mouse", x, y) return end
     if actOn() then Activity.pressed("mouse", x, y) return end
+    if emuOn() then EmuPlay.touch("pressed", "mouse", x, y) return end
     do local _, m = appOn(); if m then m.pressed("mouse", x, y) return end end
     if homeTouch("mouse", x, y) then return end
     local cb = columnButtonAt(x, y)
@@ -892,6 +904,7 @@ local function onMouseMoved(x, y, dx, dy, istouch)
   if dlOn() then if not istouch then Dlplay.moved("mouse", x, y) end return end
   if esOn() then if not istouch then Eshop.moved("mouse", x, y) end return end
   if actOn() then if not istouch then Activity.moved("mouse", x, y) end return end
+  if emuOn() then if not istouch then EmuPlay.touch("moved", "mouse", x, y) end return end
   do local _, m = appOn(); if m then if not istouch then m.moved("mouse", x, y) end return end end
   if not istouch and Home.moved(state.subject, "mouse", x, y) then return end
   local lx, ly = toVirtual(x, y)
@@ -920,6 +933,10 @@ local function onMouseReleased(x, y, button, istouch, presses)
   end
   if actOn() then
     if not istouch and Activity.released("mouse", x, y) == "exit" then Activity.close() end
+    return
+  end
+  if emuOn() then
+    if not istouch then EmuPlay.touch("released", "mouse", x, y) end
     return
   end
   do
@@ -2011,6 +2028,10 @@ local function drawFrame()
     else
       drawIdle(L.botCut)
     end
+  elseif emuOn() then
+    -- a DS / Virtual Console game in the shell: its top screen goes over
+    -- the whole top panel after the shell (below); its bottom screen here
+    EmuPlay.drawBottom(L.botCut)
   elseif cameraOn() then
     -- the Camera applet: the picture on top, the controls below
     Camera.drawTop(L.topCut)
@@ -2054,6 +2075,8 @@ local function drawFrame()
   shellStickers(L.top.img, L.top.x, L.top.y, L.top.sc, 1, "shell")
   drawVolume(L)
   if state.kind ~= "game" and not Sticker.editing() then innerEyeGlint(L, state.time) end
+  -- an emulated game covers the whole top panel, inside its system's border
+  if emuOn() then EmuPlay.drawTop(L.topFull) end
   -- FULL: the game covers the whole top panel, Game Boy Color frame included
   if state.kind == "game" and state.screenMode == "full" and canvas then
     lg.setColor(0, 0, 0, 1)
@@ -2088,7 +2111,8 @@ function backend:update(dt)
     local info = v and GV.info and GV.info(v)
     Activity.playing(v, info and info.displayName or v, dt)
   else
-    Activity.playing(nil)
+    local _, et = EmuPlay.update(dt)
+    if et then Activity.playing(et.id, et.name, dt) else Activity.playing(nil) end
   end
   Activity.tick(dt, state.time)
   -- the volume keys move the slider (and are kept from Android's volume)
@@ -2474,7 +2498,13 @@ function M.install()
   do
     -- every emulator's games, not only Azahar's
     local play = Emus.play
-    Emus.play = function(t) Activity.launched(t) return play(t) end
+    Emus.play = function(t)
+      -- games that leave for their emulator's own screen (Azahar) are timed
+      -- until the menu comes back; those playing in the shell, frame by frame
+      local p = Emus.owner(t)
+      if not (p and p.running) then Activity.launched(t) end
+      return play(t)
+    end
     local focus = love.focus
     love.focus = function(f)
       Activity.focus(f)
@@ -2486,6 +2516,7 @@ function M.install()
   Home.init({ font = font, openCamera = Camera.open, drawCameraIcon = Camera.drawIcon, openDlplay = Dlplay.open, openEshop = Eshop.open,
     openActivity = Activity.open, openApp = function(id) if APPS[id] then APPS[id].open() end end })
   Notes.init({ font = font, setCanvas = real.setCanvas })
+  EmuPlay.init({ font = font })
   Friends.init({ font = font, favourite = Activity.favourite })
   seedModIndex()
   wrapSettings()
