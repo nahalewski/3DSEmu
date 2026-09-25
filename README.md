@@ -1,3 +1,9 @@
+# 3DSEmu
+
+Azahar, the 3DS emulator, opening on a 3DS HOME menu that also plays the
+gen1recomp games: see *3DS Fold* below.  Each push to `main` builds the
+APK and attaches it to the release numbered in `VERSION`.
+
 # gen1recomp Fold
 
 ## 3DS Fold: Azahar with the 3DS HOME menu (`build.sh`)
