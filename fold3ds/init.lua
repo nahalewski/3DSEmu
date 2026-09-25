@@ -152,6 +152,7 @@ local function loadSettings()
   state.sounds = text:match("sounds=(%d)") ~= "0"
   state.volume = tonumber(text:match("volume=([%d%.]+)")) or 1
   state.volKeys = text:match("volkeys=(%d)") ~= "0"
+  Cart3D.region = text:match("carts=(%a+)") == "jp" and "jp" or "intl"
   if love.audio then love.audio.setVolume(state.volume) end
   Sfx.enabled = state.sounds
 end
@@ -160,7 +161,8 @@ local function saveSettings()
   pcall(love.filesystem.write, SETTINGS_FILE, "screen=" .. tostring(state.screenMode)
     .. "\ntheme=" .. tostring(state.theme) .. "\nshoulders=" .. (state.shoulders and "1" or "0")
     .. "\nsounds=" .. (state.sounds and "1" or "0")
-    .. ("\nvolume=%.2f"):format(state.volume or 1) .. "\nvolkeys=" .. (state.volKeys and "1" or "0") .. "\n")
+    .. ("\nvolume=%.2f"):format(state.volume or 1) .. "\nvolkeys=" .. (state.volKeys and "1" or "0")
+    .. "\ncarts=" .. Cart3D.region .. "\n")
 end
 
 -- physical pixels per LOVE unit (Android runs high-DPI: a unit is several pixels)
@@ -1665,6 +1667,15 @@ function backend:update(dt)
       }
       -- no THEME card in SKINS: the 3DS look is the only one
       LV.foldTheme = nil
+      -- the top screen cartridges: EN or JP artwork
+      LV.foldArtwork = LV.foldArtwork or {
+        get = function() return Cart3D.region end,
+        set = function(v)
+          Cart3D.region = v == "jp" and "jp" or "intl"
+          Sfx.play("button")
+          saveSettings()
+        end,
+      }
     end
   end
   -- the 3DS look dresses the launcher on the fold's bottom screen

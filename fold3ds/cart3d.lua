@@ -12,7 +12,8 @@
 --
 -- Shells are the real carts' colours: Red, Blue, Yellow, Gold and Silver
 -- solid, Crystal and the GBA pair see-through (the board shows inside).
--- Labels: fold3ds/labels/<version>.png, else the launcher's; either is
+-- Labels: fold3ds/labels/<version>.png (<version>_jp.png for the Japanese
+-- carts, C.region "jp"), else the launcher's; either is
 -- cropped to fill the label, not squeezed.
 local C = {}
 
@@ -28,14 +29,22 @@ local SHELL = {
   firered = { 238, 58, 42, 0.74 }, leafgreen = { 64, 196, 78, 0.74 },
 }
 
+-- Japanese carts: Red, Green and Blue came in the plain grey cartridge
+local SHELL_JP = { red = { 150, 152, 160 }, blue = { 150, 152, 160 }, green = { 150, 152, 160 } }
+
+-- which carts to show: "intl" or "jp" (labels/<game>_jp.png)
+C.region = "intl"
+
 local labels = {}
 local shown = { version = nil, since = -10 }
 
 local function label(version, path)
-  local key = version .. "|" .. tostring(path)
+  local key = version .. "|" .. tostring(path) .. "|" .. C.region
   if labels[key] == nil then
     local img
-    for _, path in ipairs({ DIR .. version .. ".png", path or "assets/labels/" .. version .. ".png" }) do
+    local tries = { DIR .. version .. ".png", path or "assets/labels/" .. version .. ".png" }
+    if C.region == "jp" then table.insert(tries, 1, DIR .. version .. "_jp.png") end
+    for _, path in ipairs(tries) do
       local ok, i = pcall(lg.newImage, path)
       if ok then img = i break end
     end
@@ -201,7 +210,8 @@ function C.draw(r, version, t, skin)
   local gba = (skin and skin.shape == "gba") or (not skin and isGba(version))
   local M = model(gba)
   -- a custom cart keeps its own colour; the stock carts wear the real one
-  local color = (skin and skin.cart and skin.color) or SHELL[version] or (skin and skin.color) or { 180, 180, 190 }
+  local color = (skin and skin.cart and skin.color) or (C.region == "jp" and SHELL_JP[version])
+    or SHELL[version] or (skin and skin.color) or { 180, 180, 190 }
   local alpha = color[4] or 1
   -- the float: a slow bob and sway; a spin-in when the game changes
   local spin = math.max(0, 1 - (t - shown.since) / 0.55)
