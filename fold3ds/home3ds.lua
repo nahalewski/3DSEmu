@@ -22,6 +22,12 @@
 -- Tap a tile to select it, tap it again (or A / Open) to open it.  An
 -- opened tile shows the launcher's page under a back bar; back, B or HOME
 -- return here.  Icons: fold3ds/icons3ds/<id>.png, else a drawn stand-in.
+--
+-- Azahar (fold3ds.azahar): every 3DS game in Azahar's library is a tile
+-- too (its own icon; Open plays it, Manual shows its options), and the
+-- Azahar folder holds an icon per emulator settings page and tool.  An
+-- open folder shows its icons on the grid, a Close Folder tile first; B,
+-- HOME or that tile close it.
 local H = {}
 
 local lg = love.graphics
@@ -86,6 +92,7 @@ local st = {
 }
 local ctx
 local Sfx = require("fold3ds.sfx")
+local Azahar = require("fold3ds.azahar")
 
 local function col(c, a) lg.setColor(c[1] / 255, c[2] / 255, c[3] / 255, a or 1) end
 local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
@@ -129,11 +136,33 @@ local function allTiles(imp)
       ready = imp and imp.ready and imp.ready[v] }
     ids[#ids + 1] = v
   end
+  -- Azahar: its folder, and each 3DS game (or, before Azahar's folder is
+  -- chosen, the tile that sets it up)
+  byId[Azahar.FOLDER] = { id = Azahar.FOLDER, folder = true, name = "Azahar",
+    sub = "3DS emulator settings and tools" }
+  ids[#ids + 1] = Azahar.FOLDER
+  if Azahar.status() == "setup" then
+    byId.ctr_setup = { id = "ctr_setup", url = "azahar?open=library", name = "Set Up 3DS",
+      sub = "Choose Azahar's folder to play 3DS games" }
+    ids[#ids + 1] = "ctr_setup"
+  end
+  for _, g in ipairs(Azahar.games()) do
+    if not byId[g.id] then byId[g.id] = g; ids[#ids + 1] = g.id end
+  end
   return byId, ids
+end
+
+-- the open folder's tiles: Close Folder, then its icons
+local CLOSE = { id = "folder_close", close = true, name = "Close Folder", sub = "Back to the HOME Menu" }
+local function folderTiles()
+  local out = { CLOSE }
+  for _, it in ipairs(Azahar.ITEMS) do out[#out + 1] = it end
+  return out
 end
 
 -- the tiles in the player's order (new tiles join at the end)
 function H.tiles(imp)
+  if st.folder then return folderTiles() end
   local byId, ids = allTiles(imp)
   local out, seen = {}, {}
   for _, id in ipairs(st.order or {}) do
@@ -152,6 +181,7 @@ function H.showing() return st.open == nil end
 -- the applet the d-pad has picked on the bar, if any (its banner shows on top)
 function H.barFocus() return st.bar and APPLETS[st.bar] and APPLETS[st.bar].id or nil end
 function H.opened() return st.open end
+function H.folderOpen() return st.folder ~= nil end
 ---------------------------------------------------------------- play meter
 
 local function loadCoins()
@@ -186,7 +216,7 @@ end
 function H.saveCoins() if coins.loaded then saveCoins() end end
 function H.coins() return coins.count, coins.seconds / COIN_SECONDS end
 
-function H.init(context) ctx = context; load(); loadCoins() end
+function H.init(context) ctx = context; load(); loadCoins(); Azahar.init() end
 
 ---------------------------------------------------------------- actions
 
@@ -195,8 +225,27 @@ local function selectTile(imp, t)
   if t and t.game and imp and imp.tab ~= t.id then imp.tab = t.id end
 end
 
+local function closeFolder()
+  if not st.folder then return end
+  st.folder = nil
+  st.sel, st.scroll, st.vel = st.mainSel or 1, st.mainScroll or 0, 0
+  st.disp = {}
+end
+
 local function openTile(imp, t)
   if not imp or not t then return end
+  -- the Azahar folder, its icons and the 3DS games
+  if t.folder then
+    Sfx.play("open")
+    st.folder = t
+    st.mainSel, st.mainScroll = st.sel, st.scroll
+    st.sel, st.scroll, st.vel = 2, 0, 0
+    st.disp = {}
+    return
+  end
+  if t.close then Sfx.play("back"); closeFolder() return end
+  if t.url then Sfx.play("open"); Azahar.open(t.url) return end
+  if t.ctr then Sfx.play("open"); Azahar.play(t) return end
   Sfx.play("open")
   if t.exit then
     if imp._quitApp then imp:_quitApp() end
@@ -222,6 +271,7 @@ end
 
 -- Manual: the game's manage page (ROM, saves, carts)
 local function manual(imp, t)
+  if t and t.ctr then Sfx.play("open"); Azahar.manual(t) return end
   if not imp or not t or not t.game then return end
   openTile(imp, t)
   imp._gameManage = t.id
@@ -231,9 +281,25 @@ function H.goHome(imp, quiet)
   if imp and imp._settings and imp._closeSettings then imp:_closeSettings() end
   if st.open and not quiet then Sfx.play("back") end
   st.open = nil
+  closeFolder()
+end
+
+-- the selected tile when it is not one of the recomp games (the top screen
+-- shows it instead of a cartridge), and opening it from there
+function H.topTile(imp)
+  if st.open then return nil end
+  local t = H.tiles(imp)[st.sel]
+  if t and not t.game then return t end
+  return nil
+end
+
+function H.openSelected(imp)
+  local t = H.tiles(imp)[st.sel]
+  if t then openTile(imp, t) end
 end
 
 function H.update(imp)
+  Azahar.poll(now())
   local t = st.open
   if t and t.modal and imp then
     if t.modal == "settings" and not imp._settings then st.open = nil end
@@ -244,7 +310,7 @@ function H.update(imp)
   end
   -- a finger held still on a tile lifts it for rearranging
   for id, tc in pairs(st.touches) do
-    if tc.kind == "tile" and not tc.moved and not st.lift and now() - tc.t0 >= HOLD then
+    if tc.kind == "tile" and not tc.moved and not st.lift and not st.folder and now() - tc.t0 >= HOLD then
       tc.kind = "lift"
       st.lift = { id = tc.tileId, x = tc.x, y = tc.y, touch = id }
       Sfx.play("grab")
@@ -312,7 +378,7 @@ local function roundRect(mode, x, y, w, h, r)
 end
 
 local function drawIcon(t, x, y, s)
-  local img = icon(t.id)
+  local img = t.ctr and Azahar.icon(t) or icon(t.id)
   if img then
     local iw, ih = img:getDimensions()
     local k = math.min(s / iw, s / ih)
@@ -334,6 +400,20 @@ local function drawIcon(t, x, y, s)
     local f = ctx.font(s * (#letters > 1 and 0.28 or 0.36))
     lg.setFont(f)
     lg.printf(letters, x + s * 0.16, y + s * 0.58 - f:getHeight() / 2, s * 0.68, "center")
+    return
+  end
+  if t.ctr or t.url or t.folder or t.close then
+    -- a 3DS game without an icon, or an Azahar icon not drawn yet: a
+    -- rounded square with the first letter
+    local c = t.ctr and { 206, 32, 40 } or { 70, 140, 220 }
+    col(c)
+    roundRect("fill", x, y, s, s, s * 0.18)
+    col({ 255, 255, 255 }, 0.25)
+    roundRect("fill", x + s * 0.06, y + s * 0.05, s * 0.88, s * 0.3, s * 0.1)
+    col({ 255, 255, 255 })
+    local f = ctx.font(s * 0.42)
+    lg.setFont(f)
+    lg.printf(Azahar.initial(t.name), x, y + (s - f:getHeight()) / 2, s, "center")
     return
   end
   local okI, Icons = pcall(require, "src.ui.kit.Icons")
@@ -603,6 +683,19 @@ function H.draw(r, imp, time)
     lg.setFont(cf)
     col({ 80, 82, 88 })
     lg.print(tostring(count), cx + cr * 1.6, cy - cf:getHeight() / 2)
+    -- an open folder: its name at the row's right, on a folder tab
+    if st.folder then
+      local name = st.folder.name
+      local tw = cf:getWidth(name) + mh * 1.9
+      local tx = r.x + r.w - pad * 2 - tw
+      col({ 255, 255, 255 }, 0.95)
+      roundRect("fill", tx, my, tw, mh, mh / 2)
+      col({ 236, 176, 30 })
+      roundRect("fill", tx + mh * 0.3, my + mh * 0.3, mh * 0.9, mh * 0.55, mh * 0.08)
+      roundRect("fill", tx + mh * 0.3, my + mh * 0.2, mh * 0.4, mh * 0.2, mh * 0.06)
+      col({ 80, 82, 88 })
+      lg.print(name, tx + mh * 1.45, cy - cf:getHeight() / 2)
+    end
   end
 
   -- Manual / Open
@@ -615,7 +708,7 @@ function H.draw(r, imp, time)
   local f = ctx.font(obH * 0.5)
   lg.setFont(f)
   local sel = tiles[st.sel]
-  col({ 100, 102, 108 }, sel and sel.game and 1 or 0.35)
+  col({ 100, 102, 108 }, sel and (sel.game or sel.ctr) and 1 or 0.35)
   lg.printf("Manual", r.x, oy + (obH - f:getHeight()) / 2, split - r.x, "center")
   col({ 100, 102, 108 })
   lg.printf("Open", split, oy + (obH - f:getHeight()) / 2, r.x + r.w - split, "center")
@@ -829,6 +922,7 @@ function H.button(imp, name)
     return true
   end
   if name == "a" then openTile(imp, tiles[s]) return true end
+  if name == "b" and st.folder then Sfx.play("back"); closeFolder() return true end
   if name == "x" and g then setLevel(st.level - 1, g, n) return true end
   if name == "y" and g then setLevel(st.level + 1, g, n) return true end
   -- ZL / ZR resize; L / R scroll the strip a screen at a time

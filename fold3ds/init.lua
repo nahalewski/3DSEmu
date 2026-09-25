@@ -46,6 +46,7 @@ local Sfx = require("fold3ds.sfx")
 local Cart3D = require("fold3ds.cart3d")
 local Camera = require("fold3ds.camera")
 local Dlplay = require("fold3ds.dlplay")
+local Azahar = require("fold3ds.azahar")
 
 local DIR = "fold3ds/"
 -- shell art (full size); cut = the screen opening in the art's pixels
@@ -111,7 +112,7 @@ local state = {
   oriented = false,
   time = 0,
   screenMode = nil,      -- gbc | wide | full (the game's top screen shape)
-  theme = "classic",     -- classic | 3ds (the bottom-screen launcher's look)
+  theme = "3ds",         -- the bottom-screen launcher's look: always the 3DS HOME menu
   shoulders = true,      -- L / ZL / R / ZR shown at the sides
   sounds = true,         -- the HOME menu's sound effects in the menus
   shoulderSeen = -10,    -- when an edge was last touched (they fade after)
@@ -145,7 +146,8 @@ local function loadSettings()
   text = ok and type(text) == "string" and text or ""
   local mode = text:match("screen=(%a+)")
   state.screenMode = (mode == "gbc" or mode == "wide" or mode == "full") and mode or "gbc"
-  state.theme = text:match("theme=(%w+)") == "3ds" and "3ds" or "classic"
+  -- the 3DS theme is the only one now (the Classic look is gone)
+  state.theme = "3ds"
   state.shoulders = text:match("shoulders=(%d)") ~= "0"
   state.sounds = text:match("sounds=(%d)") ~= "0"
   state.volume = tonumber(text:match("volume=([%d%.]+)")) or 1
@@ -991,6 +993,58 @@ local function topPanel(r)
   return { x = r.x + pad, y = r.y + sh + pad, w = r.w - 2 * pad, h = r.h - sh - nh - 2 * pad }, sh, nh, pad
 end
 
+-- the top screen's picture of a selected tile that is not a recomp game:
+-- a 3DS game card with the game's icon as its label, or the icon itself on
+-- a white tile, floating over its shadow
+local function drawTopTile(P, t)
+  local time = state.time
+  local bob = math.sin(time * 1.7) * P.h * 0.025
+  local cx, cy = P.x + P.w / 2, P.y + P.h * 0.47
+  local img = t.ctr and Azahar.icon(t) or image("icons3ds/" .. t.id .. ".png")
+  -- the shadow
+  lg.setColor(0.2, 0.24, 0.3, 0.16 - bob / P.h)
+  lg.ellipse("fill", cx, P.y + P.h * 0.9, P.h * 0.26, P.h * 0.05)
+  if t.ctr then
+    -- a 3DS game card: grey, the ridge on top, the label below it
+    local w, h = P.h * 0.6, P.h * 0.68
+    local x, y = cx - w / 2, cy - h / 2 + bob
+    col3({ 150, 152, 158 })
+    lg.rectangle("fill", x + w * 0.012, y + h * 0.02, w, h, w * 0.06, w * 0.06)
+    col3({ 214, 216, 220 })
+    lg.rectangle("fill", x, y, w, h, w * 0.06, w * 0.06)
+    col3({ 192, 194, 199 })
+    lg.rectangle("fill", x, y, w, h * 0.13, w * 0.06, w * 0.06)
+    lg.rectangle("fill", x + w * 0.1, y + h * 0.13, w * 0.8, h * 0.02)
+    local lx, ly, ls = x + w * 0.1, y + h * 0.2, w * 0.8
+    col3({ 255, 255, 255 })
+    lg.rectangle("fill", lx, ly, ls, ls * 0.95, w * 0.03, w * 0.03)
+    if img then
+      local iw, ih = img:getDimensions()
+      local k = math.min(ls * 0.86 / iw, ls * 0.8 / ih)
+      lg.setColor(1, 1, 1, 1)
+      lg.draw(img, lx + (ls - iw * k) / 2, ly + (ls * 0.95 - ih * k) / 2, 0, k, k)
+    else
+      -- no icon: the title's first letter
+      local f = font(ls * 0.5)
+      lg.setFont(f)
+      col3({ 206, 32, 40 })
+      lg.printf(Azahar.initial(t.name), lx, ly + (ls * 0.95 - f:getHeight()) / 2, ls, "center")
+    end
+    return
+  end
+  local s = P.h * 0.5
+  local x, y = cx - s / 2, cy - s / 2 + bob
+  lg.setColor(0.24, 0.28, 0.36, 0.18)
+  lg.rectangle("fill", x + s * 0.02, y + s * 0.05, s, s, s * 0.2, s * 0.2)
+  lg.setColor(1, 1, 1, 1)
+  lg.rectangle("fill", x, y, s, s, s * 0.2, s * 0.2)
+  if img then
+    local iw, ih = img:getDimensions()
+    local inset = s * 0.12
+    lg.draw(img, x + inset, y + inset, 0, (s - 2 * inset) / iw, (s - 2 * inset) / ih)
+  end
+end
+
 -- the L and R camera buttons in the top screen's lower corners (L or R
 -- opens the Camera, as on the 3DS HOME menu)
 local function drawLR(r, h, pad)
@@ -1133,6 +1187,17 @@ local function drawTop3DS(r, banner)
     lg.pop()
     return
   end
+  -- a 3DS game, the Azahar folder or one of its icons: that, not a cartridge
+  local other = Home.showing() and Home.topTile(state.subject)
+  if other then
+    drawTopTile(P, other)
+    local nf = font(nh * 0.6)
+    lg.setFont(nf)
+    col3({ 70, 72, 78 })
+    lg.printf(other.name or "", r.x, r.y + r.h - nh - pad * 0.3 + (nh - nf:getHeight()) / 2, r.w, "center")
+    lg.pop()
+    return
+  end
   -- the selected game's cartridge
   local version = launcherVersion()
   local skin
@@ -1172,6 +1237,8 @@ topScreenTap = function(x, y)
   local imp = state.subject
   if not imp then return true end
   if Theme3DS.active then
+    -- a 3DS game or an Azahar icon selected: open it
+    if Home.showing() and Home.topTile(imp) then Home.openSelected(imp) return true end
     local version = launcherVersion()
     if imp.ready and imp.ready[version] and imp.play then pcall(imp.play, imp, version, true) end
     return true
@@ -1596,13 +1663,8 @@ function backend:update(dt)
         has = Sticker.has, open = Sticker.open, remove = Sticker.remove,
         count = Sticker.count, putBack = Sticker.putBack,
       }
-      LV.foldTheme = LV.foldTheme or {
-        get = function() return state.theme end,
-        set = function(t)
-          state.theme = t == "3ds" and "3ds" or "classic"
-          saveSettings()
-        end,
-      }
+      -- no THEME card in SKINS: the 3DS look is the only one
+      LV.foldTheme = nil
     end
   end
   -- the 3DS look dresses the launcher on the fold's bottom screen
