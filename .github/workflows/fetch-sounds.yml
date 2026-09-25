@@ -3,7 +3,8 @@ name: Fetch 3DS system sounds
 # Downloads the 3DS system sound effects for the HOME menu UI and commits
 # them to the sounds-3ds branch (with INDEX.tsv):
 #   * The Sounds Resource, 3DS System / BIOS: every asset;
-#   * khinsider, "Nintendo 3DS Sound Effects" (gamerip, 2011): every track.
+#   * khinsider, "Nintendo 3DS Sound Effects" (gamerip, 2011) and "Nintendo
+#     Switch Sound Effects": every track (out/khinsider, out/switch).
 on:
   push:
     branches: [fetch-sounds]
@@ -67,29 +68,32 @@ jobs:
           except Exception as e:
               log.append("SPRITERS INDEX FAILED\t%s" % e)
 
-          # ---- khinsider: Nintendo 3DS Sound Effects
-          album = "https://downloads.khinsider.com/game-soundtracks/album/nintendo-3ds-sound-sound-effects-3ds-gamerip-2011"
-          try:
-              page = get(album).decode("utf-8", "replace")
-              songs = []
-              for s in re.findall(r'href="(/game-soundtracks/album/nintendo-3ds-sound-sound-effects-3ds-gamerip-2011/[^"]+)"', page):
-                  if s not in songs: songs.append(s)
-              log.append("KHINSIDER\tindex\t%d tracks" % len(songs))
-              for s in songs:
-                  try:
-                      sp = get("https://downloads.khinsider.com" + s).decode("utf-8", "replace")
-                      files = re.findall(r'href="(https?://[^"]+\.(?:flac|mp3|ogg|m4a))"', sp)
-                      pick = [f for f in files if f.endswith(".flac")] or files
-                      for f in pick[:1]:
-                          body = get(f, 180)
-                          name = safe(urllib.parse.unquote(f.rsplit("/", 1)[-1]))
-                          open(os.path.join("out/khinsider", name), "wb").write(body)
-                          log.append("KHINSIDER\t%s" % name)
-                  except Exception as e:
-                      log.append("KHINSIDER FAILED\t%s\t%s" % (s, e))
-                  time.sleep(0.3)
-          except Exception as e:
-              log.append("KHINSIDER INDEX FAILED\t%s" % e)
+          # ---- khinsider: the 3DS and the Switch system sound effects
+          for folder, slug in (("khinsider", "nintendo-3ds-sound-sound-effects-3ds-gamerip-2011"),
+                               ("switch", "nintendo-switch-sound-effects")):
+              os.makedirs(os.path.join("out", folder), exist_ok=True)
+              album = "https://downloads.khinsider.com/game-soundtracks/album/" + slug
+              try:
+                  page = get(album).decode("utf-8", "replace")
+                  songs = []
+                  for s in re.findall(r'href="(/game-soundtracks/album/' + re.escape(slug) + r'/[^"]+)"', page):
+                      if s not in songs: songs.append(s)
+                  log.append("KHINSIDER\t%s\tindex\t%d tracks" % (slug, len(songs)))
+                  for s in songs:
+                      try:
+                          sp = get("https://downloads.khinsider.com" + s).decode("utf-8", "replace")
+                          files = re.findall(r'href="(https?://[^"]+\.(?:flac|mp3|ogg|m4a))"', sp)
+                          pick = [f for f in files if f.endswith(".flac")] or files
+                          for f in pick[:1]:
+                              body = get(f, 180)
+                              name = safe(urllib.parse.unquote(f.rsplit("/", 1)[-1]))
+                              open(os.path.join("out", folder, name), "wb").write(body)
+                              log.append("KHINSIDER\t%s\t%s" % (folder, name))
+                      except Exception as e:
+                          log.append("KHINSIDER FAILED\t%s\t%s" % (s, e))
+                      time.sleep(0.3)
+              except Exception as e:
+                  log.append("KHINSIDER INDEX FAILED\t%s\t%s" % (slug, e))
           open("out/INDEX.tsv", "w").write("\n".join(log) + "\n")
           PY
           find out -type f | wc -l; du -sh out
