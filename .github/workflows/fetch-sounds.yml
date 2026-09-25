@@ -94,6 +94,41 @@ jobs:
                       time.sleep(0.3)
               except Exception as e:
                   log.append("KHINSIDER INDEX FAILED\t%s\t%s" % (slug, e))
+          # ---- the Nintendo Switch Online apps' real icons and banners
+          # (titledb: every Switch title's iconUrl / bannerUrl), and the DS /
+          # 3DS / Game Boy system logos (Wikimedia Commons)
+          import json
+          os.makedirs("out/nso", exist_ok=True)
+          try:
+              db = json.loads(get("https://raw.githubusercontent.com/blawar/titledb/master/US.en.json", 600))
+              for tid, e in db.items():
+                  name = (e.get("name") or "")
+                  if "Nintendo Switch Online" in name and any(k in name for k in ("Game Boy", "NES", "Super Nintendo", "Nintendo 64", "SEGA", "GAME BOY")):
+                      for kind in ("iconUrl", "bannerUrl"):
+                          u = e.get(kind)
+                          if u:
+                              try:
+                                  open(os.path.join("out/nso", safe("%s__%s" % (name, kind)) + ".jpg"), "wb").write(get(u, 60))
+                                  log.append("NSO\t%s\t%s" % (name, kind))
+                              except Exception as e2:
+                                  log.append("NSO FAILED\t%s\t%s\t%s" % (name, kind, e2))
+          except Exception as e:
+              log.append("TITLEDB FAILED\t%s" % e)
+          for fname in ("Nintendo_DS_Logo.svg", "Nintendo_3DS_logo.svg", "Game_Boy_logo.svg", "Game_Boy_Color_logo.svg",
+                        "Game_Boy_Advance_logo.svg", "Nintendo_Switch_logo.svg"):
+              try:
+                  api = "https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=imageinfo&iiprop=url&iiurlwidth=1024&titles=File:" + urllib.parse.quote(fname)
+                  j = json.loads(get(api, 60))
+                  for pg in j["query"]["pages"].values():
+                      ii = (pg.get("imageinfo") or [{}])[0]
+                      u = ii.get("thumburl") or ii.get("url")
+                      if u:
+                          open(os.path.join("out/nso", safe(fname) + ".png"), "wb").write(get(u, 60))
+                          log.append("LOGO\t%s" % fname)
+                      else:
+                          log.append("LOGO MISSING\t%s" % fname)
+              except Exception as e:
+                  log.append("LOGO FAILED\t%s\t%s" % (fname, e))
           open("out/INDEX.tsv", "w").write("\n".join(log) + "\n")
           PY
           find out -type f | wc -l; du -sh out
