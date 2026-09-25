@@ -1,5 +1,5 @@
-# Builds the gen1recomp Fold APK on every push to main (or by hand from the
-# Actions tab) and attaches it to a GitHub Release, so it can be downloaded
+# Builds the gen1recomp Fold APK on every push to main, every 12 hours, or by
+# hand from the Actions tab, and attaches it to a GitHub Release, so it can be downloaded
 # straight to the phone.  Signed with ci/debug.keystore, a fixed debug key
 # (not a secret), so each new build installs over the last one.
 name: Build APK
@@ -8,6 +8,10 @@ on:
   push:
     branches: [main, pixel-fold]
   workflow_dispatch:
+  # every 12 hours (00:00 and 12:00 UTC), on the default branch -- picks up
+  # the latest community mod catalog even when nothing here changed
+  schedule:
+    - cron: '0 */12 * * *'
 
 permissions:
   contents: write
