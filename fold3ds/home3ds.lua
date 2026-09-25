@@ -120,6 +120,12 @@ local function load()
   text = ok and type(text) == "string" and text or ""
   local lv = tonumber(text:match("level=(%d)"))
   if lv and LEVELS[lv] then st.level, st.prevLevel = lv, lv end
+  -- new games arrive wrapped as presents (the 3DS's new software): the
+  -- ones still wrapped, and every game ever seen
+  st.gifts, st.known = {}, {}
+  st.knownLoaded = text:match("known=") ~= nil
+  for id in (text:match("gifts=([%w_,]*)") or ""):gmatch("[%w_]+") do st.gifts[id] = true end
+  for id in (text:match("known=([%w_,]*)") or ""):gmatch("[%w_]+") do st.known[id] = true end
   local order = text:match("order=([%w_,]+)")
   if order then
     st.order = {}
@@ -127,8 +133,16 @@ local function load()
   end
 end
 
+local function idList(set)
+  local out = {}
+  for id in pairs(set or {}) do out[#out + 1] = id end
+  table.sort(out)
+  return table.concat(out, ",")
+end
+
 local function save()
-  pcall(love.filesystem.write, CFG, ("level=%d\norder=%s\n"):format(st.level, table.concat(st.order or {}, ",")))
+  pcall(love.filesystem.write, CFG, ("level=%d\norder=%s\ngifts=%s\nknown=%s\n"):format(st.level,
+    table.concat(st.order or {}, ","), idList(st.gifts), idList(st.known)))
 end
 
 ---------------------------------------------------------------- tiles
@@ -171,6 +185,26 @@ function H.tiles(imp)
   local order = {}
   for i, t in ipairs(out) do order[i] = t.id end
   st.order = order
+  -- a game never seen before arrives wrapped (not on the very first run:
+  -- the library already there is simply there)
+  st.gifts, st.known, st.arrive = st.gifts or {}, st.known or {}, st.arrive or {}
+  local changed, arrived = false, false
+  for _, t in ipairs(out) do
+    if (t.emuGame or t.game) and not st.known[t.id] then
+      st.known[t.id] = true
+      changed = true
+      if st.knownLoaded then
+        st.gifts[t.id] = true
+        st.arrive[t.id] = now() + (arrived and 0.15 or 0)
+        arrived = true
+      end
+    end
+  end
+  if changed then
+    st.knownLoaded = true
+    save()
+    if arrived then Sfx.play("newapp") end
+  end
   return out
 end
 
@@ -230,8 +264,17 @@ local function closeFolder()
   st.disp = {}
 end
 
+local UNWRAP = 1.0
 local function openTile(imp, t)
   if not imp or not t then return end
+  -- a present: the first open unwraps it, the next one starts the game
+  if st.gifts and st.gifts[t.id] then
+    if not (st.unwrap and st.unwrap.id == t.id) then
+      st.unwrap = { id = t.id, t0 = now() }
+      Sfx.play("gift")
+    end
+    return
+  end
   -- the Azahar folder, its icons and the 3DS games
   if t.folder then
     Sfx.play("open")
@@ -451,7 +494,154 @@ function H.drawIconFor(imp, id, x, y, s)
 end
 
 -- the white tile the icon sits in, with its soft shadow
+-- the present's wrapping: a paper colour of its own per game
+local PAPERS = { { 232, 58, 76 }, { 52, 132, 228 }, { 248, 184, 36 }, { 64, 184, 104 }, { 168, 86, 216 },
+                 { 240, 120, 40 } }
+local function paperFor(id)
+  local h = 0
+  for i = 1, #id do h = (h * 31 + id:byte(i)) % 997 end
+  return PAPERS[h % #PAPERS + 1], h
+end
+
+-- a wrapped present in the tile's square: paper with its stripes, the
+-- ribbon both ways, the bow on top.  open 0..1: the bow and ribbon fly
+-- off and the paper bursts away in four pieces
+local function drawPresent(id, x, y, ts, alpha, open)
+  local paper, h = paperFor(id)
+  local r = ts * 0.2
+  local cx, cy = x + ts / 2, y + ts / 2
+  local k = open or 0
+  local fade = alpha * (1 - clamp((k - 0.2) / 0.6, 0, 1))
+  if fade <= 0 then return end
+  -- the paper: four quarters, each flying out from the centre when opened
+  local fly = ease(clamp(k / 0.8, 0, 1)) * ts * 0.9
+  for qi, q in ipairs({ { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } }) do
+    lg.push()
+    lg.translate(cx + q[1] * fly, cy + q[2] * fly * 0.8 + (k > 0 and (k * k) * ts * 0.6 or 0))
+    lg.rotate(q[1] * k * 1.6 + (qi % 2 == 0 and 0.3 or -0.3) * k)
+    lg.stencil(function() lg.rectangle("fill", q[1] < 0 and -ts / 2 or 0, q[2] < 0 and -ts / 2 or 0, ts / 2, ts / 2) end,
+      "replace", 1)
+    lg.setStencilTest("greater", 0)
+    col(paper, fade)
+    roundRect("fill", -ts / 2, -ts / 2, ts, ts, r)
+    -- stripes
+    col({ 255, 255, 255 }, 0.22 * fade)
+    for i = -3, 3 do
+      local sx = i * ts * 0.22 + (h % 7) * 0.01 * ts
+      lg.polygon("fill", sx - ts * 0.04, -ts / 2, sx + ts * 0.05, -ts / 2, sx - ts * 0.35, ts / 2, sx - ts * 0.44, ts / 2)
+    end
+    -- the ribbon on the paper
+    col({ 255, 236, 150 }, fade)
+    lg.rectangle("fill", -ts * 0.07, -ts / 2, ts * 0.14, ts)
+    lg.rectangle("fill", -ts / 2, -ts * 0.07, ts, ts * 0.14)
+    col({ 220, 170, 40 }, fade)
+    lg.rectangle("fill", ts * 0.045, -ts / 2, ts * 0.025, ts)
+    lg.rectangle("fill", -ts / 2, ts * 0.045, ts, ts * 0.025)
+    lg.setStencilTest()
+    lg.pop()
+  end
+  -- the bow, lifting off first
+  local bowUp = ease(clamp(k / 0.5, 0, 1)) * ts * 1.1
+  local bx, by = cx, y + ts * 0.14 - bowUp
+  local ba = alpha * (1 - clamp((k - 0.1) / 0.4, 0, 1))
+  if ba > 0 then
+    lg.push()
+    lg.translate(bx, by)
+    lg.rotate(k * 2.5)
+    col({ 255, 226, 110 }, ba)
+    lg.ellipse("fill", -ts * 0.14, 0, ts * 0.15, ts * 0.09)
+    lg.ellipse("fill", ts * 0.14, 0, ts * 0.15, ts * 0.09)
+    col({ 230, 180, 50 }, ba)
+    lg.ellipse("fill", -ts * 0.14, 0, ts * 0.07, ts * 0.04)
+    lg.ellipse("fill", ts * 0.14, 0, ts * 0.07, ts * 0.04)
+    col({ 250, 210, 80 }, ba)
+    lg.circle("fill", 0, 0, ts * 0.065)
+    lg.pop()
+  end
+  -- a soft sheen over the wrapped box
+  if k == 0 then
+    lg.setColor(1, 1, 1, 0.16 * alpha)
+    roundRect("fill", x + ts * 0.06, y + ts * 0.05, ts * 0.88, ts * 0.32, r * 0.8)
+  end
+end
+
+-- confetti bursting out of an opened present
+local function drawConfetti(id, x, y, ts, k)
+  if k <= 0.25 or k >= 1 then return end
+  local _, h = paperFor(id)
+  local p = (k - 0.25) / 0.75
+  for i = 1, 16 do
+    local a = (i / 16) * math.pi * 2 + (h % 10) * 0.1
+    local sp = ts * (0.7 + ((i * 37 + h) % 10) * 0.05)
+    local px = x + ts / 2 + math.cos(a) * sp * p
+    local py = y + ts / 2 + math.sin(a) * sp * p * 0.8 + p * p * ts * 0.8
+    col(PAPERS[(i + h) % #PAPERS + 1], 1 - p)
+    lg.push()
+    lg.translate(px, py)
+    lg.rotate(p * 8 + i)
+    lg.rectangle("fill", -ts * 0.03, -ts * 0.015, ts * 0.06, ts * 0.03)
+    lg.pop()
+  end
+end
+
 local function drawTile(t, x, y, ts, alpha, lifted)
+  local gift = st.gifts and st.gifts[t.id]
+  local un = st.unwrap and st.unwrap.id == t.id and st.unwrap or nil
+  local ka = st.arrive and st.arrive[t.id]
+  -- arriving: dropping in from above with a bounce
+  if ka and not lifted then
+    local a = (now() - ka) / 0.7
+    if a < 0 then return end
+    if a >= 1 then st.arrive[t.id] = nil
+    else
+      local b = 1 - a
+      y = y - ts * 1.6 * b * b + math.sin(a * math.pi) * ts * 0.08 * (1 - a)
+      alpha = alpha * math.min(1, a * 3)
+    end
+  end
+  if gift and not lifted then
+    local k = 0
+    if un then
+      k = (now() - un.t0) / UNWRAP
+      if k >= 1 then
+        -- unwrapped: from now on it is the game's own tile
+        st.gifts[t.id] = nil
+        st.unwrap = nil
+        st.popAt = st.popAt or {}
+        st.popAt[t.id] = now()
+        save()
+        gift = nil
+      end
+    end
+    if gift then
+      -- a shake before it opens
+      local shake = (k > 0 and k < 0.25) and math.sin(k * 90) * ts * 0.04 * (1 - k * 4) or 0
+      if k > 0.35 then
+        -- the game's icon inside, growing out of the paper
+        local g = ease(clamp((k - 0.35) / 0.5, 0, 1))
+        local s = ts * (0.6 + 0.4 * g)
+        lg.push()
+        col({ 255, 255, 255 }, alpha * g)
+        roundRect("fill", x + (ts - s) / 2, y + (ts - s) / 2, s, s, s * 0.2)
+        local inset = s * 0.12
+        drawIcon(t, x + (ts - s) / 2 + inset, y + (ts - s) / 2 + inset, s - 2 * inset)
+        lg.pop()
+      end
+      drawPresent(t.id, x + shake, y, ts, alpha, k)
+      drawConfetti(t.id, x, y, ts, k)
+      return
+    end
+  end
+  -- just unwrapped: a little pop
+  local pop = st.popAt and st.popAt[t.id]
+  if pop then
+    local a = (now() - pop) / 0.35
+    if a >= 1 then st.popAt[t.id] = nil
+    else
+      local s = 1 + math.sin(a * math.pi) * 0.12
+      x, y, ts = x - ts * (s - 1) / 2, y - ts * (s - 1) / 2, ts * s
+    end
+  end
   local r = ts * 0.2
   col({ 60, 70, 90 }, (lifted and 0.3 or 0.14) * alpha)
   roundRect("fill", x + ts * 0.02, y + ts * (lifted and 0.1 or 0.05), ts, ts, r)
