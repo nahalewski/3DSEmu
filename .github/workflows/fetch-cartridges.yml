@@ -1,9 +1,13 @@
 name: Fetch cartridge art
 
-# Downloads every image in Bulbapedia's archives "Game cartridges" category
-# (https://archives.bulbagarden.net/wiki/Category:Game_cartridges) and
-# commits them to the cartridge-art branch, where the 3D cartridges' labels
-# and shell colours are cut from them.
+# Collects cartridge photos (and the rest of each game's art, just in case)
+# for the 3D cartridges on the 3DS theme's top screen, and commits them to
+# the cartridge-art branch:
+#   * LaunchBox Games Database: its published Metadata.zip lists every image
+#     of every game; all images of the Pokemon Game Boy / Color / Advance
+#     games are downloaded from images.launchbox-app.com (Cart - Front,
+#     Cart - Back, Cart - 3D, boxes...).
+#   * GameTDB: the art for 3DS title ECLP.
 on:
   workflow_dispatch:
   push:
@@ -17,50 +21,76 @@ jobs:
   fetch:
     runs-on: ubuntu-latest
     steps:
-      - name: Download the category
+      - name: Download
         run: |
-          mkdir -p art
+          mkdir -p art/launchbox art/gametdb
           python3 - <<'PY'
-          import json, os, time, urllib.parse, urllib.request
-          API = "https://archives.bulbagarden.net/w/api.php"
-          UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
-                "Accept": "application/json,text/html,image/*;q=0.9,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
-                "Referer": "https://archives.bulbagarden.net/wiki/Category:Game_cartridges"}
-          def get(params):
-              url = API + "?" + urllib.parse.urlencode(params)
-              req = urllib.request.Request(url, headers=UA)
-              return json.load(urllib.request.urlopen(req, timeout=60))
-          files, cont = [], {}
-          while True:
-              q = {"action": "query", "format": "json", "generator": "categorymembers",
-                   "gcmtitle": "Category:Game_cartridges", "gcmtype": "file", "gcmlimit": "50",
-                   "prop": "imageinfo", "iiprop": "url|size|mime"}
-              q.update(cont)
-              data = get(q)
-              for page in (data.get("query", {}).get("pages", {}) or {}).values():
-                  info = (page.get("imageinfo") or [{}])[0]
-                  if info.get("url"):
-                      files.append((page["title"], info["url"]))
-              if "continue" not in data:
-                  break
-              cont = data["continue"]
-              time.sleep(1)
-          print(len(files), "files")
-          index = []
-          for title, url in sorted(files):
-              name = title.split(":", 1)[1].replace(" ", "_").replace("/", "_")
-              path = os.path.join("art", name)
-              try:
-                  req = urllib.request.Request(url, headers=UA)
-                  open(path, "wb").write(urllib.request.urlopen(req, timeout=60).read())
-                  index.append(name + "\t" + url)
-              except Exception as e:
-                  print("skip", name, e)
-              time.sleep(0.3)
-          open("art/INDEX.tsv", "w").write("\n".join(index) + "\n")
+          import io, os, re, time, urllib.request, zipfile
+          import xml.etree.ElementTree as ET
+          UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"}
+          def get(url, timeout=300):
+              return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout).read()
+
+          # ---- LaunchBox
+          log = []
+          try:
+              data = get("https://gamesdb.launchbox-app.com/Metadata.zip", 900)
+              print("Metadata.zip", len(data))
+              z = zipfile.ZipFile(io.BytesIO(data))
+              xmlname = [n for n in z.namelist() if n.lower().endswith("metadata.xml")][0]
+              root = ET.fromstring(z.read(xmlname))
+              platforms = {"Nintendo Game Boy", "Nintendo Game Boy Color", "Nintendo Game Boy Advance"}
+              want = re.compile(r"pok[eé]mon|pocket monsters", re.I)
+              games = {}
+              for g in root.iter("Game"):
+                  name = (g.findtext("Name") or "")
+                  plat = (g.findtext("Platform") or "")
+                  if plat in platforms and want.search(name):
+                      games[g.findtext("DatabaseID")] = (name, plat)
+              print(len(games), "games")
+              for gid, (name, plat) in sorted(games.items(), key=lambda kv: kv[1]):
+                  log.append("GAME\t%s\t%s\t%s" % (gid, name, plat))
+              n = 0
+              for im in root.iter("GameImage"):
+                  gid = im.findtext("DatabaseID")
+                  if gid not in games:
+                      continue
+                  fname = im.findtext("FileName") or ""
+                  kind = im.findtext("Type") or ""
+                  region = im.findtext("Region") or ""
+                  name, plat = games[gid]
+                  safe = re.sub(r"[^A-Za-z0-9._-]+", "_", "%s__%s__%s__%s" % (name, kind, region, fname))
+                  try:
+                      open(os.path.join("art/launchbox", safe), "wb").write(get("https://images.launchbox-app.com/" + fname, 120))
+                      log.append("IMG\t%s\t%s\t%s\t%s\t%s" % (name, plat, kind, region, safe))
+                      n += 1
+                  except Exception as e:
+                      log.append("SKIP\t%s\t%s\t%s" % (name, fname, e))
+                  time.sleep(0.15)
+              print(n, "launchbox images")
+          except Exception as e:
+              print("launchbox failed:", e)
+              log.append("LAUNCHBOX FAILED\t%s" % e)
+
+          # ---- GameTDB: 3DS ECLP (every art kind and region it may have)
+          for kind in ["cover", "coverHQ", "coverM", "coverfull", "coverfullHQ", "box", "cart", "cartHQ", "disc", "3D"]:
+              for region in ["US", "EN", "JA", "FR", "DE", "ES", "IT", "NL", "KO"]:
+                  for ext in ["jpg", "png"]:
+                      url = "https://art.gametdb.com/3ds/%s/%s/ECLP.%s" % (kind, region, ext)
+                      try:
+                          body = get(url, 30)
+                          name = "ECLP_%s_%s.%s" % (kind, region, ext)
+                          open(os.path.join("art/gametdb", name), "wb").write(body)
+                          log.append("GAMETDB\t%s" % name)
+                      except Exception:
+                          pass
+          try:
+              open("art/gametdb/ECLP.html", "wb").write(get("https://www.gametdb.com/3DS/ECLP", 60))
+          except Exception as e:
+              log.append("GAMETDB PAGE FAILED\t%s" % e)
+          open("art/INDEX.tsv", "w").write("\n".join(log) + "\n")
           PY
-          ls art | head -50
+          find art -type f | wc -l
           du -sh art
       - name: Commit to the cartridge-art branch
         run: |
@@ -70,5 +100,5 @@ jobs:
           git config user.email "github-actions@users.noreply.github.com"
           git checkout -q -b cartridge-art
           git add -A
-          git commit -qm "Cartridge photos from Bulbapedia's archives (Category:Game cartridges)"
+          git commit -qm "Cartridge art: LaunchBox Games Database (Pokemon GB / GBC / GBA) and GameTDB ECLP"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" cartridge-art
