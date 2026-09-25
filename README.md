@@ -60,11 +60,21 @@ upstream's own Android build script.
   battery), the tiled wallpaper with the selected game's 3D cartridge on
   it (the launcher's own, with its skin), and the game's name; tapping it
   plays a ready game.  Tile icons come from
-  `fold3ds/icons3ds/<id>.png`, with stand-ins until they exist.  And a *COVER STICKER* card puts
-  a picture of your own on the closed lid: pick it from the phone, crop it
-  (drag the frame or its corners), round its corners, size it, keep or drop
-  its white die-cut edge, and drag it into place on the cover preview on
-  the top screen.  It keeps its proportions and always stays on the shell.
+  `fold3ds/icons3ds/<id>.png`, with stand-ins until they exist.  And a *COVER STICKERS* card puts
+  pictures of your own on the closed lid, as many as you like, stacked
+  newest on top.  The editor crops a picture (drag the frame or its
+  corners), rounds its corners, sizes it, keeps or drops its white edge
+  and turns it freely (the knob above it on the cover preview, the Turn
+  buttons, or L / R); drag it on the preview to place it.  On the cover
+  screen a sticker peels: drag it and its nearest corner folds back to its
+  white backing; peel it far enough and it comes off in your finger (a
+  second finger twists it), and letting go sticks it down there, on top.
+  Every re-stick leaves its corner lifted a little more and starts it
+  wearing with play time -- sooner the more it has been re-stuck -- until
+  it falls off; a sticker never peeled stays on for good.  Fallen stickers
+  wait in SKINS (*Put the fallen ones back*).  Stickers keep their
+  proportions, stay on the lid's flat face and are cut to the shell's
+  shape.
 * **Mods**: MODS has a *Download mods* button that opens FIND on the
   community catalog (gen1recomp.com/mod, the
   `bryanthaboi/gen1recomp-mod-index` feed): every listed mod, voxel ones

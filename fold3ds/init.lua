@@ -578,7 +578,7 @@ end
 local function onTouchPressed(id, x, y, dx, dy, pr)
   if M.debug then print("fold3ds touchpressed enter mode=" .. tostring(state.mode)) end
   if state.mode ~= "ds" then
-    if state.mode == "lid" then return end
+    if state.mode == "lid" then Sticker.coverPressed(id, x, y) return end
     return orig.touchpressed and orig.touchpressed(id, x, y, dx, dy, pr)
   end
   if state.L and shoulderZone(state.L, x, y) then state.shoulderSeen = state.time end
@@ -604,7 +604,7 @@ end
 
 local function onTouchMoved(id, x, y, dx, dy, pr)
   if state.mode ~= "ds" then
-    if state.mode == "lid" then return end
+    if state.mode == "lid" then Sticker.coverMoved(id, x, y) return end
     return orig.touchmoved and orig.touchmoved(id, x, y, dx, dy, pr)
   end
   if state.held[id] then holdMove(id, x, y) return end
@@ -619,7 +619,7 @@ end
 
 local function onTouchReleased(id, x, y, dx, dy, pr)
   if state.mode ~= "ds" then
-    if state.mode == "lid" then return end
+    if state.mode == "lid" then Sticker.coverReleased(id, x, y) return end
     return orig.touchreleased and orig.touchreleased(id, x, y, dx, dy, pr)
   end
   if state.held[id] then holdEnd(id) return end
@@ -637,7 +637,7 @@ end
 -- mouse twin of a touch just gets the same coordinate change
 local function onMousePressed(x, y, button, istouch, presses)
   if state.mode ~= "ds" then
-    if state.mode == "lid" then return end
+    if state.mode == "lid" then if not istouch then Sticker.coverPressed("mouse", x, y) end return end
     return orig.mousepressed and orig.mousepressed(x, y, button, istouch, presses)
   end
   if not istouch and button == 1 then
@@ -655,7 +655,7 @@ end
 
 local function onMouseMoved(x, y, dx, dy, istouch)
   if state.mode ~= "ds" then
-    if state.mode == "lid" then return end
+    if state.mode == "lid" then if not istouch then Sticker.coverMoved("mouse", x, y) end return end
     return orig.mousemoved and orig.mousemoved(x, y, dx, dy, istouch)
   end
   if state.held.mouse then holdMove("mouse", x, y) return end
@@ -667,7 +667,7 @@ end
 
 local function onMouseReleased(x, y, button, istouch, presses)
   if state.mode ~= "ds" then
-    if state.mode == "lid" then return end
+    if state.mode == "lid" then if not istouch then Sticker.coverReleased("mouse", x, y) end return end
     return orig.mousereleased and orig.mousereleased(x, y, button, istouch, presses)
   end
   if state.held.mouse and not istouch then holdEnd("mouse") return end
@@ -1046,7 +1046,7 @@ end
 
 -- The closed lid, as large as a rect holds (turned on its side when
 -- `portrait`), with the player's sticker on it.
-local function drawLidIn(x, y, W, H, portrait)
+local function drawLidIn(x, y, W, H, portrait, cover)
   local lid = image(LID)
   if not lid then return end
   -- only the shell itself (the art's opaque box), as big as the rect holds
@@ -1078,7 +1078,7 @@ local function drawLidIn(x, y, W, H, portrait)
     lg.setShader(state.alphaTest)
     lg.draw(lid, state.lidQuad, ox, oy, 0, s, s)
     lg.setShader()
-  end)
+  end, cover)
   lg.pop()
 end
 
@@ -1107,7 +1107,7 @@ local function drawLid(W, H)
     drawWall(WALL_LID, W, H)
   end
   lg.pop()
-  drawLidIn(0, 0, W, H, portrait)
+  drawLidIn(0, 0, W, H, portrait, true)
 end
 
 local function drawFrame()
@@ -1184,6 +1184,7 @@ local dbgFrames = 0
 function backend:update(dt)
   state.time = state.time + (dt or 0)
   Home.tick(dt)   -- the play meter runs whenever the app does
+  Sticker.tick(dt) -- and wears the re-stuck stickers
   if M.debug and dbgFrames < 3 then dbgFrames = dbgFrames + 1 io.stdout:setvbuf("no") print("fold3ds update mode=" .. tostring(state.mode) .. " kind=" .. tostring(state.kind)) end
   if M.driverTick then M.driverTick() end
   local mode = detectMode()
@@ -1207,6 +1208,7 @@ function backend:update(dt)
       LV.foldNoHeader = homeActive() or nil
       LV.foldSticker = LV.foldSticker or {
         has = Sticker.has, open = Sticker.open, remove = Sticker.remove,
+        count = Sticker.count, putBack = Sticker.putBack,
       }
       LV.foldTheme = LV.foldTheme or {
         get = function() return state.theme end,
