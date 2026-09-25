@@ -158,6 +158,18 @@ upstream's own Android build script.
   wait in SKINS (*Put the fallen ones back*).  Stickers keep their
   proportions, stay on the lid's flat face and are cut to the shell's
   shape.
+* **Nintendo eShop (3DS theme)**: the shopping bag on the applet bar is
+  the community mod catalog as a 3DS store (`fold3ds/eshop.lua`, art in
+  `fold3ds/eshop/` cut from the supplied eShop sheet).  The orange eShop
+  bar, shelves (New, Popular, Updated, Installed; L / R switch), four titles
+  a page with their art, author, "Free", a NEW tag for recent ones and
+  Download / Update / Open buttons; a title's page with its big Download
+  (Free) button, the bar filling and the dots turning, then "Thank you!".
+  Open goes on to MODS to turn it on.  The top screen turns the eShop bag
+  in 3D over the logo, or shows the title's art and blurb.  It is FIND's
+  own catalog and installer underneath.  Sounds from the 3DS pack:
+  connecting on the way in, the wait loop while the catalog loads and its
+  end, the gift unwrapping when a download lands, the error chime if not.
 * **Download Play (3DS theme)**: the orange icon on the applet bar.
   Picking it (d-pad) shows its banner turning in 3D under the top screen's
   panel, as the 3DS does.  *Send* packs a game's saves
