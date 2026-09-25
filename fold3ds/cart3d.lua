@@ -12,6 +12,10 @@
 --
 -- Shells are the real carts' colours: Red, Blue, Yellow, Gold and Silver
 -- solid, Crystal and the GBA pair see-through (the board shows inside).
+-- Any other game passes a skin: { shape = "gb" | "gbc" | "gba" | "ds" |
+-- "3ds", color = { r, g, b [, alpha] }, cart = true, labelImage = <Image>,
+-- cacheKey } -- a Game Boy / Advance cart or a DS / 3DS card (the 3DS card
+-- with its tab) in that colour with that label.
 -- Labels: fold3ds/labels/<version>.png (<version>_jp.png for the Japanese
 -- carts, C.region "jp"), else the launcher's; either is
 -- cropped to fill the label, not squeezed.
@@ -71,8 +75,30 @@ end
 ---------------------------------------------------------------- the model
 -- Units: the cart is 1 wide; y runs down; z runs away from the viewer.
 
-local function model(gba)
-  if gba then
+local function model(shape)
+  if shape == "ds" or shape == "3ds" then
+    -- a DS game card: 35 x 33 x 3.8 mm, its top-right corner cut, grip
+    -- ridges along its top, the label filling the rest of the front.  A
+    -- 3DS card is the same with the tab on its right edge.
+    local w, h, d = 1, 1.06, 0.115
+    local cut = 0.07
+    local top = -h / 2
+    local out = { { -0.5, top }, { 0.5 - cut, top }, { 0.5, top + cut } }
+    if shape == "3ds" then
+      out[#out + 1] = { 0.5, top + 0.16 }
+      out[#out + 1] = { 0.535, top + 0.18 }
+      out[#out + 1] = { 0.535, top + 0.3 }
+      out[#out + 1] = { 0.5, top + 0.32 }
+    end
+    out[#out + 1] = { 0.5, h / 2 }
+    out[#out + 1] = { -0.5, h / 2 }
+    return { w = w, h = h, d = d, cut = cut, card = true,
+      outline = out,
+      labelRect = { -0.42, top + 0.2, 0.84, h - 0.2 - 0.07 },
+      ridges = { top + 0.05, top + 0.085, top + 0.12 },
+      notches = { h / 2 - 0.3, 0.06 } }
+  end
+  if shape == "gba" then
     -- 57 x 35 x 7.5 mm: the top edge gently arched, the corners rounded
     local w, h, d = 1, 0.614, 0.13
     local top, out = -h / 2, {}
@@ -92,6 +118,8 @@ local function model(gba)
       notches = { top + 0.1, 0.07 },
       board = { -0.4, top + 0.07, 0.8, h - 0.1 } }
   end
+  -- the Game Boy / Game Boy Color cart (the original Game Boy's is the same
+  -- shape, in its own grey)
   local w, h, d = 1, 1.14, 0.13
   local cut = 0.11
   return { w = w, h = h, d = d, cut = cut,
@@ -207,8 +235,13 @@ function C.draw(r, version, t, skin)
   if shown.version ~= key then
     shown.version, shown.since = key, t
   end
-  local gba = (skin and skin.shape == "gba") or (not skin and isGba(version))
-  local M = model(gba)
+  local shape = skin and skin.shape
+  if not shape then
+    local gba = (skin and skin.shape == "gba") or (not skin and isGba(version))
+    shape = gba and "gba" or "gbc"
+  end
+  local gba = shape == "gba"
+  local M = model(shape)
   -- a custom cart keeps its own colour; the stock carts wear the real one
   local color = (skin and skin.cart and skin.color) or (C.region == "jp" and SHELL_JP[version])
     or SHELL[version] or (skin and skin.color) or { 180, 180, 190 }
@@ -329,7 +362,10 @@ function C.draw(r, version, t, skin)
     local rr, gg, bb = lit(color, fnx, fny, fnz, 0.55)
     lg.setColor(rr * 0.6, gg * 0.6, bb * 0.6, math.max(alpha, 0.9))
     poly(frontRect(P, L[1] - 0.025, L[2] - 0.025, L[3] + 0.05, L[4] + 0.05, zf - 0.002))
-    local img = label(version, skin and skin.labelPath)
+    -- a game's own label (the emulators' games: skin.labelImage, their box
+    -- art or icon), else the recomp game's
+    local img = (skin and skin.labelImage)
+      or (not (skin and skin.noLabel) and label(version, skin and skin.labelPath)) or nil
     local shade = 0.72 + 0.28 * math.max(0, -(fnx * LX + fny * LY + fnz * LZ))
     if img then
       -- the art filling the recess: cropped to its shape, never squeezed

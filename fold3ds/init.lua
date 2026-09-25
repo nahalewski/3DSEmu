@@ -1144,6 +1144,31 @@ local function drawTopTile(P, t)
   local time = state.time
   local bob = math.sin(time * 1.7) * P.h * 0.025
   local cx, cy = P.x + P.w / 2, P.y + P.h * 0.47
+  if t.emuGame then
+    -- every emulator's game as its own 3D cart / card, floating and
+    -- spinning like the recomp carts: a DS or 3DS card, a Game Boy, Color or
+    -- Advance cart, with the game's box art or icon as its label
+    local skin
+    local p = Emus.owner(t)
+    if p and p.cartSkin then
+      local ok, sk = pcall(p.cartSkin, t)
+      if ok and type(sk) == "table" then skin = sk end
+    end
+    if not skin then
+      local sys = t.system or (p and p.id == "azahar" and "3ds") or "3ds"
+      local shape = ({ nds = "ds", ds = "ds", gb = "gb", gbc = "gbc", gba = "gba" })[sys] or "3ds"
+      local colors = { ["3ds"] = { 214, 216, 222 }, ds = { 190, 192, 198 }, gb = { 168, 168, 176 },
+        gbc = { 120, 120, 130 }, gba = { 60, 60, 70 } }
+      skin = { shape = shape, color = colors[shape], labelImage = Emus.icon(t), noLabel = true }
+    end
+    skin.cart = true
+    skin.cacheKey = skin.cacheKey or t.id
+    if skin.shape == "ds" and t.system ~= "nds" and not (p and p.id == "melonds") and p and p.id == "azahar" then
+      skin.shape = "3ds"
+    end
+    Cart3D.draw(P, t.id, time, skin)
+    return
+  end
   local img = t.emuGame and Emus.icon(t) or image("icons3ds/" .. t.id .. ".png")
   -- the shadow
   lg.setColor(0.2, 0.24, 0.3, 0.16 - bob / P.h)
