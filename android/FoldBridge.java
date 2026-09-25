@@ -213,6 +213,9 @@ public final class FoldBridge {
         if (name.contains("..") || name.startsWith("/") || name.contains("\\")) return false;
         if (name.startsWith("saves/") || name.startsWith("mods/")) return true;
         if (name.matches("downloadplay/rom/[A-Za-z0-9_.-]+\\.(gb|gbc|gba)")) return true;
+        // a DS / Virtual Console game, its save and its state (fold3ds/emucore.lua
+        // moves them from the inbox into its own folder)
+        if (name.matches("emu_inbox/(games|saves|states)/[^/]+")) return true;
         return name.matches("save(_[a-z0-9_]+)?\\.lua(\\.bak)?");
     }
 
