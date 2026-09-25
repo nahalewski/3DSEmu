@@ -50,6 +50,7 @@ local Eshop = require("fold3ds.eshop")
 local Activity = require("fold3ds.activity")
 local Notes = require("fold3ds.notes")
 local Manual = require("fold3ds.manual")
+local HomeNX = require("fold3ds.homenx")
 local Friends = require("fold3ds.friends")
 local EmuPlay = require("fold3ds.emuplay")
 local EmuPage = require("fold3ds.emupage")
@@ -329,6 +330,14 @@ end
 -- Download Play owns both screens while it is open (launcher only)
 local function dlOn()
   return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Dlplay.isOpen()
+end
+
+-- the Switch HOME menu (fold3ds.homenx) owns the whole screen while it is
+-- the HOME menu and nothing is opened over it; anything it opens (a game's
+-- page, the eShop, the Album, a manual) shows in the 3DS shell as ever
+local function nxOn()
+  return homeActive() and state.L ~= nil and HomeNX.active() and Home.showing()
+    and not (cameraOn() or emuOn() or pageOn() or actOn() or appOn() or esOn() or dlOn() or Sticker.editing())
 end
 
 ---------------------------------------------------------------- volume slider
@@ -620,6 +629,7 @@ local function press(btn, src)
     if Input and Input.overlayPressed and GAME_BTN[btn] then Input:overlayPressed(GAME_BTN[btn]) end
   else
     local s = state.subject
+    if nxOn() then HomeNX.button(s, btn) return end
     if homeActive() then
       -- the HOME menu: HOME returns to it; on the grid the pads move and A opens
       if btn == "home" then Sfx.play("homeMenu"); Home.goHome(s, true) return end
@@ -815,6 +825,7 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
   end
   if state.L and shoulderZone(state.L, x, y) then state.shoulderSeen = state.time end
   if skipBoot() then return end
+  if nxOn() then HomeNX.pressed(state.subject, id, x, y) return end
   if state.L and volumeZone(state.L, x, y) then state.volDrag = id; volumeFromY(state.L, y) return end
   -- the inner camera: stickers for the shells
   if state.L and state.kind ~= "game" and not Sticker.editing() and onInnerEye(state.L, x, y) then
@@ -856,6 +867,7 @@ local function onTouchMoved(id, x, y, dx, dy, pr)
     if state.mode == "lid" then coverTouch("moved", id, x, y) return end
     return orig.touchmoved and orig.touchmoved(id, x, y, dx, dy, pr)
   end
+  if HomeNX.owns(id) then HomeNX.moved(state.subject, id, x, y) return end
   if state.volDrag == id then volumeFromY(state.L, y) return end
   if state.held[id] then holdMove(id, x, y) return end
   if editingSticker() then Sticker.moved(id, x, y) return end
@@ -879,6 +891,7 @@ local function onTouchReleased(id, x, y, dx, dy, pr)
     if state.mode == "lid" then coverTouch("released", id, x, y) return end
     return orig.touchreleased and orig.touchreleased(id, x, y, dx, dy, pr)
   end
+  if HomeNX.owns(id) then HomeNX.released(state.subject, id, x, y) return end
   if state.volDrag == id then state.volDrag = nil return end
   if state.held[id] then holdEnd(id) return end
   if editingSticker() then Sticker.released(id) return end
@@ -906,6 +919,7 @@ local function onMousePressed(x, y, button, istouch, presses)
     return orig.mousepressed and orig.mousepressed(x, y, button, istouch, presses)
   end
   if not istouch and button == 1 and skipBoot() then return end
+  if not istouch and button == 1 and nxOn() then HomeNX.pressed(state.subject, "mouse", x, y) return end
   if not istouch and button == 1 and state.L and state.kind ~= "game" and not Sticker.editing()
       and onInnerEye(state.L, x, y) then
     Sfx.play("open")
@@ -942,6 +956,7 @@ local function onMouseMoved(x, y, dx, dy, istouch)
     if state.mode == "lid" then if not istouch then coverTouch("moved", "mouse", x, y) end return end
     return orig.mousemoved and orig.mousemoved(x, y, dx, dy, istouch)
   end
+  if not istouch and HomeNX.owns("mouse") then HomeNX.moved(state.subject, "mouse", x, y) return end
   if state.volDrag == "mouse" then volumeFromY(state.L, y) return end
   if state.held.mouse then holdMove("mouse", x, y) return end
   if editingSticker() then if not istouch then Sticker.moved("mouse", x, y) end return end
@@ -962,6 +977,7 @@ local function onMouseReleased(x, y, button, istouch, presses)
     if state.mode == "lid" then if not istouch then coverTouch("released", "mouse", x, y) end return end
     return orig.mousereleased and orig.mousereleased(x, y, button, istouch, presses)
   end
+  if not istouch and HomeNX.owns("mouse") then HomeNX.released(state.subject, "mouse", x, y) return end
   if state.volDrag == "mouse" and not istouch then state.volDrag = nil return end
   if state.held.mouse and not istouch then holdEnd("mouse") return end
   if editingSticker() then if not istouch then Sticker.released("mouse") end return end
@@ -2088,6 +2104,11 @@ local function drawFrame()
     lg.pop()
     return
   end
+  if nxOn() then
+    HomeNX.draw({ x = 0, y = 0, w = W, h = H }, state.subject, state.time)
+    lg.pop()
+    return
+  end
   lg.clear(0.05, 0.05, 0.06, 1)
   -- the white wallpaper behind the open 3DS
   drawWall(WALL_OPEN, W, H)
@@ -2616,7 +2637,27 @@ function M.install()
     region = function() return Cart3D.region end })
   Home.init({ font = font, openCamera = Camera.open, drawCameraIcon = Camera.drawIcon, openDlplay = Dlplay.open, openEshop = Eshop.open,
     openActivity = Activity.open, openApp = function(id) if APPS[id] then APPS[id].open() end end,
-    openManual = Manual.open })
+    openManual = Manual.open,
+    toSwitch = function() HomeNX.enable() end,
+    drawSwitchIcon = function(x, y, sz) HomeNX.drawLogo(x, y, sz) end })
+  HomeNX.init({ font = font,
+    tiles = function(imp) return Home.tiles(imp) end,
+    drawIcon = function(imp, id, x, y, sz) return Home.drawIconFor(imp, id, x, y, sz) end,
+    hasManual = Manual.has,
+    openManual = function(imp, t) Home.manual(imp, t) end,
+    -- a recomp game that is ready plays; one still to import opens its page
+    -- (and an emulator's game plays in its emulator)
+    start = function(imp, t)
+      if t.game and imp and imp.ready and imp.ready[t.id] and imp.play then
+        Sfx.play("launch")
+        pcall(imp.play, imp, t.id, true)
+      else
+        Home.openTile(imp, t)
+      end
+    end,
+    openEshop = Eshop.open, openAlbum = Camera.open, openActivity = Activity.open,
+    openSettings = function(imp) Home.openApplet(imp, "settings") end,
+    to3ds = function() Sfx.play("homeMenu") end })
   Notes.init({ font = font, setCanvas = real.setCanvas })
   Manual.init({ font = font })
   EmuPlay.init({ font = font })

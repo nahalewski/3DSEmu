@@ -71,6 +71,7 @@ local APPLETS = {
   { id = "skins", name = "Skins", icon = "paintbrush", color = { 40, 130, 230 }, tab = "skins" },
   { id = "importers", name = "Import", icon = "download", color = { 90, 180, 60 }, tab = "importers" },
   { id = "sync", name = "Save Sync", icon = "arrow-left-right", color = { 20, 170, 170 }, modal = "sync" },
+  { id = "switchui", name = "Switch HOME Menu", switchui = true },
   { id = "exit", name = "Exit", icon = "x", color = { 226, 56, 60 }, exit = true },
 }
 
@@ -297,6 +298,10 @@ local function openTile(imp, t)
     if imp._quitApp then imp:_quitApp() end
     return
   end
+  if t.switchui then
+    if ctx.toSwitch then ctx.toSwitch() end
+    return
+  end
   if t.camera then
     if ctx.openCamera then ctx.openCamera() end
     return
@@ -345,6 +350,10 @@ local function manual(imp, t)
   if ctx.openManual and ctx.openManual(t.id, function() manage(imp, t) end) then return end
   manage(imp, t)
 end
+
+-- the Switch HOME menu (fold3ds.homenx) opens tiles and manuals the same way
+H.openTile = function(imp, t) return openTile(imp, t) end
+H.manual = function(imp, t) return manual(imp, t) end
 
 -- open an applet on the bar by its id (the eShop's Open goes to Mods)
 function H.openApplet(imp, id)
@@ -753,6 +762,8 @@ function H.draw(r, imp, time)
       lg.draw(img, ix, iy, 0, s / iw, s / ih)
     elseif a.camera and ctx.drawCameraIcon then
       ctx.drawCameraIcon(ix, iy, s)
+    elseif a.switchui and ctx.drawSwitchIcon then
+      ctx.drawSwitchIcon(ix, iy, s)
     else
       local okI, Icons = pcall(require, "src.ui.kit.Icons")
       if okI then Icons.draw(a.icon, ix, iy, s, a.color, 1) end
