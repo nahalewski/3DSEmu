@@ -238,7 +238,15 @@ local function drawShelf(r, y0, pad)
   local footH = rowsH * 0.17
   local listH = rowsH - footH - pad * 0.5
   if loading(i) or not (i and i.findIndex) then
-    fit(img("checking"), r.x + r.w * 0.15, y0 + listH * 0.35, r.w * 0.7, listH * 0.3)
+    -- connecting: the eShop's own loading wheel, turning
+    local wheel = img("wheel")
+    if wheel then
+      local ws = listH * 0.32
+      local iw, ih = wheel:getDimensions()
+      lg.setColor(1, 1, 1, 1)
+      lg.draw(wheel, r.x + r.w / 2, y0 + listH * 0.38, math.floor(st.t * 8) * math.pi / 4, ws / iw, ws / ih, iw / 2, ih / 2)
+    end
+    fit(img("checking"), r.x + r.w * 0.2, y0 + listH * 0.66, r.w * 0.6, listH * 0.22)
     return
   end
   local rows = shelfRows(i)
@@ -354,7 +362,15 @@ local function drawTitle(r, y0, pad)
     spinner(r.x + r.w / 2, by + bh * 4, h0 * 0.05)
   elseif job and job.entry == e and job.done then
     if job.ok then
-      fit(img("thanks"), r.x + r.w * 0.1, by - h0 * 0.05, r.w * 0.8, h0 * 0.22)
+      -- the gift cube pops in, then the thank-you card
+      local age = st.t - (job.doneAt or st.t)
+      local pop = math.min(1, age / 0.35)
+      local g = img("gift")
+      if g then
+        local gs = h0 * 0.2 * (0.6 + 0.4 * pop) * (1 + 0.08 * math.sin(math.min(age, 1) * math.pi * 3))
+        fit(g, r.x + r.w / 2 - gs / 2, by - h0 * 0.28 - gs / 2 + h0 * 0.1, gs, gs, pop)
+      end
+      fit(img("thanks"), r.x + r.w * 0.1, by, r.w * 0.8, h0 * 0.2)
       lg.setFont(f2)
       col(INK, 0.8)
       lg.printf("Turn it on in MODS.", r.x, by + h0 * 0.2, r.w, "center")
@@ -464,7 +480,19 @@ function E.drawTop(r)
     lg.printf(e.summary or "", wx, ty + #lines * f:getHeight() + f2:getHeight() * 0.5, ww, "left")
   else
     bag3d(r.x + r.w / 2, r.y + r.h * 0.38, r.h * 0.0026, st.t)
-    fit(img("logo"), r.x + r.w * 0.15, r.y + r.h * 0.66, r.w * 0.7, r.h * 0.2)
+    local jp = ctx.region and ctx.region() == "jp"
+    fit(img(jp and "logo_jp" or "logo"), r.x + r.w * 0.15, r.y + r.h * 0.64, r.w * 0.7, r.h * (jp and 0.24 or 0.2))
+    -- the eShop guy hops across the bottom
+    local guy = img("guy")
+    if guy then
+      local gh = r.h * 0.16
+      local iw, ih = guy:getDimensions()
+      local span = r.w + gh * 2
+      local gx = r.x - gh + (st.t * r.w * 0.12) % span
+      local hop = math.abs(math.sin(st.t * 6)) * gh * 0.25
+      lg.setColor(1, 1, 1, 1)
+      lg.draw(guy, gx, r.y + r.h - gh - hop - r.h * 0.02, 0, gh / ih, gh / ih)
+    end
     if e then
       local f = ctx.font(r.h * 0.055)
       lg.setFont(f)
@@ -631,6 +659,7 @@ function E.update(dt)
     local n = i.findNotice
     job.ok = not (n and n.ok == false)
     job.text = n and n.text
+    job.doneAt = st.t
     st.cache = nil
     Sfx.play(job.ok and "gift" or "error")
   end

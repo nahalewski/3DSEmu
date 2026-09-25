@@ -50,7 +50,7 @@ p = pathlib.Path("scripts/build_android.sh"); s = p.read_text()
 # the Camera applet records video with sound: keep the microphone permission
 s = s.replace('    "android.permission.RECORD_AUDIO",\n', "")
 s = s.replace("main.lua conf.lua src data assets tools/save-editor \\", "main.lua conf.lua src data assets fold3ds tools/save-editor \\")
-s = s.replace("-x 'data/generated/*' -x 'assets/generated/*')", "-x 'data/generated/*' -x 'assets/generated/*' -x 'fold3ds/dev/*')")
+s = s.replace("-x 'data/generated/*' -x 'assets/generated/*')", "-x 'data/generated/*' -x 'assets/generated/*' -x 'fold3ds/dev/*' -x 'fold3ds/homesprites/*')")
 p.write_text(s)
 PY
 export GEN1RECOMP_ANDROID_APPLICATION_ID="${GEN1RECOMP_ANDROID_APPLICATION_ID:-com.nahalewski.gen1recompfold}"
