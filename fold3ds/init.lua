@@ -260,7 +260,7 @@ end
 -- phone's volume keys (they move it instead of Android's volume, with no
 -- popup, while Settings > 3DS Shell > Volume keys is on).  It sets the
 -- app's own volume; full up is the top, OFF the bottom.
-local VOL = { x = 0, top = 462, bottom = 570, knob = { 28, 50 } }   -- top_gbc.png pixels
+local VOL = { x = 0, top = 466, bottom = 568, knob = { 31, 63 } }   -- top_gbc.png pixels (the VOL panel)
 
 local function bridge(cmd, arg)
   local f = love.system and love.system.foldCamera
