@@ -2578,6 +2578,12 @@ function M.install()
   M.installed = true
   loadSettings()
   Sticker.init({ setCanvas = real.setCanvas, font = font })
+  -- the lid and the top shell's boxes, so stickers can wrap between them
+  Sticker.setBox(0, LID_BOX[3], LID_BOX[4])
+  do
+    local top = image(TOP.file)
+    if top then Sticker.setBox(1, top:getDimensions()) end
+  end
   Camera.init({ font = font })
   Dlplay.init({ font = font, subject = function() return state.subject end })
   Activity.init({ font = font, drawIcon = function(id, x, y, s)
