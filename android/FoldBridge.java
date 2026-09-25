@@ -92,12 +92,89 @@ public final class FoldBridge {
             if (cmd.startsWith("dp.")) return FoldPlay.call(cmd.substring(3), arg);
             // a 3DS game in the shell: Azahar's side (the app module, found by name)
             if (cmd.startsWith("3ds.")) return threeDs(cmd.substring(4), arg);
+            if (cmd.equals("sounds.fetch")) return soundsFetch(arg);
+            if (cmd.equals("sounds.state")) return soundsState;
             if (cmd.equals("fetch") || cmd.startsWith("files.") || cmd.equals("external")) return FoldFetch.call(cmd, arg);
         } catch (Throwable e) {
             Log.d(TAG, cmd + ": " + e);
             return "error:" + e.getMessage();
         }
         return "error:unknown " + cmd;
+    }
+
+    // ------------------------------------------------------------ system sounds
+    // The Switch's and the 3DS's own menu sounds, downloaded on the phone
+    // into the save folder (sounds/switch/, sounds/3ds/) for this phone only:
+    // never in the repository or the APK.  sounds.fetch|<save folder> starts
+    // it; sounds.state says idle / running / done:<switch>:<3ds> / error:...
+    private static final String[][] SOUND_SOURCES = {
+        // 211 Switch sounds (WAV/*.wav) from github.com/TOM-BadEN/Nintendo-Switch-Sounds-Effect
+        { "switch", "https://codeload.github.com/TOM-BadEN/Nintendo-Switch-Sounds-Effect/zip/refs/heads/main", "/WAV/" },
+        // the 3DS HOME Menu's sounds from The Sounds Resource (asset 443937)
+        { "3ds", "https://sounds.spriters-resource.com/media/assets/443/443937.zip", "" },
+    };
+    private static volatile String soundsState = "idle";
+
+    private static String soundsFetch(final String saveDir) {
+        if (soundsState.equals("running")) return soundsState;
+        soundsState = "running";
+        new Thread(new Runnable() {
+            public void run() {
+                int[] got = new int[SOUND_SOURCES.length];
+                String err = null;
+                for (int i = 0; i < SOUND_SOURCES.length; i++) {
+                    try {
+                        got[i] = fetchSounds(SOUND_SOURCES[i][1], SOUND_SOURCES[i][2],
+                            new File(saveDir, "sounds/" + SOUND_SOURCES[i][0]));
+                    } catch (Exception e) {
+                        Log.d(TAG, "sounds " + SOUND_SOURCES[i][0] + ": " + e);
+                        err = SOUND_SOURCES[i][0] + ": " + e.getMessage();
+                    }
+                }
+                soundsState = (got[0] + got[1] == 0 && err != null)
+                    ? "error:" + err : "done:" + got[0] + ":" + got[1];
+            }
+        }, "fold3ds-sounds").start();
+        return soundsState;
+    }
+
+    // every .wav in the zip at url whose path contains `within`, flattened
+    // into dir (streamed: nothing but the WAVs is written)
+    static int fetchSounds(String url, String within, File dir) throws IOException {
+        java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+        c.setConnectTimeout(15000);
+        c.setReadTimeout(30000);
+        c.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) gen1recomp-Fold");
+        int n = 0;
+        try {
+            if (c.getResponseCode() != 200) throw new IOException("HTTP " + c.getResponseCode());
+            dir.mkdirs();
+            ZipInputStream zis = new ZipInputStream(c.getInputStream());
+            try {
+                ZipEntry e;
+                while ((e = zis.getNextEntry()) != null) {
+                    String name = e.getName();
+                    if (e.isDirectory() || !name.toLowerCase().endsWith(".wav")) continue;
+                    if (within.length() > 0 && !name.contains(within)) continue;
+                    String base = name.substring(name.lastIndexOf('/') + 1);
+                    if (base.length() == 0 || base.startsWith(".")) continue;
+                    File out = new File(dir, base);
+                    File part = new File(dir, base + ".part");
+                    OutputStream o = new FileOutputStream(part);
+                    try {
+                        copy(zis, o);
+                    } finally {
+                        o.close();
+                    }
+                    if (part.renameTo(out)) n++;
+                }
+            } finally {
+                zis.close();
+            }
+        } finally {
+            c.disconnect();
+        }
+        return n;
     }
 
     private static java.lang.reflect.Method threeDsCall;
