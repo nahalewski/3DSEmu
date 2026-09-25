@@ -23,9 +23,10 @@
 -- opened tile shows the launcher's page under a back bar; back, B or HOME
 -- return here.  Icons: fold3ds/icons3ds/<id>.png, else a drawn stand-in.
 --
--- Azahar (fold3ds.azahar): every 3DS game in Azahar's library is a tile
--- too (its own icon; Open plays it, Manual shows its options), and the
--- Azahar folder holds an icon per emulator settings page and tool.  An
+-- Emulators (fold3ds.emus -- Azahar, and any other built in): every game in
+-- an emulator's library is a tile too (its own icon; Open plays it, Manual
+-- shows its options), and each emulator's folder holds an icon per settings
+-- page and tool.  An
 -- open folder shows its icons on the grid, a Close Folder tile first; B,
 -- HOME or that tile close it.
 local H = {}
@@ -96,7 +97,7 @@ local st = {
 }
 local ctx
 local Sfx = require("fold3ds.sfx")
-local Azahar = require("fold3ds.azahar")
+local Emus = require("fold3ds.emus")
 
 local function col(c, a) lg.setColor(c[1] / 255, c[2] / 255, c[3] / 255, a or 1) end
 local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
@@ -140,40 +141,25 @@ local function allTiles(imp)
       ready = imp and imp.ready and imp.ready[v] }
     ids[#ids + 1] = v
   end
-  -- Azahar: its folder, and each 3DS game (or, before Azahar's folder is
-  -- chosen, the tile that sets it up)
-  byId[Azahar.FOLDER] = { id = Azahar.FOLDER, folder = true, name = "Azahar",
-    sub = "3DS emulator settings and tools" }
-  ids[#ids + 1] = Azahar.FOLDER
-  if Azahar.status() == "setup" then
-    byId.ctr_setup = { id = "ctr_setup", url = "setup", name = "Set Up 3DS",
-      sub = "Choose Azahar's folder to play 3DS games" }
-    ids[#ids + 1] = "ctr_setup"
-  end
-  for _, g in ipairs(Azahar.games()) do
-    if not byId[g.id] then byId[g.id] = g; ids[#ids + 1] = g.id end
-  end
-  -- adding 3DS games from here: install CIA files or choose the games
-  -- folder; they join the grid when Azahar is done
-  if Azahar.status() == "ready" then
-    byId.ctr_add = { id = "ctr_add", url = "add_games", name = "Add 3DS Games",
-      sub = "Install CIA files or choose your games folder" }
-    ids[#ids + 1] = "ctr_add"
-  end
+  -- every emulator (fold3ds.emus): its folder of settings and tools, its
+  -- set-up tile until it is set up, its games, its add-games tile
+  Emus.addTiles(function(id, t)
+    if not byId[id] then byId[id] = t; ids[#ids + 1] = id end
+  end)
   return byId, ids
 end
 
 -- the open folder's tiles: Close Folder, then its icons
 local CLOSE = { id = "folder_close", close = true, name = "Close Folder", sub = "Back to the HOME Menu" }
-local function folderTiles()
+local function folderTiles(folder)
   local out = { CLOSE }
-  for _, it in ipairs(Azahar.ITEMS) do out[#out + 1] = it end
+  for _, it in ipairs(folder.items or {}) do out[#out + 1] = it end
   return out
 end
 
 -- the tiles in the player's order (new tiles join at the end)
 function H.tiles(imp)
-  if st.folder then return folderTiles() end
+  if st.folder then return folderTiles(st.folder) end
   local byId, ids = allTiles(imp)
   local out, seen = {}, {}
   for _, id in ipairs(st.order or {}) do
@@ -227,7 +213,7 @@ end
 function H.saveCoins() if coins.loaded then saveCoins() end end
 function H.coins() return coins.count, coins.seconds / COIN_SECONDS end
 
-function H.init(context) ctx = context; load(); loadCoins(); Azahar.init() end
+function H.init(context) ctx = context; load(); loadCoins(); Emus.init() end
 
 ---------------------------------------------------------------- actions
 
@@ -257,8 +243,8 @@ local function openTile(imp, t)
     return
   end
   if t.close then Sfx.play("back"); closeFolder() return end
-  if t.url then Sfx.play("open"); Azahar.open(t.url) return end
-  if t.ctr then Sfx.play("open"); Azahar.play(t) return end
+  if t.url and t.emu then Sfx.play("open"); Emus.open(t) return end
+  if t.emuGame then Sfx.play("open"); Emus.play(t) return end
   Sfx.play("open")
   if t.exit then
     if imp._quitApp then imp:_quitApp() end
@@ -296,7 +282,10 @@ end
 
 -- Manual: the game's manage page (ROM, saves, carts)
 local function manual(imp, t)
-  if t and t.ctr then Sfx.play("open"); Azahar.manual(t) return end
+  if t and t.emuGame then
+    if Emus.hasManual(t) then Sfx.play("open"); Emus.manual(t) end
+    return
+  end
   if not imp or not t or not t.game then return end
   openTile(imp, t)
   imp._gameManage = t.id
@@ -332,7 +321,7 @@ function H.openSelected(imp)
 end
 
 function H.update(imp)
-  Azahar.poll(now())
+  Emus.poll(now())
   local t = st.open
   if t and t.modal and imp then
     if t.modal == "settings" and not imp._settings then st.open = nil end
@@ -411,7 +400,7 @@ local function roundRect(mode, x, y, w, h, r)
 end
 
 local function drawIcon(t, x, y, s)
-  local img = t.ctr and Azahar.icon(t) or icon(t.id)
+  local img = t.emuGame and Emus.icon(t) or icon(t.id)
   if img then
     local iw, ih = img:getDimensions()
     local k = math.min(s / iw, s / ih)
@@ -435,10 +424,10 @@ local function drawIcon(t, x, y, s)
     lg.printf(letters, x + s * 0.16, y + s * 0.58 - f:getHeight() / 2, s * 0.68, "center")
     return
   end
-  if t.ctr or t.url or t.folder or t.close then
+  if t.emuGame or t.url or t.folder or t.close then
     -- a 3DS game without an icon, or an Azahar icon not drawn yet: a
     -- rounded square with the first letter
-    local c = t.ctr and { 206, 32, 40 } or { 70, 140, 220 }
+    local c = t.emuGame and { 206, 32, 40 } or { 70, 140, 220 }
     col(c)
     roundRect("fill", x, y, s, s, s * 0.18)
     col({ 255, 255, 255 }, 0.25)
@@ -446,7 +435,7 @@ local function drawIcon(t, x, y, s)
     col({ 255, 255, 255 })
     local f = ctx.font(s * 0.42)
     lg.setFont(f)
-    lg.printf(Azahar.initial(t.name), x, y + (s - f:getHeight()) / 2, s, "center")
+    lg.printf(Emus.initial(t.name), x, y + (s - f:getHeight()) / 2, s, "center")
     return
   end
   local okI, Icons = pcall(require, "src.ui.kit.Icons")
@@ -749,7 +738,7 @@ function H.draw(r, imp, time)
   local f = ctx.font(obH * 0.5)
   lg.setFont(f)
   local sel = tiles[st.sel]
-  col({ 100, 102, 108 }, sel and (sel.game or sel.ctr) and 1 or 0.35)
+  col({ 100, 102, 108 }, sel and (sel.game or (sel.emuGame and Emus.hasManual(sel))) and 1 or 0.35)
   lg.printf("Manual", r.x, oy + (obH - f:getHeight()) / 2, split - r.x, "center")
   col({ 100, 102, 108 })
   lg.printf("Open", split, oy + (obH - f:getHeight()) / 2, r.x + r.w - split, "center")

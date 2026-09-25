@@ -207,8 +207,9 @@ jobs:
                   except Exception as e:
                       log.append("BULBA PAGE FAILED\t%s\t%s" % (url, e))
                       continue
+                  open(os.path.join("art/bulbagarden", "_page_%d.html" % len(seen_c)), "wb").write(page)
                   page = page.decode("utf-8", "replace")
-                  log.append("BULBA PAGE\t%s\t%s" % (how, url))
+                  log.append("BULBA PAGE\t%s\t%s\t%d bytes" % (how, url, len(page)))
                   for f in set(re.findall(r'href="(?:https?://[^"]*?archives\.bulbagarden\.net)?/wiki/(File:[^"#?]+)"', page)):
                       files.setdefault(urllib.parse.unquote(f).replace("_", " "), None)
                   for sub in set(re.findall(r'href="(?:https?://[^"]*?archives\.bulbagarden\.net)?/wiki/(Category:[^"#?]+)"', page)):
@@ -230,6 +231,20 @@ jobs:
                   except Exception as e:
                       log.append("BULBA FILEPAGE FAILED\t%s\t%s" % (t, e))
                   time.sleep(0.3)
+          # the Wayback Machine's index of the wiki's uploads: every archived
+          # image whose name says cartridge (/ cart / Game Pak)
+          try:
+              cdx = "https://web.archive.org/cdx/search/cdx?url=archives.bulbagarden.net/media/upload/*&output=json&collapse=urlkey&filter=statuscode:200&filter=original:.*(?i)(cartridge|_cart|cart_|gamepak|game_pak).*"
+              rows = json.loads(fetch(cdx, 300))
+              log.append("BULBA CDX\t%d rows" % max(0, len(rows) - 1))
+              for row in rows[1:]:
+                  orig = row[2]
+                  if "/thumb/" in orig:
+                      continue
+                  name = urllib.parse.unquote(orig.rsplit("/", 1)[-1]).replace("_", " ")
+                  files.setdefault("File:" + name, orig)
+          except Exception as e:
+              log.append("BULBA CDX FAILED\t%s" % e)
           n = 0
           for t, u in sorted(files.items()):
               if not u:

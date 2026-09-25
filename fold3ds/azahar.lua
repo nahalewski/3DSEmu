@@ -197,4 +197,28 @@ end
 function A.play(t) return t and t.key and A.open("play?key=" .. t.key) end
 function A.manual(t) return t and t.key and A.open("manual?key=" .. t.key) end
 
+-- on the HOME menu (fold3ds.emus): Azahar's folder, its set-up and
+-- add-games tiles, and its games.  Functions are looked up on A when called,
+-- so a wrapper put on A.play (the Activity Log's) still sees every launch.
+A.provider = {
+  id = A.FOLDER,
+  system = "Nintendo 3DS",
+  folder = { name = "Azahar", sub = "3DS emulator settings and tools", items = A.ITEMS },
+  setupTile = { id = "ctr_setup", url = "setup", name = "Set Up 3DS",
+    sub = "Choose Azahar's folder to play 3DS games" },
+  addTile = { id = "ctr_add", url = "add_games", name = "Add 3DS Games",
+    sub = "Install CIA files or choose your games folder" },
+  status = function() return A.status() end,
+  games = function() return A.games() end,
+  icon = function(t) return A.icon(t) end,
+  iconPath = function(t) return t.hasIcon and t.key and (DIR .. "icons/" .. t.key .. ".png") or nil end,
+  cart = function(t) return A.cart(t) end,
+  open = function(url) return A.open(url) end,
+  play = function(t) return A.play(t) end,
+  manual = function(t) return A.manual(t) end,
+  init = function() return A.init() end,
+  poll = function(time) return A.poll(time) end,
+  transferEntries = function(t) return A.transferEntries(t) end,
+}
+
 return A
