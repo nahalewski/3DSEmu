@@ -584,7 +584,7 @@ local function press(btn, src)
   if emuOn() then
     -- the C-stick is the screen's shape here too (full screen / border)
     if btn == "cstick" then cycleScreen() return end
-    EmuPlay.press(btn)
+    EmuPlay.press(btn, src)
     return
   end
   if pageOn() then EmuPage.button(btn) return end
@@ -649,7 +649,7 @@ local function press(btn, src)
 end
 
 local function release(btn, src)
-  if emuOn() then EmuPlay.release(btn) return end
+  if emuOn() then EmuPlay.release(btn, src) return end
   if pageOn() then return end
   if btn == "cstick" then return end
   if Sticker.editing() and state.kind ~= "game" then return end
