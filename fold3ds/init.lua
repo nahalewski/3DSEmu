@@ -251,6 +251,7 @@ end
 
 local skipBoot   -- the boot screen (defined with the drawing)
 local coverTouch -- a touch on the cover screen (defined with the drawing)
+local onInnerEye -- the inner camera lens (defined with the drawing)
 
 -- the Camera applet owns both screens while it is open (launcher only)
 local function cameraOn()
@@ -753,6 +754,12 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
   if state.L and shoulderZone(state.L, x, y) then state.shoulderSeen = state.time end
   if skipBoot() then return end
   if state.L and volumeZone(state.L, x, y) then state.volDrag = id; volumeFromY(state.L, y) return end
+  -- the inner camera: stickers for the shells
+  if state.L and state.kind ~= "game" and not Sticker.editing() and onInnerEye(state.L, x, y) then
+    Sfx.play("open")
+    Sticker.open(nil, 1)
+    return
+  end
   local b = buttonAt(x, y)
   if M.debug then print("fold3ds buttonAt -> " .. tostring(b and b.name)) end
   if b then holdStart(id, b, x, y) return end
@@ -828,6 +835,12 @@ local function onMousePressed(x, y, button, istouch, presses)
     return orig.mousepressed and orig.mousepressed(x, y, button, istouch, presses)
   end
   if not istouch and button == 1 and skipBoot() then return end
+  if not istouch and button == 1 and state.L and state.kind ~= "game" and not Sticker.editing()
+      and onInnerEye(state.L, x, y) then
+    Sfx.play("open")
+    Sticker.open(nil, 1)
+    return
+  end
   if not istouch and button == 1 and state.L and volumeZone(state.L, x, y) then
     state.volDrag = "mouse"; volumeFromY(state.L, y) return
   end
@@ -1617,6 +1630,64 @@ local function drawWall(file, w, h)
   return true
 end
 
+-- Stickers on the open 3DS's shells: the top half's (surface 1) and the
+-- bottom half's (2), each masked by its own art so none covers a screen.
+local function alphaTest()
+  state.alphaTest = state.alphaTest or lg.newShader([[
+    vec4 effect(vec4 color, Image tex, vec2 tc, vec2 sc) {
+      vec4 p = Texel(tex, tc);
+      if (p.a < 0.5) discard;
+      return p * color;
+    }
+  ]])
+  return state.alphaTest
+end
+
+local function shellStickers(img, ox, oy, sc, surf, cover)
+  if not img then return end
+  local bw, bh = img:getDimensions()
+  Sticker.drawOnLid(ox, oy, sc, bw, bh, function()
+    lg.setShader(alphaTest())
+    lg.draw(img, ox, oy, 0, sc, sc)
+    lg.setShader()
+  end, cover, surf)
+end
+
+-- the shell being stickered, as the editor's preview (fitted into a rect)
+local function shellPreview(surf)
+  return function(x, y, W, H)
+    local L = state.L
+    local img = L and (surf == 1 and L.top.img or L.bottom.img)
+    if not img then return end
+    local iw, ih = img:getDimensions()
+    local s = math.min(W / iw, H / ih)
+    local ox, oy = x + (W - iw * s) / 2, y + (H - ih * s) / 2
+    lg.setColor(1, 1, 1, 1)
+    lg.draw(img, ox, oy, 0, s, s)
+    shellStickers(img, ox, oy, s, surf, false)
+  end
+end
+
+-- the inner camera above the top screen (top_gbc.png pixels): a tap on it
+-- opens the sticker maker for the shells
+local INNER_EYE = { 745, 68, 40 }
+onInnerEye = function(L, x, y)
+  local ex, ey = L.top.x + INNER_EYE[1] * L.top.sc, L.top.y + INNER_EYE[2] * L.top.sc
+  local r = INNER_EYE[3] * L.top.sc
+  return (x - ex) ^ 2 + (y - ey) ^ 2 <= r * r
+end
+
+local function innerEyeGlint(L, t)
+  local k = (t % 7) / 7
+  if k > 0.18 then return end
+  local a = math.sin(k / 0.18 * math.pi)
+  local ex, ey = L.top.x + INNER_EYE[1] * L.top.sc, L.top.y + INNER_EYE[2] * L.top.sc
+  lg.setColor(1, 1, 1, 0.45 * a)
+  lg.circle("line", ex, ey, INNER_EYE[3] * L.top.sc * (0.8 + k * 2))
+  lg.setColor(1, 1, 1, 0.8 * a)
+  lg.circle("fill", ex - INNER_EYE[3] * L.top.sc * 0.2, ey - INNER_EYE[3] * L.top.sc * 0.2, INNER_EYE[3] * L.top.sc * 0.1)
+end
+
 -- the sticker maker on the cover screen: the lid on one side, the tools on
 -- the other (side by side on a wide cover, stacked on a tall one)
 local function coverEditRects(W, H)
@@ -1711,7 +1782,8 @@ local function drawFrame()
     Camera.drawBottom(L.botCut)
   elseif Sticker.editing() then
     -- the cover sticker editor: the cover on top, the tools below
-    Sticker.drawPreview(L.topCut, drawLidIn)
+    local surf = Sticker.surface()
+    Sticker.drawPreview(L.topCut, surf == 0 and drawLidIn or shellPreview(surf))
     Sticker.drawEditor(L.botCut)
   elseif dlOn() then
     drawTop3DS(L.topCut, "dlplay")
@@ -1740,7 +1812,9 @@ local function drawFrame()
   drawBoot(L)
   lg.setColor(1, 1, 1, 1)
   lg.draw(L.top.img, L.top.x, L.top.y, 0, L.top.sc, L.top.sc)
+  shellStickers(L.top.img, L.top.x, L.top.y, L.top.sc, 1, "shell")
   drawVolume(L)
+  if state.kind ~= "game" and not Sticker.editing() then innerEyeGlint(L, state.time) end
   -- FULL: the game covers the whole top panel, Game Boy Color frame included
   if state.kind == "game" and state.screenMode == "full" and canvas then
     lg.setColor(0, 0, 0, 1)
@@ -1749,6 +1823,7 @@ local function drawFrame()
     lg.draw(canvas, gr.x, gr.y)
   end
   lg.draw(L.bottom.img, L.bottom.x, L.bottom.y, 0, L.bottom.sc, L.bottom.sc)
+  shellStickers(L.bottom.img, L.bottom.x, L.bottom.y, L.bottom.sc, 2, "shell")
   drawButtons(L)
   drawShoulders(L)
   drawToast(state.kind == "game" and gr or L.topCut)

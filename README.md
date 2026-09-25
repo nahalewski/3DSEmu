@@ -166,7 +166,11 @@ upstream's own Android build script.
   it falls off; a sticker never peeled stays on for good.  Fallen stickers
   wait in SKINS (*Put the fallen ones back*).  Stickers keep their
   proportions, stay on the lid's flat face and are cut to the shell's
-  shape.
+  shape.  Tapping the cover's right camera eye opens the maker too.
+  Tapping the inner camera above the open 3DS's top screen puts stickers
+  on the open shells instead: the editor's *On: top shell / On: bottom
+  shell* row picks which one.  They sit under the screens and buttons,
+  so they never cover them, and they are cut to the shell.
 * **Real 3DS HOME Menu art**: the HOME bar's Camera, Download Play,
   eShop, Settings and Online wear the 3DS's own HOME Menu icons (from The
   Spriters Resource's 3DS HOME Menu sheets, kept whole in

@@ -87,7 +87,7 @@ end
 
 ---------------------------------------------------------------- files
 
-local FIELDS = { "cx", "cy", "cw", "ch", "round", "size", "px", "py", "rot", "worn" }
+local FIELDS = { "cx", "cy", "cw", "ch", "round", "size", "px", "py", "rot", "worn", "surf" }
 
 local function encode(st)
   local out = { ("id=%d"):format(st.id) }
@@ -246,11 +246,20 @@ end
 
 -- The flat of the lid inside its box: clear of the rounded corners' worst
 -- and of the hinge along the bottom (landscape, before any turn).
-local FACE = { left = 0.035, right = 0.035, top = 0.06, bottom = 0.2 }
+-- Where a sticker sits: surf 0 the closed lid (the cover screen), 1 the
+-- open 3DS's top shell, 2 its bottom shell (the shells' art is their mask,
+-- so nothing lands on a screen).  Each surface's face, in shares of its box.
+local FACES = {
+  [0] = { left = 0.035, right = 0.035, top = 0.06, bottom = 0.2 },
+  [1] = { left = 0.02, right = 0.02, top = 0.02, bottom = 0.02 },
+  [2] = { left = 0.02, right = 0.02, top = 0.02, bottom = 0.02 },
+}
+local FACE = FACES[0]
 
 -- a sticker's size and centre on a lid box of bw x bh: its proportions
 -- kept, the centre held on the face, the size no larger than the face
 local function geometry(st, bw, bh)
+  local FACE = FACES[math.floor(st.surf or 0)] or FACES[0]
   local aspect = st.cw / st.ch
   local x0, x1 = bw * FACE.left, bw * (1 - FACE.right)
   local y0, y1 = bh * FACE.top, bh * (1 - FACE.bottom)
@@ -370,13 +379,14 @@ local lastBox = nil        -- the cover's lid box transform (for touches)
 -- origin ox, oy at scale s (units per lid-box pixel), box bw x bh.  `mask`
 -- draws the shell's own shape (in that same space): whatever hangs off it
 -- is cut away.  `cover`: this is the cover screen itself (touchable).
-function S.drawOnLid(ox, oy, s, bw, bh, mask, cover)
+function S.drawOnLid(ox, oy, s, bw, bh, mask, cover, surf)
   local t = now()
+  surf = surf or 0
   lg.push("all")
   for _, st in ipairs(list) do
     local editing = ed and ed.target == st
     local held = grab and grab.st == st and grab.held
-    if st.on and not editing and not held then
+    if st.on and not editing and not held and math.floor(st.surf or 0) == surf then
       if st.fall and st.fall.pending then st.fall = { t0 = t }; Sfx.play("fall") end
       local cx, cy, w, h = geometry(st, bw, bh)
       lg.stencil(mask or function() lg.rectangle("fill", -1e5, -1e5, 2e5, 2e5) end, "replace", 1)
@@ -413,7 +423,7 @@ function S.drawOnLid(ox, oy, s, bw, bh, mask, cover)
   end
   lg.setStencilTest()
   -- the sticker being edited, live
-  if ed and ed.img then
+  if ed and ed.img and cover ~= "shell" and (ed.surf or 0) == surf then
     local c = ed.cfg
     local cx, cy, w, h = geometry(c, bw, bh)
     if mask then lg.stencil(mask, "replace", 1) end
@@ -458,7 +468,7 @@ function S.drawOnLid(ox, oy, s, bw, bh, mask, cover)
     lg.pop()
   end
   lg.pop()
-  if cover then
+  if cover == true then
     -- remember where the lid box lands on screen (it may be turned), to
     -- take touches into it: its origin and its two unit axes
     local x0, y0 = lg.transformPoint(ox, oy)
@@ -480,7 +490,7 @@ end
 local function topAt(bx, by, bw, bh)
   for i = #list, 1, -1 do
     local st = list[i]
-    if st.on and not st.fall then
+    if st.on and not st.fall and (st.surf or 0) == 0 then
       local lx, ly, w, h = toLocal(st, bx, by, bw, bh)
       if math.abs(lx) <= w / 2 and math.abs(ly) <= h / 2 then return st, lx, ly, w, h end
     end
@@ -684,6 +694,7 @@ local function openEditorWith(data, cfg)
   c.cw = clamp(c.cw, 8, iw); c.ch = clamp(c.ch, 8, ih)
   c.cx = clamp(c.cx, 0, iw - c.cw); c.cy = clamp(c.cy, 0, ih - c.ch)
   ed = ed or {}
+  c.surf = ed.surf or c.surf or 0
   ed.img, ed.data, ed.cfg, ed.drag, ed.note = img, data, c, nil, nil
 end
 
@@ -691,7 +702,7 @@ end
 local function keepPlacement()
   if not ed or not ed.cfg then return nil end
   local c = ed.cfg
-  return { size = c.size, px = c.px, py = c.py, rot = c.rot, round = c.round, outline = c.outline }
+  return { size = c.size, px = c.px, py = c.py, rot = c.rot, round = c.round, outline = c.outline, surf = c.surf }
 end
 
 -- A picture from an absolute path (desktop dialogs, the test driver).
@@ -732,18 +743,21 @@ function S.waiting() return pickWait ~= nil end
 ---------------------------------------------------------------- the editor
 
 function S.editing() return ed ~= nil end
+-- the surface being edited (0 lid, 1 top shell, 2 bottom shell)
+function S.surface() return ed and ed.surf or 0 end
 
 -- Open the editor: "top" edits the top sticker on the cover, anything else
 -- starts a new one (and asks for a picture).
-function S.open(which)
+function S.open(which, surf)
+  surf = surf or 0
   if which == "top" then
     for i = #list, 1, -1 do
       local st = list[i]
-      if st.on then
+      if st.on and math.floor(st.surf or 0) == surf then
         local data = readImageData(srcFile(st.id))
         if data then
-          ed = { target = st }
-          local cfg = {}
+          ed = { target = st, surf = surf }
+          local cfg = { surf = surf }
           for _, k in ipairs({ "cx", "cy", "cw", "ch", "round", "size", "px", "py", "rot" }) do cfg[k] = st[k] end
           cfg.outline = st.outline
           openEditorWith(data, cfg)
@@ -752,7 +766,12 @@ function S.open(which)
       end
     end
   end
-  ed = { cfg = defaults(1, 1), note = nil }   -- empty until a picture arrives
+  ed = { cfg = defaults(1, 1), note = nil, surf = surf }   -- empty until a picture arrives
+  ed.cfg.surf = surf
+  if surf ~= 0 then
+    -- the shells have little bare face: a small sticker, beside the screen
+    ed.cfg.size, ed.cfg.px, ed.cfg.py = 0.14, 0.11, surf == 1 and 0.62 or 0.82
+  end
   local ok, err = S.pick()
   if not ok then ed.note = err or "No picture chosen." end
   return true
@@ -771,6 +790,7 @@ function S.save()
   end
   for _, k in ipairs({ "cx", "cy", "cw", "ch", "round", "size", "px", "py", "rot" }) do st[k] = c[k] end
   st.outline = c.outline
+  st.surf = ed.surf or 0
   local canvas = bake(ed.img, c)
   local okW = pcall(function()
     canvas:newImageData():encode("png", outFile(st.id))
@@ -797,6 +817,9 @@ local function controls(r)
     { id = "outline", label = "White edge", kind = "toggle" },
     { id = "pick", label = "New picture", kind = "button" },
   }
+  if ed and (ed.surf or 0) ~= 0 then
+    table.insert(rows, 1, { id = "surf", label = ed.surf == 1 and "On: top shell" or "On: bottom shell", kind = "button" })
+  end
   if ed and ed.target then rows[#rows + 1] = { id = "delete", label = "Delete", kind = "button", danger = true } end
   rows[#rows + 1] = { id = "save", label = "Save", kind = "button", accent = true }
   rows[#rows + 1] = { id = "cancel", label = "Cancel", kind = "button" }
@@ -911,7 +934,7 @@ end
 local function step(id, dir)
   local c = ed.cfg
   if id == "round" then c.round = clamp(c.round + dir * 0.05, 0, 0.5)
-  elseif id == "size" then c.size = clamp(c.size + dir * 0.04, 0.12, 0.9)
+  elseif id == "size" then c.size = clamp(c.size + dir * 0.02, (ed.surf or 0) ~= 0 and 0.06 or 0.12, 0.9)
   elseif id == "rot" then c.rot = (c.rot or 0) + dir * math.rad(5) end
 end
 
@@ -919,6 +942,9 @@ local function tapRow(row, x)
   if row.kind == "step" then
     if not ed.img then return end
     step(row.id, x < row.x + row.w / 2 and -1 or 1)
+  elseif row.id == "surf" then
+    ed.surf = ed.surf == 1 and 2 or 1
+    ed.cfg.surf = ed.surf
   elseif row.id == "outline" then
     if ed.img then ed.cfg.outline = not ed.cfg.outline end
   elseif row.id == "pick" then
