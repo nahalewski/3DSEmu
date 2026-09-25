@@ -12,6 +12,10 @@
 --
 -- Shells are the real carts' colours: Red, Blue, Yellow, Gold and Silver
 -- solid, Crystal and the GBA pair see-through (the board shows inside).
+-- Any other game passes a skin: { shape = "gb" | "gbc" | "gba" | "ds" |
+-- "3ds", color = { r, g, b [, alpha] }, cart = true, labelImage = <Image>,
+-- cacheKey } -- a Game Boy / Advance cart or a DS / 3DS card (the 3DS card
+-- with its tab) in that colour with that label.
 -- Labels: fold3ds/labels/<version>.png (<version>_jp.png for the Japanese
 -- carts, C.region "jp"), else the launcher's; either is
 -- cropped to fill the label, not squeezed.
@@ -71,8 +75,49 @@ end
 ---------------------------------------------------------------- the model
 -- Units: the cart is 1 wide; y runs down; z runs away from the viewer.
 
-local function model(gba)
-  if gba then
+local function model(shape)
+  if shape == "ds" or shape == "3ds" then
+    -- a DS game card, 35 x 33 x 3.8 mm (1 = 35 mm): rounded corners but
+    -- the top right, cut on a slant; fine grip ridges across its top; the
+    -- label in a recess filling the rest of the front; on the back a step
+    -- down to the 17 contacts along its bottom edge; the notch in its left
+    -- side.  A 3DS card is the same card with the tab on its right edge.
+    local mm = 1 / 35
+    local w, h, d = 1, 33 * mm, 3.8 * mm
+    local top, bot = -h / 2, h / 2
+    local cut, rr = 3.4 * mm, 1.1 * mm
+    local out = {}
+    local function arc(cx, cy, a0, a1)
+      for i = 0, 5 do
+        local a = a0 + (a1 - a0) * i / 5
+        out[#out + 1] = { cx + math.cos(a) * rr, cy + math.sin(a) * rr }
+      end
+    end
+    arc(-0.5 + rr, top + rr, math.pi, 1.5 * math.pi)
+    out[#out + 1] = { 0.5 - cut, top }
+    out[#out + 1] = { 0.5, top + cut }
+    if shape == "3ds" then
+      -- the tab: 1 mm proud of the right edge, 5 mm long, its ends sloped
+      local t0, t1, tw = top + 8 * mm, top + 13 * mm, 1 * mm
+      out[#out + 1] = { 0.5, t0 }
+      out[#out + 1] = { 0.5 + tw, t0 + 0.8 * mm }
+      out[#out + 1] = { 0.5 + tw, t1 - 0.8 * mm }
+      out[#out + 1] = { 0.5, t1 }
+    end
+    arc(0.5 - rr, bot - rr, 0, 0.5 * math.pi)
+    arc(-0.5 + rr, bot - rr, 0.5 * math.pi, math.pi)
+    local ridges = {}
+    for k = 0, 6 do ridges[#ridges + 1] = top + (1.4 + k * 0.75) * mm end
+    return { w = w, h = h, d = d, cut = cut, card = true, card3ds = shape == "3ds", mm = mm,
+      outline = out,
+      labelRect = { -0.5 + 2.2 * mm, top + 7.6 * mm, 1 - 4.4 * mm, h - 7.6 * mm - 2.2 * mm },
+      cardRidges = { ridges = ridges, x0 = -0.5 + 2.4 * mm, x1 = 0.5 - cut - 1.6 * mm },
+      -- the side notch (left edge): its top and length
+      cardNotch = { bot - 12 * mm, 2.4 * mm },
+      -- the back: the step to the contacts (its top), and the contacts
+      cardStep = bot - 6.2 * mm, contacts = 17 }
+  end
+  if shape == "gba" then
     -- 57 x 35 x 7.5 mm: the top edge gently arched, the corners rounded
     local w, h, d = 1, 0.614, 0.13
     local top, out = -h / 2, {}
@@ -92,6 +137,8 @@ local function model(gba)
       notches = { top + 0.1, 0.07 },
       board = { -0.4, top + 0.07, 0.8, h - 0.1 } }
   end
+  -- the Game Boy / Game Boy Color cart (the original Game Boy's is the same
+  -- shape, in its own grey)
   local w, h, d = 1, 1.14, 0.13
   local cut = 0.11
   return { w = w, h = h, d = d, cut = cut,
@@ -207,8 +254,13 @@ function C.draw(r, version, t, skin)
   if shown.version ~= key then
     shown.version, shown.since = key, t
   end
-  local gba = (skin and skin.shape == "gba") or (not skin and isGba(version))
-  local M = model(gba)
+  local shape = skin and skin.shape
+  if not shape then
+    local gba = (skin and skin.shape == "gba") or (not skin and isGba(version))
+    shape = gba and "gba" or "gbc"
+  end
+  local gba = shape == "gba"
+  local M = model(shape)
   -- a custom cart keeps its own colour; the stock carts wear the real one
   local color = (skin and skin.cart and skin.color) or (C.region == "jp" and SHELL_JP[version])
     or SHELL[version] or (skin and skin.color) or { 180, 180, 190 }
@@ -258,6 +310,25 @@ function C.draw(r, version, t, skin)
     local rr, gg, bb = lit(color, bnx, bny, bnz, 0.35)
     lg.setColor(rr, gg, bb, alpha)
     poly(backRev)
+    if M.card then
+      -- the card's back: the step down to its contacts, and the contacts
+      local zs = zb + 0.002
+      local sy = M.cardStep
+      local x0, x1 = -0.5 + 1.2 * M.mm, 0.5 - 1.2 * M.mm
+      lg.setColor(rr * 0.62, gg * 0.62, bb * 0.62, 1)
+      poly(frontRect(P, x0, sy, x1 - x0, M.h / 2 - sy, zs))
+      lg.setColor(rr * 1.2, gg * 1.2, bb * 1.2, 1)
+      poly(frontRect(P, x0, sy, x1 - x0, 0.3 * M.mm, zs + 0.001))
+      local n = M.contacts
+      local cx0, cw = -0.5 + 3.4 * M.mm, (1 - 6.8 * M.mm) / n
+      for i = 0, n - 1 do
+        lg.setColor(0.82, 0.66, 0.24, 1)
+        poly(frontRect(P, cx0 + i * cw + cw * 0.18, sy + 1.2 * M.mm, cw * 0.64, 4.2 * M.mm, zs + 0.002))
+      end
+      -- the moulded ridge across the top of the back
+      lg.setColor(rr * 0.8, gg * 0.8, bb * 0.8, 1)
+      poly(frontRect(P, x0 + 2 * M.mm, -M.h / 2 + 2 * M.mm, x1 - x0 - 4 * M.mm - M.cut, 0.5 * M.mm, zs))
+    end
   end
   if alpha < 1 and M.board then
     -- a see-through shell: the circuit board and its chip inside
@@ -283,6 +354,30 @@ function C.draw(r, version, t, skin)
     local fr, fg, fb = lit(color, fnx, fny, fnz, 0.55)
     lg.setColor(fr, fg, fb, alpha)
     poly(front)
+    if M.card then
+      -- the card's grip ridges: fine grooves, each with its lit edge
+      local g = M.cardRidges
+      for _, ry in ipairs(g.ridges) do
+        lg.setColor(fr * 0.66, fg * 0.66, fb * 0.66, 1)
+        poly(frontRect(P, g.x0, ry, g.x1 - g.x0, 0.32 * M.mm, zf - 0.002))
+        lg.setColor(math.min(1, fr * 1.18), math.min(1, fg * 1.18), math.min(1, fb * 1.18), 1)
+        poly(frontRect(P, g.x0, ry + 0.32 * M.mm, g.x1 - g.x0, 0.14 * M.mm, zf - 0.002))
+      end
+      -- the notch in the left side, seen as a dark bite from the front
+      local n = M.cardNotch
+      lg.setColor(fr * 0.35, fg * 0.35, fb * 0.35, 1)
+      poly(frontRect(P, -0.5, n[1], 0.9 * M.mm, n[2], zf - 0.002))
+      -- the label recess's walls: shadowed along its top and left, lit
+      -- along its bottom and right
+      local L = M.labelRect
+      local e = 0.55 * M.mm
+      lg.setColor(fr * 0.45, fg * 0.45, fb * 0.45, 1)
+      poly(frontRect(P, L[1] - e, L[2] - e, L[3] + 2 * e, e, zf - 0.003))
+      poly(frontRect(P, L[1] - e, L[2] - e, e, L[4] + 2 * e, zf - 0.003))
+      lg.setColor(math.min(1, fr * 1.25), math.min(1, fg * 1.25), math.min(1, fb * 1.25), 1)
+      poly(frontRect(P, L[1] - e, L[2] + L[4], L[3] + 2 * e, e, zf - 0.003))
+      poly(frontRect(P, L[1] + L[3], L[2] - e, e, L[4] + 2 * e, zf - 0.003))
+    end
     if M.ridges then
       -- the GBA cart's grip ridges, and the notches in its sides
       for _, ry in ipairs(M.ridges) do
@@ -329,7 +424,10 @@ function C.draw(r, version, t, skin)
     local rr, gg, bb = lit(color, fnx, fny, fnz, 0.55)
     lg.setColor(rr * 0.6, gg * 0.6, bb * 0.6, math.max(alpha, 0.9))
     poly(frontRect(P, L[1] - 0.025, L[2] - 0.025, L[3] + 0.05, L[4] + 0.05, zf - 0.002))
-    local img = label(version, skin and skin.labelPath)
+    -- a game's own label (the emulators' games: skin.labelImage, their box
+    -- art or icon), else the recomp game's
+    local img = (skin and skin.labelImage)
+      or (not (skin and skin.noLabel) and label(version, skin and skin.labelPath)) or nil
     local shade = 0.72 + 0.28 * math.max(0, -(fnx * LX + fny * LY + fnz * LZ))
     if img then
       -- the art filling the recess: cropped to its shape, never squeezed

@@ -90,12 +90,25 @@ public final class FoldBridge {
             if (cmd.equals("zip")) return zip(arg);
             if (cmd.equals("unzip")) return unzip(arg);
             if (cmd.startsWith("dp.")) return FoldPlay.call(cmd.substring(3), arg);
+            // a 3DS game in the shell: Azahar's side (the app module, found by name)
+            if (cmd.startsWith("3ds.")) return threeDs(cmd.substring(4), arg);
             if (cmd.equals("fetch") || cmd.startsWith("files.") || cmd.equals("external")) return FoldFetch.call(cmd, arg);
         } catch (Throwable e) {
             Log.d(TAG, cmd + ": " + e);
             return "error:" + e.getMessage();
         }
         return "error:unknown " + cmd;
+    }
+
+    private static java.lang.reflect.Method threeDsCall;
+
+    private static String threeDs(String cmd, String arg) throws Exception {
+        if (threeDsCall == null) {
+            Class<?> c = Class.forName("org.citra.citra_emu.fold3ds.Fold3dsShell");
+            threeDsCall = c.getMethod("call", String.class, String.class);
+        }
+        Object r = threeDsCall.invoke(null, cmd, arg);
+        return r == null ? "" : r.toString();
     }
 
     // ------------------------------------------------------------ steps
@@ -213,6 +226,9 @@ public final class FoldBridge {
         if (name.contains("..") || name.startsWith("/") || name.contains("\\")) return false;
         if (name.startsWith("saves/") || name.startsWith("mods/")) return true;
         if (name.matches("downloadplay/rom/[A-Za-z0-9_.-]+\\.(gb|gbc|gba)")) return true;
+        // a DS / Virtual Console game, its save and its state (fold3ds/emucore.lua
+        // moves them from the inbox into its own folder)
+        if (name.matches("emu_inbox/(games|saves|states)/[^/]+")) return true;
         return name.matches("save(_[a-z0-9_]+)?\\.lua(\\.bak)?");
     }
 

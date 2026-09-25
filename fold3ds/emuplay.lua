@@ -35,6 +35,8 @@ local SYSTEMS = {
   gba = { w = 240, h = 160, frame = { 64, 52, 132 }, bezel = { 28, 26, 38 }, text = "GAME BOY ADVANCE",
     ink = { 220, 220, 240 }, dot = { 110, 220, 90 } },
   nds = { w = 256, h = 192, frame = { 30, 31, 36 }, bezel = { 14, 14, 16 }, text = nil },
+  ["3ds"] = { w = 400, h = 240, bw = 320, bh = 240, frame = { 30, 31, 36 }, bezel = { 14, 14, 16 } },
+  switch = { w = 1280, h = 720, frame = { 30, 31, 36 }, bezel = { 14, 14, 16 } },
 }
 EP.SYSTEMS = SYSTEMS
 
@@ -54,6 +56,8 @@ local function system(p, t)
   local s = t and (t.system or t.sys)
   if SYSTEMS[s] then return s end
   if p and p.id == "melonds" then return "nds" end
+  if p and p.id == "azahar" then return "3ds" end
+  if p and p.id == "eden" then return "switch" end
   return "gbc"
 end
 EP.system = system
@@ -153,16 +157,17 @@ function EP.drawBottom(r, fullScreen)
   local sys = system(p, t)
   lg.push("all")
   lg.setScissor(r.x, r.y, r.w, r.h)
-  if sys == "nds" then
+  -- two-screen systems (DS, 3DS): the touch screen on the bottom
+  if sys == "nds" or sys == "3ds" then
     -- the DS touch screen, as large as fits
     local img = screenImage(p, 1)
     if img then
       st.screenRect = drawScreen(img, r, fullScreen)
     else
-      local S = SYSTEMS.nds
+      local S = SYSTEMS[sys]
       lg.setColor(0, 0, 0, 1)
       lg.rectangle("fill", r.x, r.y, r.w, r.h)
-      local x, y, w, h = fit(r, S.w, S.h)
+      local x, y, w, h = fit(r, S.bw or S.w, S.bh or S.h)
       st.screenRect = { x = x, y = y, w = w, h = h }
     end
   else
@@ -198,7 +203,8 @@ function EP.drawBottom(r, fullScreen)
     local sf = ctx.font(r.h * 0.045)
     lg.setFont(sf)
     lg.setColor(0.45, 0.46, 0.5, 1)
-    lg.printf(({ gb = "Game Boy", gbc = "Game Boy Color", gba = "Game Boy Advance" })[sys] .. "  -  Virtual Console",
+    lg.printf((({ gb = "Game Boy  -  Virtual Console", gbc = "Game Boy Color  -  Virtual Console",
+      gba = "Game Boy Advance  -  Virtual Console", switch = "Nintendo Switch" })[sys] or ""),
       bx, r.y + pad + tf:getHeight() * 2.3, bw, "left")
     local bh = r.h * 0.12
     local y = r.y + r.h - pad - bh * 4 - pad * 1.5

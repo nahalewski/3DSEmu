@@ -202,7 +202,13 @@ upstream's own Android build script.
   it falls off; a sticker never peeled stays on for good.  Fallen stickers
   wait in SKINS (*Put the fallen ones back*).  Stickers keep their
   proportions, stay on the lid's flat face and are cut to the shell's
-  shape.  Tapping the cover's right camera eye opens the maker too.
+  shape.  Stickers come in five shapes: rectangle (rounded as you like), square,
+  circle, triangle and a slime splat with drips.  A sticker on the lid or
+  the open top shell can hang over the top, left or right edge.  The part
+  that hangs over wraps round onto the other side, where a real sticker
+  would bend: from the lid onto the top shell's face, and back.  It sits
+  mirrored at the shared edge, with a crease shadow where it bends.
+  Tapping the cover's right camera eye opens the maker too.
   Tapping the inner camera above the open 3DS's top screen puts stickers
   on the open shells instead: the editor's *On: top shell / On: bottom
   shell* row picks which one.  They sit under the screens and buttons,

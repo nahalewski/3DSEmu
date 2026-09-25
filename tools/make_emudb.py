@@ -4,6 +4,8 @@ from tools/romdb/romdb.sqlite (No-Intro's DATs):
 
   gb.tsv, gbc.tsv, gba.tsv   CRC32 of the whole dump <TAB> No-Intro name
   nds.tsv                    the 4-letter game code in the header <TAB> name
+  ctr.tsv                    the 3DS product code's last part (CTR-P-XXXX,
+                             Azahar's GameTDB id) <TAB> name
 
 A game's No-Intro name is what its box art (libretro-thumbnails) and its
 border (The Bezel Project) are filed under; both are fetched on the phone
@@ -35,3 +37,20 @@ with open(os.path.join(out, "nds.tsv"), "w", encoding="utf-8", newline="\n") as 
             seen.add(code)
             f.write(f"{code}\t{name}\n")
 print("NDS", len(seen))
+
+# 3DS: one name per product code; retail first, then the release whose
+# region matches the code's last letter (E USA, P Europe, A USA / World)
+PREFER = {"E": ("USA",), "P": ("Europe",), "A": ("USA", "World"), "U": ("Australia",)}
+rows = db.execute("select serial, name, kind, regions from games where platform = '3DS' and serial is not null").fetchall()
+best = {}
+for serial, name, kind, regions in rows:
+    code = serial.strip().upper().split("-")[-1]
+    if len(code) != 4:
+        continue
+    rank = (kind != "retail", not any(r in regions.split(",") for r in PREFER.get(code[-1], ())), name)
+    if code not in best or rank < best[code][0]:
+        best[code] = (rank, name)
+with open(os.path.join(out, "ctr.tsv"), "w", encoding="utf-8", newline="\n") as f:
+    for code in sorted(best):
+        f.write(f"{code}\t{best[code][1]}\n")
+print("3DS", len(best))
