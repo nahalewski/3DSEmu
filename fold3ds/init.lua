@@ -2165,6 +2165,9 @@ local function drawFrame()
     lg.setColor(1, 1, 1, 1)
     lg.draw(canvas, gr.x, gr.y)
   end
+  -- the bottom shell always solid (the glint and the volume slider leave
+  -- their colour set; drawn with it, the shell faded in and out)
+  lg.setColor(1, 1, 1, 1)
   lg.draw(L.bottom.img, L.bottom.x, L.bottom.y, 0, L.bottom.sc, L.bottom.sc)
   shellStickers(L.bottom.img, L.bottom.x, L.bottom.y, L.bottom.sc, 2, "shell")
   drawButtons(L)
