@@ -69,7 +69,7 @@ local LID_BOX = { 30, 157, 1390, 757 }
 -- sockets in half-size units of the bottom shell (x, y centre, r radius);
 -- sprite = rect in the half-size button sheet.  Both scale by 2 for the art.
 local BUTTONS = {
-  { name = "stick", x = 68, y = 134, r = 50, sprite = { 270, 228, 181, 182 }, kind = "dpad" },
+  { name = "stick", x = 71, y = 136.5, r = 50, sprite = { 270, 228, 181, 182 }, kind = "dpad" },
   { name = "pad", x = 68, y = 249, r = 48, sprite = { 37, 228, 184, 186 }, kind = "dpad" },
   { name = "x", x = 620, y = 126, r = 21, sprite = { 381, 57, 133, 134 } },
   -- the C-stick in its socket above X: cycles the top screen's shape
@@ -670,7 +670,7 @@ local function release(btn, src)
 end
 
 local function holdStart(id, b, x, y)
-  local h = { name = b.name, kind = b.kind, dirs = {} }
+  local h = { name = b.name, kind = b.kind, dirs = {}, fx = x, fy = y }
   state.held[id] = h
   if b.kind == "dpad" then
     h.dirs = dirsAt(b, x, y)
@@ -685,6 +685,7 @@ local function holdMove(id, x, y)
   if not h or h.kind ~= "dpad" then return end
   local b
   for _, bb in ipairs(BUTTONS) do if bb.name == h.name then b = bb end end
+  h.fx, h.fy = x, y
   local nd = dirsAt(b, x, y)
   for d in pairs(h.dirs) do if not nd[d] then release(d, h.name) end end
   for d in pairs(nd) do if not h.dirs[d] then press(d, h.name) end end
@@ -1671,7 +1672,25 @@ local function drawButtons(L)
     local scale = (b.wide and (target * 2 / qw)) or (target / math.max(qw, qh))
     local cx, cy = L.bottom.x + b.x * L.s2, L.bottom.y + b.y * L.s2
     local dx, dy = 0, 0
-    if b.kind == "dpad" and lit and dirs then
+    if b.name == "stick" then
+      -- the Circle Pad glides after the finger (as far as its socket lets
+      -- it) and springs back to the middle when let go; it tilts, it is
+      -- not pressed in
+      local tx, ty = 0, 0
+      for _, h in pairs(state.held) do
+        if h.name == "stick" and h.fx then
+          tx, ty = h.fx - cx, h.fy - cy
+          local lim = b.r * L.s2 * 0.15
+          local d = math.sqrt(tx * tx + ty * ty)
+          if d > lim then tx, ty = tx / d * lim, ty / d * lim end
+        end
+      end
+      local k = math.min(1, love.timer.getDelta() * ((tx == 0 and ty == 0) and 14 or 22))
+      b.ox = (b.ox or 0) + (tx - (b.ox or 0)) * k
+      b.oy = (b.oy or 0) + (ty - (b.oy or 0)) * k
+      dx, dy = b.ox, b.oy
+      lit = false
+    elseif b.kind == "dpad" and lit and dirs then
       local lean = b.r * L.s2 * 0.12
       if dirs.left then dx = dx - lean end
       if dirs.right then dx = dx + lean end
