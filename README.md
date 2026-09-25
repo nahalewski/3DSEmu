@@ -178,6 +178,14 @@ upstream's own Android build script.
   (fold3ds/*.lua, icons, banners) is kept in step with the Azahar base
   (azahar/, shell/, build.sh -- the other session's) by merging before
   every push.
+* **Activity Log (3DS theme)**: on the HOME bar with the 3DS's own icon
+  and banner title (English / Japanese).  *Play Time* ranks every title
+  played -- gen1recomp's games timed while they run, Azahar's 3DS games
+  from launch until the HOME menu is back -- with its icon, total time,
+  times played and average; the top screen shows the chosen title's
+  record (first and last day played).  *This Week* is a bar per day of
+  time played, and on the top screen the week's steps from the pedometer
+  with the Activity Log's walking figure.  Kept in fold3ds_activity.cfg.
 * **Nintendo eShop (3DS theme)**: the shopping bag on the applet bar is
   the community mod catalog as a 3DS store (`fold3ds/eshop.lua`, art in
   `fold3ds/eshop/` cut from the supplied eShop sheet).  The orange eShop

@@ -47,6 +47,7 @@ local Cart3D = require("fold3ds.cart3d")
 local Camera = require("fold3ds.camera")
 local Dlplay = require("fold3ds.dlplay")
 local Eshop = require("fold3ds.eshop")
+local Activity = require("fold3ds.activity")
 local Azahar = require("fold3ds.azahar")
 
 local DIR = "fold3ds/"
@@ -253,6 +254,11 @@ local skipBoot   -- the boot screen (defined with the drawing)
 -- the Camera applet owns both screens while it is open (launcher only)
 local function cameraOn()
   return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Camera.isOpen()
+end
+
+-- the Activity Log owns both screens while it is open (launcher only)
+local function actOn()
+  return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Activity.isOpen()
 end
 
 -- the eShop owns both screens while it is open (launcher only)
@@ -533,6 +539,7 @@ local function press(btn, src)
     return
   end
   if esOn() then eshopDone(Eshop.button(btn)) return end
+  if actOn() then if Activity.button(btn) == "exit" then Activity.close() end return end
   if btn == "cstick" then cycleScreen() return end
   if state.kind == "game" then
     if btn == "select" and selectOpensMods(state.subject) then return end
@@ -584,7 +591,7 @@ end
 local function release(btn, src)
   if btn == "cstick" then return end
   if Sticker.editing() and state.kind ~= "game" then return end
-  if cameraOn() or dlOn() or esOn() then return end
+  if cameraOn() or dlOn() or esOn() or actOn() then return end
   if src == "pad" and (btn == "up" or btn == "down") then state.padScroll = nil end
   if state.kind == "game" and GAME_TRIGGER[btn] then
     local g = state.subject
@@ -752,6 +759,7 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
   if cameraOn() then Camera.pressed(id, x, y) return end
   if dlOn() then Dlplay.pressed(id, x, y) return end
   if esOn() then Eshop.pressed(id, x, y) return end
+  if actOn() then Activity.pressed(id, x, y) return end
   if homeTouch(id, x, y) then return end
   local cb = columnButtonAt(x, y)
   if cb then state.columnDown = cb.id; pressColumnButton(cb) return end
@@ -781,6 +789,7 @@ local function onTouchMoved(id, x, y, dx, dy, pr)
   if cameraOn() then Camera.moved(id, x, y) return end
   if dlOn() then Dlplay.moved(id, x, y) return end
   if esOn() then Eshop.moved(id, x, y) return end
+  if actOn() then Activity.moved(id, x, y) return end
   if Home.moved(state.subject, id, x, y) then return end
   if state.vtouch[id] then
     local lx, ly = toVirtual(x, y)
@@ -800,6 +809,7 @@ local function onTouchReleased(id, x, y, dx, dy, pr)
   if cameraOn() then if Camera.released(id, x, y) == "exit" then Camera.close() end return end
   if dlOn() then if Dlplay.released(id, x, y) == "exit" then Dlplay.close() end return end
   if esOn() then eshopDone(Eshop.released(id, x, y)) return end
+  if actOn() then if Activity.released(id, x, y) == "exit" then Activity.close() end return end
   if Home.released(state.subject, id, x, y) then return end
   if state.arrowHeld and state.arrowHeld.id == id then arrowEnd(id) return end
   if state.vtouch[id] then
@@ -827,6 +837,7 @@ local function onMousePressed(x, y, button, istouch, presses)
     if cameraOn() then Camera.pressed("mouse", x, y) return end
     if dlOn() then Dlplay.pressed("mouse", x, y) return end
     if esOn() then Eshop.pressed("mouse", x, y) return end
+    if actOn() then Activity.pressed("mouse", x, y) return end
     if homeTouch("mouse", x, y) then return end
     local cb = columnButtonAt(x, y)
     if cb then state.columnDown = cb.id; pressColumnButton(cb) return end
@@ -849,6 +860,7 @@ local function onMouseMoved(x, y, dx, dy, istouch)
   if cameraOn() then if not istouch then Camera.moved("mouse", x, y) end return end
   if dlOn() then if not istouch then Dlplay.moved("mouse", x, y) end return end
   if esOn() then if not istouch then Eshop.moved("mouse", x, y) end return end
+  if actOn() then if not istouch then Activity.moved("mouse", x, y) end return end
   if not istouch and Home.moved(state.subject, "mouse", x, y) then return end
   local lx, ly = toVirtual(x, y)
   if orig.mousemoved then return orig.mousemoved(lx, ly, dx, dy, istouch) end
@@ -872,6 +884,10 @@ local function onMouseReleased(x, y, button, istouch, presses)
   end
   if esOn() then
     if not istouch then eshopDone(Eshop.released("mouse", x, y)) end
+    return
+  end
+  if actOn() then
+    if not istouch and Activity.released("mouse", x, y) == "exit" then Activity.close() end
     return
   end
   if not istouch and Home.released(state.subject, "mouse", x, y) then return end
@@ -1252,6 +1268,12 @@ local function drawTop3DS(r, banner)
     end
   end
   lg.setStencilTest()
+  if banner == "app:activity" then
+    Activity.drawTop({ x = r.x, y = P.y, w = r.w, h = r.y + r.h - P.y - nh * 0.2 })
+    drawLR(r, nh * 0.72, pad)
+    lg.pop()
+    return
+  end
   if banner == "eshop" then
     -- the eShop: its own page below the status bar
     Eshop.drawTop({ x = r.x, y = P.y, w = r.w, h = r.y + r.h - P.y - nh * 0.2 })
@@ -1660,9 +1682,13 @@ local function drawFrame()
   elseif esOn() then
     drawTop3DS(L.topCut, "eshop")
     Eshop.drawBottom(L.botCut)
+  elseif actOn() then
+    drawTop3DS(L.topCut, "app:activity")
+    Activity.drawBottom(L.botCut)
   elseif homeActive() and Home.showing() then
     local focus = Home.barFocus()
-    local banners = { downloadplay = "dlplay", eshop = "eshop", camera = "camera", settings = "settings" }
+    local banners = { downloadplay = "dlplay", eshop = "eshop", camera = "camera", settings = "settings",
+                      activity = "activity" }
     if Theme3DS.active then drawTop3DS(L.topCut, banners[focus or ""])
     else drawTopIdle(L.topCut) end
     Home.draw(L.botCut, state.subject, state.time)
@@ -1704,6 +1730,16 @@ function backend:update(dt)
   Camera.update(dt, cameraOn())
   Dlplay.update(dt)
   Eshop.update(dt)
+  -- the Activity Log: the running gen1recomp game's time
+  if state.kind == "game" then
+    local ok, GV = pcall(require, "src.core.GameVersion")
+    local v = ok and GV.get and GV.get() or nil
+    local info = v and GV.info and GV.info(v)
+    Activity.playing(v, info and info.displayName or v, dt)
+  else
+    Activity.playing(nil)
+  end
+  Activity.tick(dt, state.time)
   -- the volume keys move the slider (and are kept from Android's volume)
   if state.volKeysSent ~= state.volKeys then
     state.volKeysSent = state.volKeys
@@ -1735,6 +1771,7 @@ function backend:update(dt)
     local fake = os.getenv("POKEPORT_FOLD_FAKESTEPS")
     local n = fake and tonumber(fake) or tonumber(bridge("steps") or "")
     state.steps = n
+    Activity.steps(n)
   end
   if M.debug and dbgFrames < 3 then dbgFrames = dbgFrames + 1 io.stdout:setvbuf("no") print("fold3ds update mode=" .. tostring(state.mode) .. " kind=" .. tostring(state.kind)) end
   if M.driverTick then M.driverTick() end
@@ -2075,9 +2112,30 @@ function M.install()
   Sticker.init({ setCanvas = real.setCanvas, font = font })
   Camera.init({ font = font })
   Dlplay.init({ font = font, subject = function() return state.subject end })
+  Activity.init({ font = font, drawIcon = function(id, x, y, s)
+    if not Home.drawIconFor(state.subject, id, x, y, s) then
+      lg.setColor(0.85, 0.9, 0.9, 1)
+      lg.rectangle("fill", x, y, s, s, s * 0.15, s * 0.15)
+    end
+  end })
+  -- an Azahar game opened from the HOME menu: the Activity Log times it
+  -- until the menu is back in focus
+  do
+    local okA, Az = pcall(require, "fold3ds.azahar")
+    if okA and Az and Az.play then
+      local play = Az.play
+      Az.play = function(t) Activity.launched(t) return play(t) end
+    end
+    local focus = love.focus
+    love.focus = function(f)
+      Activity.focus(f)
+      if focus then return focus(f) end
+    end
+  end
   Eshop.init({ font = font, subject = function() return state.subject end,
     region = function() return Cart3D.region end })
-  Home.init({ font = font, openCamera = Camera.open, drawCameraIcon = Camera.drawIcon, openDlplay = Dlplay.open, openEshop = Eshop.open })
+  Home.init({ font = font, openCamera = Camera.open, drawCameraIcon = Camera.drawIcon, openDlplay = Dlplay.open, openEshop = Eshop.open,
+    openActivity = Activity.open })
   seedModIndex()
   wrapSettings()
   -- the virtual window: size, mode, safe area, pointer queries
@@ -2150,6 +2208,7 @@ function M.install()
   local quit = love.quit
   love.quit = function(...)
     pcall(Home.saveCoins)
+    pcall(Activity.flush)
     if quit then return quit(...) end
   end
   local script = os.getenv and os.getenv("POKEPORT_FOLD_TEST")
