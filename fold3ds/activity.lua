@@ -457,6 +457,12 @@ function A.button(name)
   end
 end
 
+-- the most-played title's name (the Friend List's card)
+function A.favourite()
+  local t = ranked()[1]
+  return t and (t.name or t.id) or nil
+end
+
 function A.init(context) ctx = context; load() end
 function A.isOpen() return st.open end
 function A.open() st.open = true; st.view = "time"; st.sel, st.page = 1, 1; Sfx.play("open") end

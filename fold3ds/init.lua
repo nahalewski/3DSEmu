@@ -48,6 +48,8 @@ local Camera = require("fold3ds.camera")
 local Dlplay = require("fold3ds.dlplay")
 local Eshop = require("fold3ds.eshop")
 local Activity = require("fold3ds.activity")
+local Notes = require("fold3ds.notes")
+local Friends = require("fold3ds.friends")
 local Azahar = require("fold3ds.azahar")
 
 local DIR = "fold3ds/"
@@ -262,6 +264,16 @@ end
 local function actOn()
   return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Activity.isOpen()
 end
+
+-- the Friend List and Game Notes, each owning both screens while open
+local APPS = { friends = Friends, gamenotes = Notes }
+local function appOn()
+  if not (state.mode == "ds" and state.kind ~= "game" and state.L ~= nil) then return nil end
+  for id, m in pairs(APPS) do
+    if m.isOpen() then return id, m end
+  end
+end
+local function appExit(m, r) if r == "exit" then m.close() end end
 
 -- the eShop owns both screens while it is open (launcher only)
 local function esOn()
@@ -542,6 +554,7 @@ local function press(btn, src)
   end
   if esOn() then eshopDone(Eshop.button(btn)) return end
   if actOn() then if Activity.button(btn) == "exit" then Activity.close() end return end
+  do local _, m = appOn(); if m then appExit(m, m.button(btn)) return end end
   if btn == "cstick" then cycleScreen() return end
   if state.kind == "game" then
     if btn == "select" and selectOpensMods(state.subject) then return end
@@ -593,7 +606,7 @@ end
 local function release(btn, src)
   if btn == "cstick" then return end
   if Sticker.editing() and state.kind ~= "game" then return end
-  if cameraOn() or dlOn() or esOn() or actOn() then return end
+  if cameraOn() or dlOn() or esOn() or actOn() or appOn() then return end
   if src == "pad" and (btn == "up" or btn == "down") then state.padScroll = nil end
   if state.kind == "game" and GAME_TRIGGER[btn] then
     local g = state.subject
@@ -768,6 +781,7 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
   if dlOn() then Dlplay.pressed(id, x, y) return end
   if esOn() then Eshop.pressed(id, x, y) return end
   if actOn() then Activity.pressed(id, x, y) return end
+  do local _, m = appOn(); if m then m.pressed(id, x, y) return end end
   if homeTouch(id, x, y) then return end
   local cb = columnButtonAt(x, y)
   if cb then state.columnDown = cb.id; pressColumnButton(cb) return end
@@ -798,6 +812,7 @@ local function onTouchMoved(id, x, y, dx, dy, pr)
   if dlOn() then Dlplay.moved(id, x, y) return end
   if esOn() then Eshop.moved(id, x, y) return end
   if actOn() then Activity.moved(id, x, y) return end
+  do local _, m = appOn(); if m then m.moved(id, x, y) return end end
   if Home.moved(state.subject, id, x, y) then return end
   if state.vtouch[id] then
     local lx, ly = toVirtual(x, y)
@@ -818,6 +833,7 @@ local function onTouchReleased(id, x, y, dx, dy, pr)
   if dlOn() then if Dlplay.released(id, x, y) == "exit" then Dlplay.close() end return end
   if esOn() then eshopDone(Eshop.released(id, x, y)) return end
   if actOn() then if Activity.released(id, x, y) == "exit" then Activity.close() end return end
+  do local _, m = appOn(); if m then appExit(m, m.released(id, x, y)) return end end
   if Home.released(state.subject, id, x, y) then return end
   if state.arrowHeld and state.arrowHeld.id == id then arrowEnd(id) return end
   if state.vtouch[id] then
@@ -852,6 +868,7 @@ local function onMousePressed(x, y, button, istouch, presses)
     if dlOn() then Dlplay.pressed("mouse", x, y) return end
     if esOn() then Eshop.pressed("mouse", x, y) return end
     if actOn() then Activity.pressed("mouse", x, y) return end
+    do local _, m = appOn(); if m then m.pressed("mouse", x, y) return end end
     if homeTouch("mouse", x, y) then return end
     local cb = columnButtonAt(x, y)
     if cb then state.columnDown = cb.id; pressColumnButton(cb) return end
@@ -875,6 +892,7 @@ local function onMouseMoved(x, y, dx, dy, istouch)
   if dlOn() then if not istouch then Dlplay.moved("mouse", x, y) end return end
   if esOn() then if not istouch then Eshop.moved("mouse", x, y) end return end
   if actOn() then if not istouch then Activity.moved("mouse", x, y) end return end
+  do local _, m = appOn(); if m then if not istouch then m.moved("mouse", x, y) end return end end
   if not istouch and Home.moved(state.subject, "mouse", x, y) then return end
   local lx, ly = toVirtual(x, y)
   if orig.mousemoved then return orig.mousemoved(lx, ly, dx, dy, istouch) end
@@ -903,6 +921,13 @@ local function onMouseReleased(x, y, button, istouch, presses)
   if actOn() then
     if not istouch and Activity.released("mouse", x, y) == "exit" then Activity.close() end
     return
+  end
+  do
+    local _, m = appOn()
+    if m then
+      if not istouch then appExit(m, m.released("mouse", x, y)) end
+      return
+    end
   end
   if not istouch and Home.released(state.subject, "mouse", x, y) then return end
   if not istouch and state.arrowHeld and state.arrowHeld.id == "mouse" then arrowEnd("mouse") return end
@@ -1235,6 +1260,7 @@ local function drawCtrBanner(r, P, t, nh, pad)
   lg.printf(t.sub or "Nintendo 3DS", tx, ty + tf:getHeight() * 1.05, tw, "left")
 end
 
+local APPLET_TITLES = { friends = "Friend List", gamenotes = "Game Notes" }
 local function appletBanner(r, id, t)
   local function image(key, path)
     if state.images[key] == nil then
@@ -1274,6 +1300,12 @@ local function appletBanner(r, id, t)
     local s = math.min(r.w * 0.8 / tw, th * 0.8 / tt)
     lg.setColor(1, 1, 1, 1)
     lg.draw(title, r.x + (r.w - tw * s) / 2, r.y + r.h - th + (th - tt * s) / 2, 0, s, s)
+  elseif APPLET_TITLES[id] then
+    -- no title art: the name, in the banners' ink
+    local f = font(th * 0.5)
+    lg.setFont(f)
+    lg.setColor(0.22, 0.22, 0.25, 1)
+    lg.printf(APPLET_TITLES[id], r.x, r.y + r.h - th + (th - f:getHeight()) / 2, r.w, "center")
   end
 end
 
@@ -1382,6 +1414,13 @@ local function drawTop3DS(r, banner)
   lg.setStencilTest()
   if banner == "app:activity" then
     Activity.drawTop({ x = r.x, y = P.y, w = r.w, h = r.y + r.h - P.y - nh * 0.2 })
+    drawLR(r, nh * 0.72, pad)
+    lg.pop()
+    return
+  end
+  local app = type(banner) == "string" and APPS[banner:match("^app:(.+)$") or ""]
+  if app then
+    app.drawTop({ x = r.x, y = P.y, w = r.w, h = r.y + r.h - P.y - nh * 0.2 })
     drawLR(r, nh * 0.72, pad)
     lg.pop()
     return
@@ -1989,10 +2028,14 @@ local function drawFrame()
   elseif actOn() then
     drawTop3DS(L.topCut, "app:activity")
     Activity.drawBottom(L.botCut)
+  elseif appOn() then
+    local id, m = appOn()
+    drawTop3DS(L.topCut, "app:" .. id)
+    m.drawBottom(L.botCut)
   elseif homeActive() and Home.showing() then
     local focus = Home.barFocus()
     local banners = { downloadplay = "dlplay", eshop = "eshop", camera = "camera", settings = "settings",
-                      activity = "activity" }
+                      activity = "activity", friends = "friends", gamenotes = "gamenotes" }
     if Theme3DS.active then drawTop3DS(L.topCut, banners[focus or ""])
     else drawTopIdle(L.topCut) end
     Home.draw(L.botCut, state.subject, state.time)
@@ -2442,7 +2485,9 @@ function M.install()
   Eshop.init({ font = font, subject = function() return state.subject end,
     region = function() return Cart3D.region end })
   Home.init({ font = font, openCamera = Camera.open, drawCameraIcon = Camera.drawIcon, openDlplay = Dlplay.open, openEshop = Eshop.open,
-    openActivity = Activity.open })
+    openActivity = Activity.open, openApp = function(id) if APPS[id] then APPS[id].open() end end })
+  Notes.init({ font = font, setCanvas = real.setCanvas })
+  Friends.init({ font = font, favourite = Activity.favourite })
   seedModIndex()
   wrapSettings()
   -- the virtual window: size, mode, safe area, pointer queries
@@ -2498,6 +2543,16 @@ function M.install()
   orig.mousepressed, orig.mousemoved, orig.mousereleased = love.mousepressed, love.mousemoved, love.mousereleased
   love.touchpressed, love.touchmoved, love.touchreleased = onTouchPressed, onTouchMoved, onTouchReleased
   love.mousepressed, love.mousemoved, love.mousereleased = onMousePressed, onMouseMoved, onMouseReleased
+  -- typing a name or a comment in the Friend List
+  local textinput, keypressed = love.textinput, love.keypressed
+  love.textinput = function(t, ...)
+    if Friends.textinput(t) then return end
+    if textinput then return textinput(t, ...) end
+  end
+  love.keypressed = function(k, ...)
+    if Friends.keypressed(k) then return end
+    if keypressed then return keypressed(k, ...) end
+  end
   -- the frame
   local ok, HostDisplay = pcall(require, "src.core.HostDisplay")
   if ok and HostDisplay and HostDisplay.setBackend then HostDisplay.setBackend(backend) end
@@ -2516,6 +2571,7 @@ function M.install()
   love.quit = function(...)
     pcall(Home.saveCoins)
     pcall(Activity.flush)
+    pcall(Notes.flush)
     if quit then return quit(...) end
   end
   local script = os.getenv and os.getenv("POKEPORT_FOLD_TEST")

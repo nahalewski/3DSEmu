@@ -61,6 +61,8 @@ local APPLETS = {
   { id = "downloadplay", name = "Download Play", dlplay = true },
   { id = "eshop", name = "Nintendo eShop", eshop = true },
   { id = "activity", name = "Activity Log", activity = true },
+  { id = "friends", name = "Friend List", app = true },
+  { id = "gamenotes", name = "Game Notes", app = true },
   { id = "settings", name = "Settings", icon = "settings", color = { 70, 140, 220 }, modal = "settings" },
   { id = "mods", name = "Mods", icon = "puzzle", color = { 236, 176, 30 }, tab = "mods" },
   { id = "find", name = "Find Mods", icon = "search", color = { 246, 130, 40 }, tab = "find" },
@@ -276,6 +278,10 @@ local function openTile(imp, t)
   end
   if t.activity then
     if ctx.openActivity then ctx.openActivity() end
+    return
+  end
+  if t.app then
+    if ctx.openApp then ctx.openApp(t.id) end
     return
   end
   st.open = t

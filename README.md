@@ -171,6 +171,14 @@ upstream's own Android build script.
   on the open shells instead: the editor's *On: top shell / On: bottom
   shell* row picks which one.  They sit under the screens and buttons,
   so they never cover them, and they are cut to the shell.
+* **Friend List** (HOME bar): your friend card (name, a friend code of
+  your own, a comment, the game you play most) and the friends you
+  register by their friend code, as cards: rename or delete them; names
+  and comments are typed on the phone's keyboard.
+* **Game Notes** (HOME bar): sixteen ruled pages to draw on with your
+  finger. It has four pen colours, three sizes, an eraser and Clear, and
+  L / R turn the page. The top screen shows every page; pages are kept in
+  `fold3ds_notes/`.
 * **3DS game banners**: a 3DS game picked on the HOME grid shows as the
   3DS shows software: its card on a stage in its icon's colour, light
   turning behind it, and the title bubble below (icon, title, publisher).
