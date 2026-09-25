@@ -96,12 +96,84 @@ end
 
 ---------------------------------------------------------------- the software
 
+-- The older systems' games go into one app each, the way Nintendo Switch
+-- Online gathers them: Game Boy, Game Boy Color, Game Boy Advance -- and
+-- the DS and the 3DS the same way.  Opening one shows its game picker.
+local NSO = {
+  { sys = "gb", name = "Game Boy", tag = "GAME BOY", color = { 150, 160, 40 }, dark = { 40, 52, 30 } },
+  { sys = "gbc", name = "Game Boy Color", tag = "GAME BOY COLOR", color = { 120, 70, 200 }, dark = { 34, 22, 60 } },
+  { sys = "gba", name = "Game Boy Advance", tag = "GAME BOY ADVANCE", color = { 72, 58, 170 }, dark = { 24, 20, 58 } },
+  { sys = "nds", name = "Nintendo DS", tag = "NINTENDO DS", color = { 150, 152, 160 }, dark = { 36, 38, 44 } },
+  { sys = "3ds", name = "Nintendo 3DS", tag = "NINTENDO 3DS", color = { 206, 32, 40 }, dark = { 52, 14, 18 } },
+}
+local NSO_BY = {}
+for _, a in ipairs(NSO) do NSO_BY[a.sys] = a end
+local Emus = require("fold3ds.emus")
+local Sfx = require("fold3ds.sfx")
+
+local function sysOf(t)
+  if t.system then return t.system end
+  local p = Emus.owner(t)
+  if p and p.id == "azahar" then return "3ds" end
+  return nil
+end
+
 local function games(imp)
-  local out = {}
+  local out, apps = {}, {}
   for _, t in ipairs(ctx.tiles(imp) or {}) do
-    if t.game or t.emuGame then out[#out + 1] = t end
+    if t.game or t.emuGame then
+      local sys = t.emuGame and sysOf(t)
+      local a = sys and NSO_BY[sys]
+      if a then
+        if not apps[sys] then
+          apps[sys] = { id = "nso_" .. sys, nso = a, name = a.name .. " - Nintendo Switch Online", list = {} }
+          out[#out + 1] = apps[sys]
+        end
+        table.insert(apps[sys].list, t)
+      else
+        out[#out + 1] = t
+      end
+    end
   end
   return out
+end
+
+-- an NSO app's icon: the system's colour, its console, its name, the
+-- red Nintendo Switch Online band
+local function drawNsoIcon(a, x, y, sz)
+  col(a.color)
+  lg.rectangle("fill", x, y, sz, sz)
+  lg.setColor(1, 1, 1, 0.14)
+  lg.rectangle("fill", x, y, sz, sz * 0.45)
+  -- the console
+  local cw, ch = sz * 0.34, sz * 0.46
+  local cx, cy = x + sz / 2, y + sz * 0.4
+  lg.setColor(1, 1, 1, 0.95)
+  if a.sys == "gba" then
+    lg.rectangle("fill", cx - ch * 0.62, cy - cw * 0.34, ch * 1.24, cw * 0.68, sz * 0.05, sz * 0.05)
+    col(a.dark)
+    lg.rectangle("fill", cx - cw * 0.34, cy - cw * 0.22, cw * 0.68, cw * 0.44)
+  elseif a.sys == "nds" or a.sys == "3ds" then
+    lg.rectangle("fill", cx - cw * 0.62, cy - ch * 0.5, cw * 1.24, ch * 0.46, sz * 0.02, sz * 0.02)
+    lg.rectangle("fill", cx - cw * 0.62, cy + ch * 0.02, cw * 1.24, ch * 0.46, sz * 0.02, sz * 0.02)
+    col(a.dark)
+    lg.rectangle("fill", cx - cw * 0.44, cy - ch * 0.44, cw * 0.88, ch * 0.34)
+    lg.rectangle("fill", cx - cw * 0.3, cy + ch * 0.08, cw * 0.6, ch * 0.32)
+  else
+    lg.rectangle("fill", cx - cw / 2, cy - ch / 2, cw, ch, sz * 0.02, sz * 0.02)
+    col(a.dark)
+    lg.rectangle("fill", cx - cw * 0.36, cy - ch * 0.4, cw * 0.72, ch * 0.42)
+  end
+  local f = ctx.font(sz * 0.07)
+  lg.setFont(f)
+  lg.setColor(1, 1, 1, 1)
+  lg.printf(a.tag, x, y + sz * 0.7, sz, "center")
+  lg.setColor(0.9, 0.0, 0.07, 1)
+  lg.rectangle("fill", x, y + sz * 0.84, sz, sz * 0.16)
+  local f2 = ctx.font(sz * 0.055)
+  lg.setFont(f2)
+  lg.setColor(1, 1, 1, 1)
+  lg.printf("Nintendo Switch Online", x, y + sz * 0.84 + (sz * 0.16 - f2:getHeight()) / 2, sz, "center")
 end
 
 -- reference geometry of the software row
@@ -257,7 +329,9 @@ local function drawSoftware(F, T, imp, now, list)
       lg.push("all")
       local sx, sy, sw, sh = math.floor(x), math.floor(y), math.ceil(sz), math.ceil(sz)
       lg.intersectScissor(sx, sy, sw, sh)
-      if not (ctx.drawIcon and ctx.drawIcon(imp, t.id, x, y, sz)) then
+      if t.nso then
+        drawNsoIcon(t.nso, x, y, sz)
+      elseif not (ctx.drawIcon and ctx.drawIcon(imp, t.id, x, y, sz)) then
         col(T.dim)
         local f = ctx.font(sz * 0.4)
         lg.setFont(f)
@@ -285,6 +359,105 @@ local function drawSoftware(F, T, imp, now, list)
     lg.printf("No software.  Open the 3DS HOME Menu to add games.", F.x, ty + TILE * s / 2, F.w, "center")
   end
   return ty + TILE * s
+end
+
+---------------------------------------------------------------- the NSO game picker
+-- The app open: its colours behind, its name across the top, the games'
+-- covers in a row (the picked one bigger, lit, its title and system under
+-- it), A to play, B back to the HOME menu.
+
+local CARD_W, CARD_H, CARD_GAP = 220, 300, 26
+
+local function coverOf(t)
+  local p = Emus.owner(t)
+  local img
+  if p and p.boxArt then local ok, i = pcall(p.boxArt, t); if ok then img = i end end
+  if not img and p and p.cart then local ok, i = pcall(p.cart, t); if ok then img = i end end
+  if not img then img = Emus.icon(t) end
+  return type(img) == "userdata" and img or nil
+end
+
+local function drawPicker(F, T, now)
+  local P = st.nso
+  local a = P.app.nso
+  local s = F.s
+  -- the app's colours, top to bottom
+  for i = 0, 23 do
+    local k = i / 23
+    lg.setColor((a.color[1] * (1 - k) + a.dark[1] * k) / 255, (a.color[2] * (1 - k) + a.dark[2] * k) / 255,
+      (a.color[3] * (1 - k) + a.dark[3] * k) / 255, 1)
+    lg.rectangle("fill", F.x - 2000, F.top + (F.bottom - F.top) * i / 24, F.w + 4000, (F.bottom - F.top) / 24 + 1)
+  end
+  -- the header: the system and Nintendo Switch Online
+  local hf = ctx.font(40 * s)
+  lg.setFont(hf)
+  lg.setColor(1, 1, 1, 1)
+  lg.print(a.name, F.x + 70 * s, F.top + 40 * s)
+  local sf = ctx.font(20 * s)
+  lg.setFont(sf)
+  lg.setColor(1, 1, 1, 0.8)
+  lg.print("Nintendo Switch Online", F.x + 72 * s, F.top + 40 * s + hf:getHeight())
+  -- the covers
+  local list = P.app.list
+  P.sel = clamp(P.sel, 1, #list)
+  local want = (P.sel - 1) * (CARD_W + CARD_GAP)
+  P.scroll = P.scroll + (want - P.scroll) * math.min(1, (st.dt or 0.016) * 10)
+  local cy = F.mid - 30 * s
+  for i, t in ipairs(list) do
+    local on = i == P.sel
+    local pick = (P.pickAt and on) and clamp((love.timer.getTime() - P.pickAt) / 0.2, 0, 1) or 1
+    local sc = (on and (1.18 + 0.04 * math.sin(pick * math.pi)) or 0.92) * s
+    local cw, ch = CARD_W * sc, CARD_H * sc
+    local x = F.x + F.w / 2 + ((i - 1) * (CARD_W + CARD_GAP) - P.scroll) * s - cw / 2
+    local y = cy - ch / 2
+    if x + cw > F.x - 200 * s and x < F.x + F.w + 200 * s then
+      lg.setColor(0, 0, 0, on and 0.35 or 0.2)
+      lg.rectangle("fill", x + 6 * s, y + 10 * s, cw, ch, 8 * s, 8 * s)
+      lg.setColor(1, 1, 1, 1)
+      lg.rectangle("fill", x, y, cw, ch, 8 * s, 8 * s)
+      local img = coverOf(t)
+      if img then
+        lg.push("all")
+        lg.intersectScissor(math.floor(x + 6 * s), math.floor(y + 6 * s), math.ceil(cw - 12 * s), math.ceil(ch - 12 * s))
+        local iw, ih = img:getDimensions()
+        local k = math.max((cw - 12 * s) / iw, (ch - 12 * s) / ih)
+        lg.setColor(1, 1, 1, on and 1 or 0.8)
+        lg.draw(img, x + cw / 2 - iw * k / 2, y + ch / 2 - ih * k / 2, 0, k, k)
+        lg.pop()
+      else
+        col(a.color, on and 1 or 0.8)
+        lg.rectangle("fill", x + 6 * s, y + 6 * s, cw - 12 * s, ch - 12 * s, 6 * s, 6 * s)
+        local f = ctx.font(26 * sc)
+        lg.setFont(f)
+        lg.setColor(1, 1, 1, 1)
+        lg.printf(t.name or "", x + 16 * s, y + ch * 0.4, cw - 32 * s, "center")
+      end
+      if on then
+        local pulse = 0.6 + 0.4 * math.abs(math.sin(now * 3))
+        lg.setColor(1, 1, 1, pulse)
+        lg.setLineWidth(5 * s)
+        lg.rectangle("line", x - 6 * s, y - 6 * s, cw + 12 * s, ch + 12 * s, 10 * s, 10 * s)
+      end
+      hit("nsogame", x, y, cw, ch, i)
+    end
+  end
+  -- the picked game's title, and the guide
+  local t = list[P.sel]
+  if t then
+    local tf = ctx.font(30 * s)
+    lg.setFont(tf)
+    lg.setColor(1, 1, 1, 1)
+    lg.printf(t.name or "", F.x, cy + CARD_H * 0.62 * s + 20 * s, F.w, "center")
+    lg.setFont(sf)
+    lg.setColor(1, 1, 1, 0.75)
+    lg.printf(t.sub or a.name, F.x, cy + CARD_H * 0.62 * s + 24 * s + tf:getHeight(), F.w, "center")
+  end
+  -- a launch: the picked cover swells and the screen goes white
+  if P.launch then
+    local k = clamp((love.timer.getTime() - P.launch) / 0.45, 0, 1)
+    lg.setColor(1, 1, 1, k)
+    lg.rectangle("fill", F.x - 2000, F.top, F.w + 4000, F.bottom - F.top)
+  end
 end
 
 local function drawButtons(F, T, now, y0)
@@ -443,7 +616,15 @@ function X.draw(r, imp, now)
   local list = games(imp)
   st.count = #list
   st.sel = clamp(st.sel, 1, math.max(1, #list))
-  if st.settings then
+  if st.nso then
+    drawPicker(F, T, now)
+    -- its launch finishing: the game starts
+    if st.nso.launch and love.timer.getTime() - st.nso.launch >= 0.45 then
+      local t = st.nso.app.list[st.nso.sel]
+      st.nso.launch = nil
+      if t and ctx.start then ctx.start(imp, t) end
+    end
+  elseif st.settings then
     drawSettings(F, T)
   else
     drawTopBar(F, T, imp, now)
@@ -458,7 +639,27 @@ end
 
 local function start(imp, t)
   if not t then return end
+  if t.nso then
+    st.nso = { app = t, sel = 1, scroll = 0, pickAt = love.timer.getTime() }
+    Sfx.play("open")
+    return
+  end
   if ctx.start then ctx.start(imp, t) end
+end
+
+local function nsoMove(d)
+  local P = st.nso
+  local n = #P.app.list
+  local s2 = clamp(P.sel + d, 1, n)
+  if s2 ~= P.sel then P.sel = s2; P.pickAt = love.timer.getTime(); Sfx.play("over")
+  else Sfx.play("edge") end
+end
+
+local function nsoPlay()
+  local P = st.nso
+  if P.launch then return end
+  P.launch = love.timer.getTime()
+  Sfx.play("launch")
 end
 
 local function pressButton(imp, i)
@@ -497,6 +698,13 @@ end
 function X.button(imp, name)
   local n = st.count or #games(imp)
   if name == "start" then name = "x" end
+  if st.nso then
+    if name == "b" or name == "home" then st.nso = nil; Sfx.play("back")
+    elseif name == "left" or name == "up" then nsoMove(-1)
+    elseif name == "right" or name == "down" then nsoMove(1)
+    elseif name == "a" then nsoPlay() end
+    return true
+  end
   local S = st.settings
   if S then
     if name == "b" or name == "home" then
@@ -547,6 +755,13 @@ function X.moved(imp, id, x, y)
   if not t then return false end
   local s = st.frame and st.frame.s or 1
   if not t.drag and math.abs(x - t.x0) > 12 and not st.settings then t.drag = true end
+  if t.drag and st.nso then
+    -- a swipe steps through the covers
+    local step = (CARD_W + CARD_GAP) * s
+    local d = math.floor((t.x0 - x) / step + 0.5)
+    if d ~= 0 then nsoMove(d > 0 and 1 or -1); t.x0 = x end
+    return true
+  end
   if t.drag then
     local n = st.count or 0
     local max = math.max(0, n * (TILE + GAP) - GAP - (REF_W - ROW_X * 2))
@@ -563,6 +778,10 @@ function X.released(imp, id, x, y)
   if t.drag then return true end
   local h = hitAt(x, y)
   if not h or not t.hit or h.id ~= t.hit.id or h.data ~= t.hit.data then return true end
+  if h.id == "nsogame" and st.nso then
+    if st.nso.sel == h.data then nsoPlay() else st.nso.sel = h.data; st.nso.pickAt = love.timer.getTime(); Sfx.play("over") end
+    return true
+  end
   if h.id == "game" then
     if st.row == "games" and st.sel == h.data then start(imp, games(imp)[h.data])
     else st.row, st.sel = "games", h.data end

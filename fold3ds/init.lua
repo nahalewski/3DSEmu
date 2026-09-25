@@ -2377,7 +2377,9 @@ function backend:beginFrame(kind, subject)
   -- the first time the menu comes up on the open 3DS: the boot screen
   if kind == "launcher" and not state.chimed and state.mode == "ds" then
     state.chimed = true
-    state.boot = { t0 = state.time, jingle = false, phase = "logo" }
+    -- (the Switch HOME menu covers the screens: no 3DS boot or warning
+    -- under it to eat the first taps)
+    if not HomeNX.active() then state.boot = { t0 = state.time, jingle = false, phase = "logo" } end
     Sfx.play("click")
   end
   Sfx.inGame = kind == "game"
