@@ -231,6 +231,30 @@ index 327717e..ce6f8e6 100644
      }
  
      fun logDeviceInfo() {
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/activities/EmulationActivity.kt b/src/android/app/src/main/java/org/citra/citra_emu/activities/EmulationActivity.kt
+index 108fd3c..2b48109 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/activities/EmulationActivity.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/activities/EmulationActivity.kt
+@@ -41,6 +41,7 @@ import org.citra.citra_emu.features.hotkeys.HotkeyUtility
+ import org.citra.citra_emu.features.settings.model.BooleanSetting
+ import org.citra.citra_emu.features.settings.model.IntSetting
+ import org.citra.citra_emu.features.settings.model.SettingsViewModel
++import org.citra.citra_emu.fold3ds.Fold3dsEmulation
+ import org.citra.citra_emu.features.settings.model.view.InputBindingSetting
+ import org.citra.citra_emu.fragments.EmulationFragment
+ import org.citra.citra_emu.fragments.MessageDialogFragment
+@@ -358,6 +359,11 @@ class EmulationActivity : AppCompatActivity() {
+             return super.dispatchKeyEvent(event)
+         }
+ 
++        // fold3ds: a gamepad's HOME button closes the game, back to the HOME menu
++        if (Fold3dsEmulation.onKey(event)) {
++            return true
++        }
++
+         when (event.action) {
+             KeyEvent.ACTION_DOWN -> {
+                 // On some devices, the back gesture / button press is not intercepted by androidx
 diff --git a/src/android/app/src/main/java/org/citra/citra_emu/fragments/GamesFragment.kt b/src/android/app/src/main/java/org/citra/citra_emu/fragments/GamesFragment.kt
 index 1b9dc87..8dea4e0 100644
 --- a/src/android/app/src/main/java/org/citra/citra_emu/fragments/GamesFragment.kt

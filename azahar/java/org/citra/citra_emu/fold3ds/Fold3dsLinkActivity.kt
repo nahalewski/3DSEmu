@@ -13,6 +13,7 @@
 //   artic                    connect to an Artic Base server
 //   azahar?open=X            Azahar's own screens (Fold3dsMain)
 //   setup                    set Azahar up (below), then nothing else
+//   screens?mode=full|native|toggle   how 3DS games fill the Fold's screens
 //   refresh                  scan the library again
 //
 // Anything that needs Azahar's folder sets it up first, without Azahar's
@@ -155,6 +156,27 @@ class Fold3dsLinkActivity : AppCompatActivity() {
                 return
             }
             "share_log" -> shareLog()
+            "screens" -> {
+                val mode = when (uri.getQueryParameter("mode")) {
+                    Fold3dsEmulation.FULL -> Fold3dsEmulation.FULL
+                    Fold3dsEmulation.NATIVE -> Fold3dsEmulation.NATIVE
+                    else -> if (Fold3dsEmulation.screens(this) == Fold3dsEmulation.FULL) {
+                        Fold3dsEmulation.NATIVE
+                    } else {
+                        Fold3dsEmulation.FULL
+                    }
+                }
+                Fold3dsEmulation.setScreens(this, mode)
+                Toast.makeText(
+                    this,
+                    if (mode == Fold3dsEmulation.FULL) {
+                        "3DS games: full screens (both halves of the Fold)"
+                    } else {
+                        "3DS games: native size"
+                    },
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
             "artic" -> {
                 artic()
                 return
@@ -254,10 +276,37 @@ class Fold3dsLinkActivity : AppCompatActivity() {
             Fold3dsBridge.refresh(applicationContext)
             return
         }
+        // moved or deleted since the last scan: say so, and the tile goes
+        if (!stillThere(game)) {
+            Toast.makeText(
+                this,
+                "${game.title} was moved or deleted -- the HOME menu is updated",
+                Toast.LENGTH_LONG
+            ).show()
+            Fold3dsBridge.refresh(applicationContext)
+            return
+        }
         start(game)
     }
 
+    private fun stillThere(game: Game): Boolean = try {
+        if (game.isInstalled) {
+            game.launchIntent // throws when the installed title's file is gone
+            true
+        } else {
+            val raw = game.description
+            when {
+                raw.startsWith("!") -> File(raw.substring(1)).exists()
+                raw.startsWith("/") -> File(raw).exists()
+                else -> contentResolver.openFileDescriptor(Uri.parse(raw), "r")?.use { true } ?: false
+            }
+        }
+    } catch (e: Exception) {
+        false
+    }
+
     private fun start(game: Game) {
+        Fold3dsEmulation.beforeLaunch(this)
         PreferenceManager.getDefaultSharedPreferences(applicationContext).edit()
             .putLong(game.keyLastPlayedTime, System.currentTimeMillis())
             .apply()

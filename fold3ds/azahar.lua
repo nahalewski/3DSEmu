@@ -28,6 +28,7 @@ A.ITEMS = {
   { id = "az_library", name = "3DS Library", sub = "Azahar's own list of every 3DS game", url = "azahar?open=library" },
   { id = "az_settings", name = "Emulation Settings", sub = "Every Azahar setting", url = "settings?menu=config" },
   { id = "az_graphics", name = "Graphics", sub = "Renderer, resolution, shaders, filtering", url = "settings?menu=Renderer" },
+  { id = "az_screens", name = "Full / Native Screens", sub = "Switch 3DS games between full screens and native size", url = "screens?mode=toggle" },
   { id = "az_layout", name = "Screen Layout", sub = "Where the two 3DS screens go", url = "settings?menu=Layout" },
   { id = "az_controls", name = "Controls", sub = "Buttons, controllers and hotkeys", url = "settings?menu=Controls" },
   { id = "az_audio", name = "Sound", sub = "Output, volume and the microphone", url = "settings?menu=Audio" },
