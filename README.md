@@ -11,7 +11,7 @@ upstream's own Android build script.
 
 ## What it does
 
-* **Open (inner screen)**: the 3DS.  The top shell's screen shows the game
+* **Open (inner screen)**: the 3DS, on a pale blue-white wallpaper.  The top shell's screen shows the game
   (or, in the launcher, the selected game's cartridge with arrows that
   change the game and a tap on the cart that plays it); the bottom shell's screen
   shows upstream's launcher with all its menus (GAMES, MODS, FIND, ONLINE,
@@ -79,7 +79,7 @@ upstream's own Android build script.
   the launcher they drive its controller navigation (D-pad moves the
   focus, A activates, B backs out, Y switches to the pointer cursor,
   START / SELECT as upstream maps them).
-* **Closed (cover screen)**: the closed lid fills the screen, whole,
+* **Closed (cover screen)**: the closed lid, on a black wallpaper, fills the screen, whole,
   turned on its side on a portrait cover.  Opening the phone returns to
   the 3DS.
 * The app locks landscape so the hinge runs across the middle; the game's

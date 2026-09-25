@@ -50,6 +50,9 @@ local TOP = { file = "skin/top_gbc.png", cut = { 318, 196, 838, 464 }, full = { 
 local BOTTOM = { file = "skin/bottom_empty.png", cut = { 318, 158, 756, 504 } }
 local SHEET = "skin/buttons.png"
 local LID = "skin/lid.png"
+-- wallpapers: behind the open 3DS, and behind the closed lid on the cover
+local WALL_OPEN = "skin/wall_open.jpg"
+local WALL_LID = "skin/wall_lid.jpg"
 -- the closed shell inside lid.png (x, y, w, h); the rest is transparent
 local LID_BOX = { 30, 157, 1390, 757 }
 -- sockets in half-size units of the bottom shell (x, y centre, r radius);
@@ -1066,10 +1069,32 @@ local function drawLidIn(x, y, W, H, portrait)
   lg.pop()
 end
 
+-- a wallpaper filling a w x h box, cropped rather than stretched
+local function drawWall(file, w, h)
+  local img = image(file)
+  if not img then return false end
+  local iw, ih = img:getDimensions()
+  local s = math.max(w / iw, h / ih)
+  lg.setColor(1, 1, 1, 1)
+  lg.draw(img, (w - iw * s) / 2, (h - ih * s) / 2, 0, s, s)
+  return true
+end
+
 local function drawLid(W, H)
   lg.setColor(0.16, 0.16, 0.17, 1)
   lg.rectangle("fill", 0, 0, W, H)
-  drawLidIn(0, 0, W, H, H > W * 1.1)
+  -- the black wallpaper behind the closed lid, turned with it
+  local portrait = H > W * 1.1
+  lg.push()
+  if portrait then
+    lg.translate(W, 0)
+    lg.rotate(math.pi / 2)
+    drawWall(WALL_LID, H, W)
+  else
+    drawWall(WALL_LID, W, H)
+  end
+  lg.pop()
+  drawLidIn(0, 0, W, H, portrait)
 end
 
 local function drawFrame()
@@ -1088,6 +1113,8 @@ local function drawFrame()
     return
   end
   lg.clear(0.05, 0.05, 0.06, 1)
+  -- the white wallpaper behind the open 3DS
+  drawWall(WALL_OPEN, W, H)
   -- screens first (the openings in the shell art are transparent)
   local canvas = state.canvases[state.kind == "game" and "game" or "launcher"]
   local gr = gameRect(L)
