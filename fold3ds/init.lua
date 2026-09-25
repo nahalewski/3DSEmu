@@ -1028,6 +1028,16 @@ local function drawTopTile(P, t)
   -- the shadow
   lg.setColor(0.2, 0.24, 0.3, 0.16 - bob / P.h)
   lg.ellipse("fill", cx, P.y + P.h * 0.9, P.h * 0.26, P.h * 0.05)
+  local photo = t.ctr and Azahar.cart(t)
+  if photo then
+    -- the game card itself (GameTDB's photo), floating, with a slow sway
+    local iw, ih = photo:getDimensions()
+    local k = math.min(P.h * 0.9 / ih, P.w * 0.6 / iw)
+    local sway = math.sin(time * 0.9) * 0.05
+    lg.setColor(1, 1, 1, 1)
+    lg.draw(photo, cx, cy + bob, sway, k, k, iw / 2, ih / 2)
+    return
+  end
   if t.ctr then
     -- a 3DS game card: grey, the ridge on top, the label below it
     local w, h = P.h * 0.6, P.h * 0.68

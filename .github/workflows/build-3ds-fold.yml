@@ -13,6 +13,12 @@ on:
 permissions:
   contents: write
 
+# one build at a time: a push while one runs waits (only the newest waits),
+# so every build gets to finish instead of racing a dozen others
+concurrency:
+  group: build-3ds-fold-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest

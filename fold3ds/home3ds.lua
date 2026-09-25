@@ -150,6 +150,13 @@ local function allTiles(imp)
   for _, g in ipairs(Azahar.games()) do
     if not byId[g.id] then byId[g.id] = g; ids[#ids + 1] = g.id end
   end
+  -- adding 3DS games from here: install CIA files or choose the games
+  -- folder; they join the grid when Azahar is done
+  if Azahar.status() == "ready" then
+    byId.ctr_add = { id = "ctr_add", url = "add_games", name = "Add 3DS Games",
+      sub = "Install CIA files or choose your games folder" }
+    ids[#ids + 1] = "ctr_add"
+  end
   return byId, ids
 end
 

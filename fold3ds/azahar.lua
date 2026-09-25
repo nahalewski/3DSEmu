@@ -78,6 +78,7 @@ local function parse(text)
         name = (f[3] ~= "" and f[3]) or "3DS game",
         sub = (f[4] ~= "" and f[4]) or "Nintendo 3DS",
         regions = f[5], hasIcon = f[6] == "1", installed = f[7] == "1",
+        tdb = f[9] ~= "" and f[9] or nil, hasCart = f[10] == "1",
       }
     end
   end
@@ -133,6 +134,21 @@ function A.icon(t)
     end
   end
   return st.images[t.key] or nil
+end
+
+-- a photo of the game's card (GameTDB, fetched by Azahar's side)
+function A.cart(t)
+  if not t or not t.key or not t.hasCart then return nil end
+  local k = t.key .. "_cart"
+  if st.images[k] == nil then
+    st.images[k] = false
+    local ok, img = pcall(love.graphics.newImage, DIR .. "icons/" .. t.key .. "_cart.png")
+    if ok and img then
+      img:setFilter("linear", "linear")
+      st.images[k] = img
+    end
+  end
+  return st.images[k] or nil
 end
 
 -- open something in Azahar (false on a desktop, which has no Azahar)

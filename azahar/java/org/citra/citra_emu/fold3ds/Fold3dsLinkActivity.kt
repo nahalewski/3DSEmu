@@ -6,6 +6,7 @@
 //   play?key=K               start the 3DS game K (a key from games.tsv)
 //   manual?key=K             the game's options (Azahar's About sheet)
 //   settings?menu=M          an Azahar settings page (config = all of them)
+//   add_games                add 3DS games: install CIA files or choose the games folder
 //   install                  install CIA files
 //   games_folder             choose the 3DS games folder
 //   share_log                share Azahar's log
@@ -106,6 +107,10 @@ class Fold3dsLinkActivity : AppCompatActivity() {
                     ""
                 )
             }
+            "add_games" -> {
+                addGames()
+                return
+            }
             "install" -> {
                 ciaPicker.launch(true)
                 return
@@ -157,6 +162,24 @@ class Fold3dsLinkActivity : AppCompatActivity() {
         )
     }
 
+    // the HOME menu's Add 3DS Games tile: the two ways a game gets in
+    private fun addGames() {
+        val choices = arrayOf(
+            "Install CIA files (games, updates, DLC)",
+            "Choose your 3DS games folder (.3ds, .cci, .cxi)"
+        )
+        var picked = false
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Add 3DS Games")
+            .setItems(choices) { _, which ->
+                picked = true
+                if (which == 0) ciaPicker.launch(true) else gamesFolderPicker.launch(null)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .setOnDismissListener { if (!picked) done() }
+            .show()
+    }
+
     // as MainActivity.ciaFileInstaller
     private fun installCia(result: Intent) {
         val selected =
@@ -174,6 +197,10 @@ class Fold3dsLinkActivity : AppCompatActivity() {
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
         )
+        Toast.makeText(applicationContext, "Installing -- it shows up on the HOME menu when done",
+            Toast.LENGTH_LONG).show()
+        // the installed games join the HOME menu once the install is done
+        Fold3dsBridge.refreshAfterInstall(applicationContext)
     }
 
     // as HomeSettingsFragment.getGamesDirectory

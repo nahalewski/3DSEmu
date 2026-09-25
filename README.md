@@ -18,6 +18,15 @@ icons on the bottom screen.  Azahar is added to it:
   shortcuts, the save / DLC / update / mod folders, compress,
   uninstall, and so on.  Tiles can be rearranged and resized like the
   others.
+* **Adding 3DS games.**  An *Add 3DS Games* tile after the 3DS games offers
+  Install CIA files (games, updates, DLC) or Choose your 3DS games folder
+  (`.3ds`, `.cci`, `.cxi`).  New games join the grid on their own once
+  Azahar has installed or found them.
+* **Real game cards.**  A selected 3DS game shows a photo of its game card
+  on the top screen: Azahar's side reads the product code from the game's
+  header (`CTR-P-ECLP` -> `ECLP`) and fetches the card from GameTDB
+  (`art.gametdb.com/3ds/cart/…`) once, on the phone.  Without one, a drawn
+  card with the game's icon stands in.
 * **The Azahar folder.**  One folder tile holds an icon for each Azahar
   settings page and tool, so the grid stays tidy:
   3DS Library, Emulation Settings (all of them), Graphics, Screen Layout,
