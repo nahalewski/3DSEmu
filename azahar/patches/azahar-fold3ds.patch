@@ -1,0 +1,303 @@
+diff --git a/src/android/app/build.gradle.kts b/src/android/app/build.gradle.kts
+index d873af1..55b7c55 100644
+--- a/src/android/app/build.gradle.kts
++++ b/src/android/app/build.gradle.kts
+@@ -21,7 +21,8 @@ plugins {
+  * next 680 years.
+  */
+ val autoVersion = (((System.currentTimeMillis() / 1000) - 1451606400) / 10).toInt()
+-val abiFilter = listOf("arm64-v8a", "x86_64")
++// fold3ds: foldables are arm64 (and liblove is built for arm only)
++val abiFilter = listOf("arm64-v8a")
+ 
+ val downloadedJniLibsPath = "${layout.buildDirectory.get().asFile.path}/downloadedJniLibs"
+ 
+@@ -47,6 +48,8 @@ android {
+     packaging {
+         // This is necessary for libadrenotools custom driver loading
+         jniLibs.useLegacyPackaging = true
++        // fold3ds: liblove links SDL itself (as love-android's own app does)
++        jniLibs.excludes += listOf("**/libSDL2.so")
+     }
+ 
+     buildFeatures {
+@@ -63,7 +66,10 @@ android {
+     defaultConfig {
+         // The application ID refers to Lime3DS to allow for
+         // the Play Store listing, which was originally set up for Lime3DS, to still be used.
+-        applicationId = "org.azahar_emu.azahar"
++        // fold3ds: the gen1recomp Fold app's id, so this installs over it and keeps its saves
++        applicationId = "com.nahalewski.gen1recompfold"
++        // the LÖVE module's flavours: its game.love comes embedded in this app
++        missingDimensionStrategy("mode", "embed")
+         minSdk = 29
+         targetSdk = 37
+         versionCode = autoVersion
+@@ -138,6 +144,8 @@ android {
+                 "proguard-rules.pro"
+             )
+             isDefault = true
++            // fold3ds: the LÖVE module has only debug / release
++            matchingFallbacks += listOf("release")
+         }
+ 
+         // Same as above, but with isDebuggable disabled.
+@@ -152,6 +160,14 @@ android {
+             installation {
+                 enableBaselineProfile = false // Disabled by default when isDebuggable is true
+             }
++            // fold3ds: the build the APK ships as -- optimised native code,
++            // the fixed debug key, the gen1recomp Fold app id, and no R8
++            // (LÖVE's Java is reached from native code by name)
++            applicationIdSuffix = null
++            versionNameSuffix = null
++            isMinifyEnabled = false
++            isShrinkResources = false
++            matchingFallbacks += listOf("release")
+             lint {
+                 checkReleaseBuilds = false // Ditto
+                 // ^- The name of this property is misleading, this doesn't actually disable linting for the `release` build.
+@@ -200,6 +216,8 @@ android {
+ }
+ 
+ dependencies {
++    // fold3ds: the 3DS HOME menu (org.love2d.android.GameActivity)
++    implementation(project(":love"))
+     implementation("androidx.activity:activity-ktx:1.9.2")
+     implementation("androidx.appcompat:appcompat:1.7.0")
+     implementation("androidx.core:core-splashscreen:1.0.1")
+diff --git a/src/android/app/proguard-rules.pro b/src/android/app/proguard-rules.pro
+index e2d84e6..e481f5f 100644
+--- a/src/android/app/proguard-rules.pro
++++ b/src/android/app/proguard-rules.pro
+@@ -28,3 +28,8 @@
+ -assumenosideeffects class android.util.Log {
+     public static int v(...);
+ }
++
++# fold3ds: the 3DS HOME menu (LÖVE / SDL) is called from native code by name
++-keep class org.love2d.android.** { *; }
++-keep class org.libsdl.app.** { *; }
++-keep class org.citra.citra_emu.fold3ds.** { *; }
+diff --git a/src/android/app/src/main/AndroidManifest.xml b/src/android/app/src/main/AndroidManifest.xml
+index 022a4f6..b14ff8e 100644
+--- a/src/android/app/src/main/AndroidManifest.xml
++++ b/src/android/app/src/main/AndroidManifest.xml
+@@ -33,10 +33,23 @@
+     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+ 
++    <!-- fold3ds: what gen1recomp's own app asks for (link play, its updater,
++         the Pokewalker step bridge, controllers) -->
++    <uses-permission android:name="android.permission.VIBRATE" />
++    <uses-permission android:name="android.permission.BLUETOOTH" />
++    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
++    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
++    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
++    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
++    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
++    <uses-feature android:name="android.hardware.type.pc" android:required="false" />
++    <uses-feature android:name="android.hardware.audio.low_latency" android:required="false" />
++    <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false" />
++
+     <application
+         android:name="org.citra.citra_emu.CitraApplication"
+-        android:label="@string/app_name"
+-        android:icon="@mipmap/ic_launcher"
++        android:label="@string/fold3ds_app_name"
++        android:icon="@mipmap/ic_launcher_fold"
+         android:appCategory="game"
+         android:allowBackup="false"
+         android:supportsRtl="true"
+@@ -46,19 +59,82 @@
+         <meta-data android:name="android.game_mode_config"
+             android:resource="@xml/game_mode_config" />
+ 
++        <!-- fold3ds: the app opens on the 3DS HOME menu (LÖVE: gen1recomp and
++             the fold3ds layer).  Azahar's screens open from it. -->
++        <meta-data
++            android:name="android.allow_multiple_resumed_activities"
++            android:value="true" />
++
+         <activity
+-            android:name="org.citra.citra_emu.ui.main.MainActivity"
+-            android:theme="@style/Theme.Citra.Splash.Main"
+-            android:exported="true">
++            android:name="org.love2d.android.GameActivity"
++            android:exported="true"
++            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection|colorMode"
++            android:label="@string/fold3ds_app_name"
++            android:launchMode="singleTask"
++            android:screenOrientation="fullUser"
++            android:resizeableActivity="false"
++            android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
++            <intent-filter>
++                <action android:name="android.intent.action.MAIN" />
++                <category android:name="android.intent.category.LAUNCHER" />
++                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
++                <category android:name="tv.ouya.intent.category.GAME" />
++            </intent-filter>
++            <intent-filter>
++                <action android:name="android.intent.action.VIEW" />
++                <category android:name="android.intent.category.DEFAULT" />
++                <category android:name="android.intent.category.BROWSABLE" />
++                <data android:scheme="gen1recomp++" android:host="launch" />
++            </intent-filter>
++            <intent-filter>
++                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
++            </intent-filter>
++        </activity>
+ 
+-            <!-- This intentfilter marks this Activity as the one that gets launched from Home screen. -->
++        <activity
++            android:name="org.love2d.android.GameActivity$SecondaryActivity"
++            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection|colorMode"
++            android:excludeFromRecents="true"
++            android:exported="false"
++            android:launchMode="singleTask"
++            android:resizeableActivity="false"
++            android:screenOrientation="fullUser"
++            android:taskAffinity="${applicationId}.secondary"
++            android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
++
++        <!-- the HOME menu's links into Azahar (love.system.openURL) -->
++        <activity
++            android:name="org.citra.citra_emu.fold3ds.Fold3dsLinkActivity"
++            android:exported="true"
++            android:documentLaunchMode="never"
++            android:excludeFromRecents="true"
++            android:theme="@style/Theme.Fold3ds.Link">
+             <intent-filter>
+-                <action android:name="android.intent.action.MAIN"/>
+-                <category android:name="android.intent.category.LAUNCHER"/>
+-                <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
++                <action android:name="android.intent.action.VIEW" />
++                <category android:name="android.intent.category.DEFAULT" />
++                <data android:scheme="fold3ds-azahar" />
+             </intent-filter>
+         </activity>
+ 
++        <!-- gen1recomp's updater hands its APK to the package installer
++             from this cache folder only -->
++        <provider
++            android:name="androidx.core.content.FileProvider"
++            android:authorities="${applicationId}.full_update_provider"
++            android:exported="false"
++            android:grantUriPermissions="true">
++            <meta-data
++                android:name="android.support.FILE_PROVIDER_PATHS"
++                android:resource="@xml/full_update_paths" />
++        </provider>
++
++        <activity
++            android:name="org.citra.citra_emu.ui.main.MainActivity"
++            android:theme="@style/Theme.Citra.Splash.Main"
++            android:exported="true">
++            <!-- fold3ds: not a launcher any more; the 3DS HOME menu opens it -->
++        </activity>
++
+         <activity
+             android:name="org.citra.citra_emu.features.settings.ui.SettingsActivity"
+             android:configChanges="orientation|screenSize|uiMode"
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/CitraApplication.kt b/src/android/app/src/main/java/org/citra/citra_emu/CitraApplication.kt
+index 327717e..ce6f8e6 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/CitraApplication.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/CitraApplication.kt
+@@ -10,6 +10,7 @@ import android.app.NotificationChannel
+ import android.app.NotificationManager
+ import android.content.Context
+ import android.os.Build
++import org.citra.citra_emu.fold3ds.Fold3dsBridge
+ import org.citra.citra_emu.utils.DirectoryInitialization
+ import org.citra.citra_emu.utils.DocumentsTree
+ import org.citra.citra_emu.utils.GraphicsUtil
+@@ -59,6 +60,8 @@ class CitraApplication : Application() {
+         logDeviceInfo()
+         createNotificationChannel()
+         NativeLibrary.playTimeManagerInit()
++        // fold3ds: keep the 3DS HOME menu's list of 3DS games current
++        Fold3dsBridge.install(this)
+     }
+ 
+     fun logDeviceInfo() {
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/fragments/GamesFragment.kt b/src/android/app/src/main/java/org/citra/citra_emu/fragments/GamesFragment.kt
+index 1b9dc87..8dea4e0 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/fragments/GamesFragment.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/fragments/GamesFragment.kt
+@@ -39,6 +39,7 @@ import org.citra.citra_emu.features.settings.model.BooleanSetting
+ import org.citra.citra_emu.features.settings.model.IntSetting
+ import org.citra.citra_emu.features.settings.model.Settings
+ import org.citra.citra_emu.features.updatechecker.UpdateChecker
++import org.citra.citra_emu.fold3ds.Fold3dsMain
+ import org.citra.citra_emu.model.Game
+ import org.citra.citra_emu.utils.BuildUtil
+ import org.citra.citra_emu.viewmodel.CompressProgressDialogViewModel
+@@ -295,11 +296,15 @@ class GamesFragment : Fragment() {
+ 
+     private fun setAdapter(games: List<Game>) {
+         val preferences = PreferenceManager.getDefaultSharedPreferences(CitraApplication.appContext)
+-        if (preferences.getBoolean(Settings.PREF_SHOW_HOME_APPS, false)) {
+-            (binding.gridGames.adapter as GameAdapter).submitList(games)
++        val list = if (preferences.getBoolean(Settings.PREF_SHOW_HOME_APPS, false)) {
++            games
+         } else {
+-            val filteredList = games.filter { !it.isSystemTitle }
+-            (binding.gridGames.adapter as GameAdapter).submitList(filteredList)
++            games.filter { !it.isSystemTitle }
++        }
++        val grid = binding.gridGames
++        (grid.adapter as GameAdapter).submitList(list) {
++            // fold3ds: a game's options asked for from the 3DS HOME menu
++            activity?.let { Fold3dsMain.onGamesListed(it, grid, list) }
+         }
+     }
+ 
+diff --git a/src/android/app/src/main/java/org/citra/citra_emu/ui/main/MainActivity.kt b/src/android/app/src/main/java/org/citra/citra_emu/ui/main/MainActivity.kt
+index c16b95e..bd34976 100644
+--- a/src/android/app/src/main/java/org/citra/citra_emu/ui/main/MainActivity.kt
++++ b/src/android/app/src/main/java/org/citra/citra_emu/ui/main/MainActivity.kt
+@@ -52,6 +52,7 @@ import org.citra.citra_emu.features.settings.model.Settings
+ import org.citra.citra_emu.features.settings.model.SettingsViewModel
+ import org.citra.citra_emu.features.settings.ui.SettingsActivity
+ import org.citra.citra_emu.features.settings.utils.SettingsFile
++import org.citra.citra_emu.fold3ds.Fold3dsMain
+ import org.citra.citra_emu.fragments.GrantMissingFilesystemPermissionFragment
+ import org.citra.citra_emu.fragments.SelectUserDirectoryDialogFragment
+ import org.citra.citra_emu.fragments.UpdateUserDirectoryDialogFragment
+@@ -196,6 +197,11 @@ class MainActivity :
+         }
+ 
+         setInsets()
++
++        // fold3ds: opened from the 3DS HOME menu's Azahar folder
++        if (savedInstanceState == null) {
++            Fold3dsMain.onMainCreated(this, navHostFragment.navController, intent)
++        }
+     }
+ 
+     override fun onSaveInstanceState(outState: Bundle) {
+diff --git a/src/android/gradle.properties b/src/android/gradle.properties
+index 1d09488..c6dfe49 100644
+--- a/src/android/gradle.properties
++++ b/src/android/gradle.properties
+@@ -8,7 +8,7 @@
+ # The setting is particularly useful for tweaking memory settings.
+ android.enableJetifier=true
+ android.useAndroidX=true
+-org.gradle.jvmargs=-Xmx1536m
++org.gradle.jvmargs=-Xmx4096m
+ # When configured, Gradle will run in incubating parallel mode.
+ # This option should only be used with decoupled projects. More details, visit
+ # http://www.gradle.org/docs/current/userguide/multi_project_builds.html#sec:decoupled_projects
+diff --git a/src/android/settings.gradle.kts b/src/android/settings.gradle.kts
+index fe62290..4cc857b 100644
+--- a/src/android/settings.gradle.kts
++++ b/src/android/settings.gradle.kts
+@@ -20,3 +20,7 @@ dependencyResolutionManagement {
+ }
+ 
+ include(":app")
++
++// fold3ds: the 3DS HOME menu -- LÖVE with gen1recomp and the fold3ds layer --
++// as a library module (build.sh links the prepared love-android module here)
++include(":love")
