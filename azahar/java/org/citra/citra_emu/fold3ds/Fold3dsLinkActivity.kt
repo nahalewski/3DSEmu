@@ -12,12 +12,22 @@
 //   share_log                share Azahar's log
 //   artic                    connect to an Artic Base server
 //   azahar?open=X            Azahar's own screens (Fold3dsMain)
+//   setup                    set Azahar up (below), then nothing else
 //   refresh                  scan the library again
+//
+// Anything that needs Azahar's folder sets it up first, without Azahar's
+// setup screens: all-files access (a switch in Android's settings, once),
+// then the folder Azahar/ -- made beforehand, the picker opened inside it,
+// so it is only "Use this folder" and "Allow", once -- which also holds the
+// 3DS games (Azahar/games/).  Then what was asked for goes ahead.
 package org.citra.citra_emu.fold3ds
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.DocumentsContract
 import android.view.LayoutInflater
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -31,20 +41,24 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import org.citra.citra_emu.NativeLibrary
 import org.citra.citra_emu.R
 import org.citra.citra_emu.activities.EmulationActivity
 import org.citra.citra_emu.contracts.OpenFileResultContract
 import org.citra.citra_emu.databinding.DialogSoftwareKeyboardBinding
 import org.citra.citra_emu.features.settings.SettingKeys
+import org.citra.citra_emu.features.settings.model.Settings
 import org.citra.citra_emu.features.settings.ui.SettingsActivity
 import org.citra.citra_emu.features.settings.utils.SettingsFile
 import org.citra.citra_emu.model.Game
 import org.citra.citra_emu.ui.main.MainActivity
 import org.citra.citra_emu.utils.CiaInstallWorker
+import org.citra.citra_emu.utils.CitraDirectoryHelper
 import org.citra.citra_emu.utils.FileBrowserHelper
 import org.citra.citra_emu.utils.GameHelper
 import org.citra.citra_emu.utils.Log
 import org.citra.citra_emu.utils.PermissionsHandler
+import java.io.File
 
 class Fold3dsLinkActivity : AppCompatActivity() {
     private val ciaPicker = registerForActivityResult(OpenFileResultContract()) { result ->
@@ -58,8 +72,27 @@ class Fold3dsLinkActivity : AppCompatActivity() {
             done()
         }
 
+    // set up first, then this link
+    private var pending: Uri? = null
+
+    private val allFilesAccess =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            if (allFiles()) pickAzaharFolder() else done()
+        }
+
+    private val azaharFolderPicker =
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
+            if (tree != null) finishSetup(tree) else done()
+        }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        pending?.let { outState.putString(KEY_PENDING, it.toString()) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        savedInstanceState?.getString(KEY_PENDING)?.let { pending = Uri.parse(it) }
         val uri = intent?.data
         // LÖVE opens links with NO_HISTORY, which would drop a picker's
         // result: come back once without it
@@ -84,16 +117,18 @@ class Fold3dsLinkActivity : AppCompatActivity() {
 
     private fun handle(uri: Uri) {
         val what = uri.host ?: ""
+        if (what == "setup" && Fold3dsBridge.ready(applicationContext)) {
+            done()
+            return
+        }
         if (what == "refresh") {
             Fold3dsBridge.refresh(applicationContext)
             done()
             return
         }
-        // everything else needs Azahar's folder: until it is chosen, Azahar's
-        // own first-run setup comes up instead
-        if (what != "azahar" && !Fold3dsBridge.ready(applicationContext)) {
-            openMain(null, null)
-            done()
+        // everything else needs Azahar's folder: set it up first
+        if (!Fold3dsBridge.ready(applicationContext)) {
+            startSetup(uri)
             return
         }
         when (what) {
@@ -127,6 +162,75 @@ class Fold3dsLinkActivity : AppCompatActivity() {
             "azahar" -> openMain(uri.getQueryParameter("open"), null)
         }
         done()
+    }
+
+    // ---------------------------------------------------------------- setup
+
+    // Android 11+: the all-files switch; Android 10 has storage permission
+    private fun allFiles(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()
+
+    private fun startSetup(then: Uri) {
+        pending = then
+        if (!allFiles()) {
+            Toast.makeText(
+                this,
+                "Allow access to all files -- for 3DS games and their saves",
+                Toast.LENGTH_LONG
+            ).show()
+            allFilesAccess.launch(
+                Intent(
+                    android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                    Uri.parse("package:$packageName")
+                )
+            )
+            return
+        }
+        pickAzaharFolder()
+    }
+
+    private fun pickAzaharFolder() {
+        val dir = File(Environment.getExternalStorageDirectory(), "Azahar")
+        File(dir, "games").mkdirs()
+        Toast.makeText(
+            this,
+            "Tap \"Use this folder\", then \"Allow\" -- once, for Azahar's data",
+            Toast.LENGTH_LONG
+        ).show()
+        azaharFolderPicker.launch(
+            DocumentsContract.buildDocumentUri(
+                "com.android.externalstorage.documents",
+                "primary:Azahar"
+            )
+        )
+    }
+
+    // as SetupFragment and CitraDirectoryHelper do, without their screens
+    private fun finishSetup(tree: Uri) {
+        if (NativeLibrary.getNativePath(tree) == "") {
+            Toast.makeText(this, R.string.invalid_user_directory, Toast.LENGTH_LONG).show()
+            done()
+            return
+        }
+        contentResolver.takePersistableUriPermission(
+            tree,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        )
+        CitraDirectoryHelper.initializeCitraDirectory(tree)
+        val prefs = PreferenceManager.getDefaultSharedPreferences(applicationContext)
+        val edit = prefs.edit().putBoolean(Settings.PREF_FIRST_APP_LAUNCH, false)
+        if (prefs.getString(GameHelper.KEY_GAME_PATH, "").isNullOrEmpty()) {
+            edit.putString(GameHelper.KEY_GAME_PATH, tree.toString())
+        }
+        edit.apply()
+        Fold3dsBridge.refresh(applicationContext)
+        val next = pending
+        pending = null
+        if (next != null && next.host != "setup" && Fold3dsBridge.ready(applicationContext)) {
+            handle(next)
+        } else {
+            done()
+        }
     }
 
     private fun done() {
@@ -267,5 +371,6 @@ class Fold3dsLinkActivity : AppCompatActivity() {
 
     companion object {
         const val SCHEME = "fold3ds-azahar"
+        private const val KEY_PENDING = "fold3ds_pending"
     }
 }
