@@ -2,9 +2,11 @@
 -- one phone sends a game's files, another nearby receives them, the way a
 -- 3DS hands a game to its neighbour.
 --
--- What travels (the menu picks): the game's saves (saves/<game>/ and save_<game>.lua, with
--- their backups), the installed mods, or both.  Never the ROM or the
--- data extracted from it: each phone imports its own cartridge dump.
+-- What travels: the game itself -- its ROM (this phone's kept copy, or
+-- baseroms/) -- in one package with its saves (saves/<game>/ and
+-- save_<game>.lua, with their backups) and the installed mods.  The
+-- receiving phone installs the saves and mods and imports the ROM straight
+-- away, so the game is ready to play there as on a 3DS.
 --
 -- The transfer is FoldPlay.java (Google Nearby Connections through
 -- love.system.foldCamera("call", "dp.*")): the phones find each other over
@@ -28,7 +30,6 @@ local st = {
   view = "menu",             -- menu / pick / hosting / searching / receiving / received
   status = {},               -- FoldPlay's status lines
   game = nil,                -- the game being sent
-  what = "both",             -- what Send sends: both / saves / mods
   name = nil,                -- this phone's name on the other's list
   hits = {}, down = nil, touches = {},
   toast = nil,
@@ -87,6 +88,41 @@ local function hasSaves(v)
   return false
 end
 
+-- the game's ROM on this phone: the kept copy the importer remembers, else
+-- the kept copy by its usual name, else baseroms/.  Returns data, file name.
+local ROM_EXT = { ".gb", ".gbc", ".gba" }
+local function romBytes(v)
+  local ok, RS = pcall(require, "src.import.RomSources")
+  if ok and RS then
+    local okC, cand = pcall(RS.candidate, v, nil)
+    if okC and cand and cand.path then
+      local okR, data = pcall(RS.readKept, cand.path)
+      if okR and type(data) == "string" then return data, cand.path:match("[^/\\]+$") end
+    end
+    local okP, kept = pcall(RS.keptPath, v)
+    if okP and kept then
+      local okR, data = pcall(RS.readKept, kept)
+      if okR and type(data) == "string" then return data, kept:match("[^/\\]+$") end
+    end
+  end
+  for _, dir in ipairs({ "baseroms", "imports/baseroms" }) do
+    for _, ext in ipairs(ROM_EXT) do
+      local path = dir .. "/" .. v .. ext
+      if love.filesystem.getInfo(path, "file") then
+        local data = love.filesystem.read(path)
+        if type(data) == "string" then return data, v .. ext end
+      end
+    end
+  end
+  return nil
+end
+
+local romKnown = {}
+local function hasRom(v)
+  if romKnown[v] == nil then romKnown[v] = romBytes(v) ~= nil end
+  return romKnown[v]
+end
+
 local function myName()
   if st.name then return st.name end
   local ok, text = pcall(love.filesystem.read, CFG)
@@ -117,18 +153,23 @@ end
 
 ---------------------------------------------------------------- actions
 
+-- one package: the ROM (downloadplay/rom/<file>), the saves, the mods
 local function send(v)
-  local files
-  if v == "mods" then
-    files = love.filesystem.getInfo("mods") and { "mods" } or {}
-    if #files == 0 then toast("No mods installed") Sfx.play("noMove") return end
-  else
-    files = {}
-    for _, p in ipairs(gameFiles(v, st.what == "both")) do
-      if p ~= "mods" or st.what == "both" then files[#files + 1] = p end
-    end
-    if #files == 0 then toast("No saves for " .. NAMES[v] .. " yet") Sfx.play("noMove") return end
+  local rom, name = romBytes(v)
+  if not rom then
+    toast("No ROM for " .. NAMES[v] .. " on this phone -- import it first")
+    Sfx.play("noMove")
+    return
   end
+  love.filesystem.createDirectory(DIR .. "/rom")
+  for _, f in ipairs(love.filesystem.getDirectoryItems(DIR .. "/rom")) do
+    love.filesystem.remove(DIR .. "/rom/" .. f)
+  end
+  if not love.filesystem.write(DIR .. "/rom/" .. name, rom) then
+    toast("Couldn't pack the ROM") Sfx.play("cancel") return
+  end
+  local files = { DIR .. "/rom" }
+  for _, p in ipairs(gameFiles(v, true)) do files[#files + 1] = p end
   st.game = v
   if fakeMode then
     st.fake = { role = "host", t0 = st.t }
@@ -188,7 +229,18 @@ local function install()
     local n = r:match("^ok:(%d+)") or "0"
     toast(("Installed %s files; the old ones are in %s"):format(n, DIR .. "/backup_..."))
     Sfx.play("start")
-  else
+    -- the game itself: import the ROM that came with it, on the launcher
+    local imp = ctx.subject and ctx.subject()
+    for _, f in ipairs(love.filesystem.getDirectoryItems(DIR .. "/rom")) do
+      local path = DIR .. "/rom/" .. f
+      local data = love.filesystem.read(path)
+      love.filesystem.remove(path)
+      if type(data) == "string" and imp and imp.startData then
+        pcall(imp.startData, imp, data, f, nil)
+        st.imported = true
+      end
+    end
+    romKnown = {}
     toast("Couldn't install: " .. tostring(r))
     Sfx.play("cancel")
   end
@@ -341,16 +393,11 @@ function D.drawBottom(r)
     col(INK, 0.8)
     lg.printf("Download Play works on the phone.", r.x, y0 + h0 / 2 - f:getHeight(), r.w, "center")
   elseif st.view == "menu" then
-    local bw, bh = r.w - pad * 2, (h0 - pad * 2) / 3
-    local sendSub = st.what == "mods" and "Share your installed mods with a phone nearby"
-      or st.what == "saves" and "Share a game's saves with a phone nearby"
-      or "Share a game's saves and your mods with a phone nearby"
-    button("send", r.x + pad, y0, bw, bh, st.what == "mods" and "Send mods" or "Send a game", true, sendSub)
-    button("receive", r.x + pad, y0 + bh + pad, bw, bh, "Receive", false, "Get saves or mods from a phone that's sending")
-    local label = st.what == "both" and "Sends: saves + mods" or st.what == "saves" and "Sends: saves only"
-      or "Sends: mods only"
-    button("what", r.x + pad, y0 + (bh + pad) * 2, bw, bh * 0.8, label, false,
-      "Tap to change -- the ROM stays on each phone; each imports its own")
+    local bw, bh = r.w - pad * 2, (h0 - pad) / 2
+    button("send", r.x + pad, y0, bw, bh, "Send a game", true,
+      "With its saves and your mods")
+    button("receive", r.x + pad, y0 + bh + pad, bw, bh, "Receive", false,
+      "A game from a phone nearby")
   elseif st.view == "pick" then
     local cols, rows = 2, 4
     local bw = (r.w - pad * 3) / cols
@@ -358,7 +405,7 @@ function D.drawBottom(r)
     for i, v in ipairs(GAMES) do
       local cx = r.x + pad + ((i - 1) % cols) * (bw + pad)
       local cy = y0 + math.floor((i - 1) / cols) * (bh + pad)
-      button("game:" .. v, cx, cy, bw, bh, NAMES[v], false, hasSaves(v) and "has saves" or "no saves yet")
+      button("game:" .. v, cx, cy, bw, bh, NAMES[v], false, not hasRom(v) and "no ROM on this phone" or hasSaves(v) and "with its saves" or "no saves yet")
     end
   elseif st.view == "hosting" or st.view == "searching" or st.view == "receiving" then
     local state = s.state or ""
@@ -413,7 +460,8 @@ function D.drawBottom(r)
     if state == "done" and st.view ~= "hosting" then
       button("install", r.x + r.w * 0.2, y0 + h0 - rowH * 1.3, r.w * 0.6, rowH * 1.2,
         st.confirm and "Tap again to install" or "Install on this phone", true,
-        st.confirm and "Replaced saves go to downloadplay/backup_..." or (NAMES[s.game] or s.game or ""))
+        st.confirm and "Imports the game; replaced saves go to downloadplay/backup_..."
+          or (NAMES[s.game] or s.game or ""))
     end
   end
   -- the toast
@@ -451,12 +499,10 @@ local function activate(id)
     st.view = "menu"
     Sfx.play("back")
   elseif id == "send" then
-    if st.what == "mods" then send("mods") else st.view = "pick"; Sfx.play("select") end
+    romKnown = {}
+    st.view = "pick"; Sfx.play("select")
   elseif id == "receive" then
     receive()
-  elseif id == "what" then
-    st.what = st.what == "both" and "saves" or st.what == "saves" and "mods" or "both"
-    Sfx.play("button")
   elseif id:match("^game:") then
     send(id:sub(6))
   elseif id:match("^peer:") then
@@ -529,6 +575,8 @@ end
 function D.update(dt)
   st.t = st.t + (dt or 0)
   if not st.open then return end
+  -- a game arrived with its ROM: back to the menu, where its import runs
+  if st.imported then st.imported = nil; D.close() return end
   if st.fake then
     -- the desktop stand-in: a peer appears, the bytes flow
     local age = st.t - st.fake.t0
