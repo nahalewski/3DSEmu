@@ -171,6 +171,8 @@ local function folderTiles(folder)
   return out
 end
 
+local ARRIVE_GAP = 0.45      -- seconds between games landing, when many arrive
+
 -- the tiles in the player's order (new tiles join at the end)
 function H.tiles(imp)
   if st.folder then return folderTiles(st.folder) end
@@ -188,22 +190,24 @@ function H.tiles(imp)
   -- a game never seen before arrives wrapped (not on the very first run:
   -- the library already there is simply there)
   st.gifts, st.known, st.arrive = st.gifts or {}, st.known or {}, st.arrive or {}
-  local changed, arrived = false, false
+  local changed = false
   for _, t in ipairs(out) do
     if (t.emuGame or t.game) and not st.known[t.id] then
       st.known[t.id] = true
       changed = true
       if st.knownLoaded then
+        -- a whole folder of games comes in one after another, each landing
+        -- with its own sound, the strip gliding over to show it
         st.gifts[t.id] = true
-        st.arrive[t.id] = now() + (arrived and 0.15 or 0)
-        arrived = true
+        local at = math.max(now(), (st.nextArrive or 0))
+        st.arrive[t.id] = at
+        st.nextArrive = at + ARRIVE_GAP
       end
     end
   end
   if changed then
     st.knownLoaded = true
     save()
-    if arrived then Sfx.play("newapp") end
   end
   return out
 end
@@ -592,6 +596,13 @@ local function drawTile(t, x, y, ts, alpha, lifted)
   if ka and not lifted then
     local a = (now() - ka) / 0.7
     if a < 0 then return end
+    if not (st.landed and st.landed[t.id]) then
+      -- this one's turn: its sound, and the strip follows it
+      st.landed = st.landed or {}
+      st.landed[t.id] = true
+      st.follow = t.id
+      Sfx.play("newapp")
+    end
     if a >= 1 then st.arrive[t.id] = nil
     else
       local b = 1 - a
@@ -773,6 +784,23 @@ function H.draw(r, imp, time)
   if not next(st.touches) then
     if st.scroll < 0 then st.scroll = st.scroll * math.exp(-dt * 14); st.vel = 0 end
     if st.scroll > maxS then st.scroll = maxS + (st.scroll - maxS) * math.exp(-dt * 14); st.vel = 0 end
+  end
+  -- games arriving one by one: the strip glides over to each as it lands
+  -- (a finger on the grid takes over)
+  if st.follow and not next(st.touches) and not st.folder then
+    local idx
+    for i, t in ipairs(tiles) do if t.id == st.follow then idx = i break end end
+    if idx then
+      local x = slotPos(G, idx, 0)
+      local lo = x + G.ts + G.pitchX * 0.35 - (g.x + g.w)
+      local hi = x - G.pitchX * 0.35 - g.x
+      local want = clamp(clamp(st.scroll, lo, hi), 0, maxS)
+      st.scroll = st.scroll + (want - st.scroll) * math.min(1, dt * 8)
+      st.vel = 0
+      if math.abs(want - st.scroll) < 0.5 and not (st.arrive and st.arrive[st.follow]) then st.follow = nil end
+    else
+      st.follow = nil
+    end
   end
   -- while a lifted tile is held near an edge, the strip scrolls
   if st.lift then
