@@ -172,7 +172,26 @@ upstream's own Android build script.
   it falls off; a sticker never peeled stays on for good.  Fallen stickers
   wait in SKINS (*Put the fallen ones back*).  Stickers keep their
   proportions, stay on the lid's flat face and are cut to the shell's
-  shape.
+  shape.  Tapping the cover's right camera eye opens the maker too.
+  Tapping the inner camera above the open 3DS's top screen puts stickers
+  on the open shells instead: the editor's *On: top shell / On: bottom
+  shell* row picks which one.  They sit under the screens and buttons,
+  so they never cover them, and they are cut to the shell.
+* **Friend List** (HOME bar): your friend card (name, a friend code of
+  your own, a comment, the game you play most) and the friends you
+  register by their friend code, as cards: rename or delete them; names
+  and comments are typed on the phone's keyboard.
+* **Game Notes** (HOME bar): sixteen ruled pages to draw on with your
+  finger. It has four pen colours, three sizes, an eraser and Clear, and
+  L / R turn the page. The top screen shows every page; pages are kept in
+  `fold3ds_notes/`.
+* **3DS game banners**: a 3DS game picked on the HOME grid shows as the
+  3DS shows software: its card on a stage in its icon's colour, light
+  turning behind it, and the title bubble below (icon, title, publisher).
+* **Startup, as a 3DS starts**: the boot screen and its jingle, then the
+  *Health & Safety Information* warning (its real HOME Menu title, EN or
+  JP with the artwork setting) until a touch or a button, then the HOME
+  Menu coming up out of white.
 * **Real 3DS HOME Menu art**: the HOME bar's Camera, Download Play,
   eShop, Settings and Online wear the 3DS's own HOME Menu icons (from The
   Spriters Resource's 3DS HOME Menu sheets, kept whole in
@@ -184,6 +203,14 @@ upstream's own Android build script.
   (fold3ds/*.lua, icons, banners) is kept in step with the Azahar base
   (azahar/, shell/, build.sh -- the other session's) by merging before
   every push.
+* **Activity Log (3DS theme)**: on the HOME bar with the 3DS's own icon
+  and banner title (English / Japanese).  *Play Time* ranks every title
+  played -- gen1recomp's games timed while they run, Azahar's 3DS games
+  from launch until the HOME menu is back -- with its icon, total time,
+  times played and average; the top screen shows the chosen title's
+  record (first and last day played).  *This Week* is a bar per day of
+  time played, and on the top screen the week's steps from the pedometer
+  with the Activity Log's walking figure.  Kept in fold3ds_activity.cfg.
 * **Nintendo eShop (3DS theme)**: the shopping bag on the applet bar is
   the community mod catalog as a 3DS store (`fold3ds/eshop.lua`, art in
   `fold3ds/eshop/` cut from the supplied eShop sheet).  The orange eShop

@@ -60,6 +60,9 @@ local APPLETS = {
   { id = "camera", name = "Camera", camera = true },
   { id = "downloadplay", name = "Download Play", dlplay = true },
   { id = "eshop", name = "Nintendo eShop", eshop = true },
+  { id = "activity", name = "Activity Log", activity = true },
+  { id = "friends", name = "Friend List", app = true },
+  { id = "gamenotes", name = "Game Notes", app = true },
   { id = "settings", name = "Settings", icon = "settings", color = { 70, 140, 220 }, modal = "settings" },
   { id = "mods", name = "Mods", icon = "puzzle", color = { 236, 176, 30 }, tab = "mods" },
   { id = "find", name = "Find Mods", icon = "search", color = { 246, 130, 40 }, tab = "find" },
@@ -273,6 +276,14 @@ local function openTile(imp, t)
     if ctx.openEshop then ctx.openEshop() end
     return
   end
+  if t.activity then
+    if ctx.openActivity then ctx.openActivity() end
+    return
+  end
+  if t.app then
+    if ctx.openApp then ctx.openApp(t.id) end
+    return
+  end
   st.open = t
   if t.game or t.tab then
     if imp._switchTab then imp:_switchTab(t.tab or t.id) end
@@ -440,6 +451,14 @@ local function drawIcon(t, x, y, s)
   end
   local okI, Icons = pcall(require, "src.ui.kit.Icons")
   if okI then Icons.draw(t.icon, x + s * 0.12, y + s * 0.12, s * 0.76, t.color, 1) end
+end
+
+-- draw a tile's icon by its id (the Activity Log's rows); false if unknown
+function H.drawIconFor(imp, id, x, y, s)
+  for _, t in ipairs(H.tiles(imp)) do
+    if t.id == id then drawIcon(t, x, y, s) return true end
+  end
+  return false
 end
 
 -- the white tile the icon sits in, with its soft shadow

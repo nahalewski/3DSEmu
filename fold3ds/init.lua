@@ -47,6 +47,9 @@ local Cart3D = require("fold3ds.cart3d")
 local Camera = require("fold3ds.camera")
 local Dlplay = require("fold3ds.dlplay")
 local Eshop = require("fold3ds.eshop")
+local Activity = require("fold3ds.activity")
+local Notes = require("fold3ds.notes")
+local Friends = require("fold3ds.friends")
 local Azahar = require("fold3ds.azahar")
 
 local DIR = "fold3ds/"
@@ -249,11 +252,28 @@ local function homeActive()
 end
 
 local skipBoot   -- the boot screen (defined with the drawing)
+local coverTouch -- a touch on the cover screen (defined with the drawing)
+local onInnerEye -- the inner camera lens (defined with the drawing)
 
 -- the Camera applet owns both screens while it is open (launcher only)
 local function cameraOn()
   return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Camera.isOpen()
 end
+
+-- the Activity Log owns both screens while it is open (launcher only)
+local function actOn()
+  return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Activity.isOpen()
+end
+
+-- the Friend List and Game Notes, each owning both screens while open
+local APPS = { friends = Friends, gamenotes = Notes }
+local function appOn()
+  if not (state.mode == "ds" and state.kind ~= "game" and state.L ~= nil) then return nil end
+  for id, m in pairs(APPS) do
+    if m.isOpen() then return id, m end
+  end
+end
+local function appExit(m, r) if r == "exit" then m.close() end end
 
 -- the eShop owns both screens while it is open (launcher only)
 local function esOn()
@@ -533,6 +553,8 @@ local function press(btn, src)
     return
   end
   if esOn() then eshopDone(Eshop.button(btn)) return end
+  if actOn() then if Activity.button(btn) == "exit" then Activity.close() end return end
+  do local _, m = appOn(); if m then appExit(m, m.button(btn)) return end end
   if btn == "cstick" then cycleScreen() return end
   if state.kind == "game" then
     if btn == "select" and selectOpensMods(state.subject) then return end
@@ -584,7 +606,7 @@ end
 local function release(btn, src)
   if btn == "cstick" then return end
   if Sticker.editing() and state.kind ~= "game" then return end
-  if cameraOn() or dlOn() or esOn() then return end
+  if cameraOn() or dlOn() or esOn() or actOn() or appOn() then return end
   if src == "pad" and (btn == "up" or btn == "down") then state.padScroll = nil end
   if state.kind == "game" and GAME_TRIGGER[btn] then
     local g = state.subject
@@ -739,12 +761,18 @@ end
 local function onTouchPressed(id, x, y, dx, dy, pr)
   if M.debug then print("fold3ds touchpressed enter mode=" .. tostring(state.mode)) end
   if state.mode ~= "ds" then
-    if state.mode == "lid" then Sticker.coverPressed(id, x, y) return end
+    if state.mode == "lid" then coverTouch("pressed", id, x, y) return end
     return orig.touchpressed and orig.touchpressed(id, x, y, dx, dy, pr)
   end
   if state.L and shoulderZone(state.L, x, y) then state.shoulderSeen = state.time end
   if skipBoot() then return end
   if state.L and volumeZone(state.L, x, y) then state.volDrag = id; volumeFromY(state.L, y) return end
+  -- the inner camera: stickers for the shells
+  if state.L and state.kind ~= "game" and not Sticker.editing() and onInnerEye(state.L, x, y) then
+    Sfx.play("open")
+    Sticker.open(nil, 1)
+    return
+  end
   local b = buttonAt(x, y)
   if M.debug then print("fold3ds buttonAt -> " .. tostring(b and b.name)) end
   if b then holdStart(id, b, x, y) return end
@@ -752,6 +780,8 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
   if cameraOn() then Camera.pressed(id, x, y) return end
   if dlOn() then Dlplay.pressed(id, x, y) return end
   if esOn() then Eshop.pressed(id, x, y) return end
+  if actOn() then Activity.pressed(id, x, y) return end
+  do local _, m = appOn(); if m then m.pressed(id, x, y) return end end
   if homeTouch(id, x, y) then return end
   local cb = columnButtonAt(x, y)
   if cb then state.columnDown = cb.id; pressColumnButton(cb) return end
@@ -772,7 +802,7 @@ end
 
 local function onTouchMoved(id, x, y, dx, dy, pr)
   if state.mode ~= "ds" then
-    if state.mode == "lid" then Sticker.coverMoved(id, x, y) return end
+    if state.mode == "lid" then coverTouch("moved", id, x, y) return end
     return orig.touchmoved and orig.touchmoved(id, x, y, dx, dy, pr)
   end
   if state.volDrag == id then volumeFromY(state.L, y) return end
@@ -781,6 +811,8 @@ local function onTouchMoved(id, x, y, dx, dy, pr)
   if cameraOn() then Camera.moved(id, x, y) return end
   if dlOn() then Dlplay.moved(id, x, y) return end
   if esOn() then Eshop.moved(id, x, y) return end
+  if actOn() then Activity.moved(id, x, y) return end
+  do local _, m = appOn(); if m then m.moved(id, x, y) return end end
   if Home.moved(state.subject, id, x, y) then return end
   if state.vtouch[id] then
     local lx, ly = toVirtual(x, y)
@@ -791,7 +823,7 @@ end
 
 local function onTouchReleased(id, x, y, dx, dy, pr)
   if state.mode ~= "ds" then
-    if state.mode == "lid" then Sticker.coverReleased(id, x, y) return end
+    if state.mode == "lid" then coverTouch("released", id, x, y) return end
     return orig.touchreleased and orig.touchreleased(id, x, y, dx, dy, pr)
   end
   if state.volDrag == id then state.volDrag = nil return end
@@ -800,6 +832,8 @@ local function onTouchReleased(id, x, y, dx, dy, pr)
   if cameraOn() then if Camera.released(id, x, y) == "exit" then Camera.close() end return end
   if dlOn() then if Dlplay.released(id, x, y) == "exit" then Dlplay.close() end return end
   if esOn() then eshopDone(Eshop.released(id, x, y)) return end
+  if actOn() then if Activity.released(id, x, y) == "exit" then Activity.close() end return end
+  do local _, m = appOn(); if m then appExit(m, m.released(id, x, y)) return end end
   if Home.released(state.subject, id, x, y) then return end
   if state.arrowHeld and state.arrowHeld.id == id then arrowEnd(id) return end
   if state.vtouch[id] then
@@ -813,10 +847,16 @@ end
 -- mouse twin of a touch just gets the same coordinate change
 local function onMousePressed(x, y, button, istouch, presses)
   if state.mode ~= "ds" then
-    if state.mode == "lid" then if not istouch then Sticker.coverPressed("mouse", x, y) end return end
+    if state.mode == "lid" then if not istouch then coverTouch("pressed", "mouse", x, y) end return end
     return orig.mousepressed and orig.mousepressed(x, y, button, istouch, presses)
   end
   if not istouch and button == 1 and skipBoot() then return end
+  if not istouch and button == 1 and state.L and state.kind ~= "game" and not Sticker.editing()
+      and onInnerEye(state.L, x, y) then
+    Sfx.play("open")
+    Sticker.open(nil, 1)
+    return
+  end
   if not istouch and button == 1 and state.L and volumeZone(state.L, x, y) then
     state.volDrag = "mouse"; volumeFromY(state.L, y) return
   end
@@ -827,6 +867,8 @@ local function onMousePressed(x, y, button, istouch, presses)
     if cameraOn() then Camera.pressed("mouse", x, y) return end
     if dlOn() then Dlplay.pressed("mouse", x, y) return end
     if esOn() then Eshop.pressed("mouse", x, y) return end
+    if actOn() then Activity.pressed("mouse", x, y) return end
+    do local _, m = appOn(); if m then m.pressed("mouse", x, y) return end end
     if homeTouch("mouse", x, y) then return end
     local cb = columnButtonAt(x, y)
     if cb then state.columnDown = cb.id; pressColumnButton(cb) return end
@@ -840,7 +882,7 @@ end
 
 local function onMouseMoved(x, y, dx, dy, istouch)
   if state.mode ~= "ds" then
-    if state.mode == "lid" then if not istouch then Sticker.coverMoved("mouse", x, y) end return end
+    if state.mode == "lid" then if not istouch then coverTouch("moved", "mouse", x, y) end return end
     return orig.mousemoved and orig.mousemoved(x, y, dx, dy, istouch)
   end
   if state.volDrag == "mouse" then volumeFromY(state.L, y) return end
@@ -849,6 +891,8 @@ local function onMouseMoved(x, y, dx, dy, istouch)
   if cameraOn() then if not istouch then Camera.moved("mouse", x, y) end return end
   if dlOn() then if not istouch then Dlplay.moved("mouse", x, y) end return end
   if esOn() then if not istouch then Eshop.moved("mouse", x, y) end return end
+  if actOn() then if not istouch then Activity.moved("mouse", x, y) end return end
+  do local _, m = appOn(); if m then if not istouch then m.moved("mouse", x, y) end return end end
   if not istouch and Home.moved(state.subject, "mouse", x, y) then return end
   local lx, ly = toVirtual(x, y)
   if orig.mousemoved then return orig.mousemoved(lx, ly, dx, dy, istouch) end
@@ -856,7 +900,7 @@ end
 
 local function onMouseReleased(x, y, button, istouch, presses)
   if state.mode ~= "ds" then
-    if state.mode == "lid" then if not istouch then Sticker.coverReleased("mouse", x, y) end return end
+    if state.mode == "lid" then if not istouch then coverTouch("released", "mouse", x, y) end return end
     return orig.mousereleased and orig.mousereleased(x, y, button, istouch, presses)
   end
   if state.volDrag == "mouse" and not istouch then state.volDrag = nil return end
@@ -873,6 +917,17 @@ local function onMouseReleased(x, y, button, istouch, presses)
   if esOn() then
     if not istouch then eshopDone(Eshop.released("mouse", x, y)) end
     return
+  end
+  if actOn() then
+    if not istouch and Activity.released("mouse", x, y) == "exit" then Activity.close() end
+    return
+  end
+  do
+    local _, m = appOn()
+    if m then
+      if not istouch then appExit(m, m.released("mouse", x, y)) end
+      return
+    end
   end
   if not istouch and Home.released(state.subject, "mouse", x, y) then return end
   if not istouch and state.arrowHeld and state.arrowHeld.id == "mouse" then arrowEnd("mouse") return end
@@ -1107,6 +1162,105 @@ end
 -- icon turning in 3D (a slab, its edge a darker shade) above the app's
 -- own title, English or Japanese with SKINS > CARTRIDGE ARTWORK
 -- (fold3ds/icons3ds/<id>.png, fold3ds/banners/<id>_en|jp.png).
+-- A 3DS game's banner on the top screen, as the HOME menu shows a game:
+-- a stage in the colour of its icon, light turning slowly behind the game
+-- card, and the title bubble below -- icon, title, publisher.
+local function ctrColour(t)
+  local key = "ctrcol:" .. (t.key or t.id or "")
+  if state.images[key] == nil then
+    local c
+    if t.hasIcon then
+      local ok, d = pcall(love.image.newImageData, "fold3ds_azahar/icons/" .. t.key .. ".png")
+      if ok and d then
+        local r, g, b, n = 0, 0, 0, 0
+        local w, h = d:getDimensions()
+        for y = 0, h - 1, 2 do
+          for x = 0, w - 1, 2 do
+            local pr, pg, pb, pa = d:getPixel(x, y)
+            -- the colourful pixels count most
+            local sat = math.max(pr, pg, pb) - math.min(pr, pg, pb)
+            local wgt = pa * (0.15 + sat)
+            r, g, b, n = r + pr * wgt, g + pg * wgt, b + pb * wgt, n + wgt
+          end
+        end
+        if n > 0 then c = { r / n, g / n, b / n } end
+      end
+    end
+    if not c then
+      -- no icon: a colour of its own from the name
+      local hsh = 0
+      for i = 1, #(t.name or "") do hsh = (hsh * 31 + t.name:byte(i)) % 360 end
+      local hue = hsh / 60
+      local x = 1 - math.abs(hue % 2 - 1)
+      local rgb = ({ { 1, x, 0 }, { x, 1, 0 }, { 0, 1, x }, { 0, x, 1 }, { x, 0, 1 }, { 1, 0, x } })[math.floor(hue) + 1]
+      c = { 0.25 + rgb[1] * 0.6, 0.25 + rgb[2] * 0.6, 0.25 + rgb[3] * 0.6 }
+    end
+    state.images[key] = c
+  end
+  return state.images[key]
+end
+
+local function drawCtrBanner(r, P, t, nh, pad)
+  local c = ctrColour(t)
+  local time = state.time
+  local bubH = nh * 1.9
+  local stage = { x = r.x, y = P.y - pad * 0.5, w = r.w, h = r.y + r.h - bubH - pad * 0.6 - (P.y - pad * 0.5) }
+  -- the stage: its colour fading to white at the top
+  local bands = 24
+  for i = 0, bands - 1 do
+    local k = (i + 0.5) / bands * 0.55
+    lg.setColor(1 - (1 - c[1]) * k, 1 - (1 - c[2]) * k, 1 - (1 - c[3]) * k, 1)
+    local y0 = stage.y + stage.h * i / bands
+    lg.rectangle("fill", stage.x, y0, stage.w, stage.h / bands + 1)
+  end
+  -- light turning behind the card
+  local cx, cy = stage.x + stage.w / 2, stage.y + stage.h * 0.5
+  local R = stage.w
+  for i = 0, 11 do
+    local a0 = time * 0.15 + i * math.pi / 6
+    lg.setColor(1, 1, 1, 0.16)
+    lg.polygon("fill", cx, cy, cx + math.cos(a0) * R, cy + math.sin(a0) * R,
+      cx + math.cos(a0 + 0.2) * R, cy + math.sin(a0 + 0.2) * R)
+  end
+  drawTopTile({ x = P.x, y = stage.y, w = P.w, h = stage.h }, t)
+  -- the title bubble
+  local bx, by, bw = r.x + pad, r.y + r.h - bubH - pad * 0.4, r.w - 2 * pad
+  lg.setColor(0, 0, 0, 0.12)
+  lg.rectangle("fill", bx, by + bubH * 0.06, bw, bubH, bubH * 0.22, bubH * 0.22)
+  lg.setColor(1, 1, 1, 1)
+  lg.rectangle("fill", bx, by, bw, bubH, bubH * 0.22, bubH * 0.22)
+  lg.setColor(0.82, 0.83, 0.86, 1)
+  lg.setLineWidth(1)
+  lg.rectangle("line", bx, by, bw, bubH, bubH * 0.22, bubH * 0.22)
+  local is = bubH * 0.72
+  local ix, iy = bx + bubH * 0.14, by + (bubH - is) / 2
+  local icon = Azahar.icon(t)
+  if icon then
+    local iw, ih = icon:getDimensions()
+    lg.setColor(1, 1, 1, 1)
+    lg.draw(icon, ix, iy, 0, is / iw, is / ih)
+  else
+    lg.setColor(c[1], c[2], c[3], 1)
+    lg.rectangle("fill", ix, iy, is, is, is * 0.15, is * 0.15)
+    local f = font(is * 0.55)
+    lg.setFont(f)
+    lg.setColor(1, 1, 1, 1)
+    lg.printf(Azahar.initial(t.name), ix, iy + (is - f:getHeight()) / 2, is, "center")
+  end
+  local tx, tw = ix + is + bubH * 0.2, bw - is - bubH * 0.5
+  local tf = font(bubH * 0.3)
+  local sf = font(bubH * 0.22)
+  local total = tf:getHeight() + sf:getHeight() * 1.1
+  local ty = by + (bubH - total) / 2
+  lg.setFont(tf)
+  lg.setColor(0.16, 0.16, 0.18, 1)
+  lg.printf(t.name or "", tx, ty, tw, "left")
+  lg.setFont(sf)
+  lg.setColor(0.45, 0.46, 0.5, 1)
+  lg.printf(t.sub or "Nintendo 3DS", tx, ty + tf:getHeight() * 1.05, tw, "left")
+end
+
+local APPLET_TITLES = { friends = "Friend List", gamenotes = "Game Notes" }
 local function appletBanner(r, id, t)
   local function image(key, path)
     if state.images[key] == nil then
@@ -1146,6 +1300,12 @@ local function appletBanner(r, id, t)
     local s = math.min(r.w * 0.8 / tw, th * 0.8 / tt)
     lg.setColor(1, 1, 1, 1)
     lg.draw(title, r.x + (r.w - tw * s) / 2, r.y + r.h - th + (th - tt * s) / 2, 0, s, s)
+  elseif APPLET_TITLES[id] then
+    -- no title art: the name, in the banners' ink
+    local f = font(th * 0.5)
+    lg.setFont(f)
+    lg.setColor(0.22, 0.22, 0.25, 1)
+    lg.printf(APPLET_TITLES[id], r.x, r.y + r.h - th + (th - f:getHeight()) / 2, r.w, "center")
   end
 end
 
@@ -1252,6 +1412,19 @@ local function drawTop3DS(r, banner)
     end
   end
   lg.setStencilTest()
+  if banner == "app:activity" then
+    Activity.drawTop({ x = r.x, y = P.y, w = r.w, h = r.y + r.h - P.y - nh * 0.2 })
+    drawLR(r, nh * 0.72, pad)
+    lg.pop()
+    return
+  end
+  local app = type(banner) == "string" and APPS[banner:match("^app:(.+)$") or ""]
+  if app then
+    app.drawTop({ x = r.x, y = P.y, w = r.w, h = r.y + r.h - P.y - nh * 0.2 })
+    drawLR(r, nh * 0.72, pad)
+    lg.pop()
+    return
+  end
   if banner == "eshop" then
     -- the eShop: its own page below the status bar
     Eshop.drawTop({ x = r.x, y = P.y, w = r.w, h = r.y + r.h - P.y - nh * 0.2 })
@@ -1284,6 +1457,11 @@ local function drawTop3DS(r, banner)
   end
   -- a 3DS game, the Azahar folder or one of its icons: that, not a cartridge
   local other = Home.showing() and Home.topTile(state.subject)
+  if other and other.ctr then
+    drawCtrBanner(r, P, other, nh, pad)
+    lg.pop()
+    return
+  end
   if other then
     drawTopTile(P, other)
     local nf = font(nh * 0.6)
@@ -1509,25 +1687,38 @@ local function drawLidIn(x, y, W, H, portrait, cover)
 end
 
 -- a wallpaper filling a w x h box, cropped rather than stretched
--- The boot screen: the G1R Deluxe logo on both screens (fold3ds/boot/),
--- the lid's click, then the HOME menu's welcome jingle; it fades into the
--- menu after a few seconds, or at once on a tap or a button.
+-- The startup, as a 3DS starts: the boot screen (the G1R Deluxe logo on
+-- both screens, fold3ds/boot/, the lid's click, then the HOME menu's welcome
+-- jingle), then the Health & Safety warning until a touch or a button, then
+-- the HOME menu coming up out of white.  A tap hurries the logo along.
 local BOOT_TIME, BOOT_FADE = 3.6, 0.5
+local HS_FADE, HOME_TIME = 0.35, 0.7
 local function booting()
   local b = state.boot
   if not b then return false end
-  if state.time - b.t0 > BOOT_TIME then state.boot = nil return false end
+  local age = state.time - b.t0
+  if b.phase == "logo" and age > BOOT_TIME then b.phase, b.t0 = "hs", state.time end
+  if b.phase == "home" and age > HOME_TIME then state.boot = nil return false end
   return true
 end
 
 skipBoot = function()
   local b = state.boot
   if not booting() then return false end
-  -- already fading: the touch is the menu's
-  if state.time - b.t0 >= BOOT_TIME - BOOT_FADE then return false end
-  -- straight to the fade
-  b.t0 = math.min(b.t0, state.time - (BOOT_TIME - BOOT_FADE))
-  return true
+  if b.phase == "logo" then
+    -- straight to the fade
+    b.t0 = math.min(b.t0, state.time - (BOOT_TIME - BOOT_FADE))
+    return true
+  end
+  if b.phase == "hs" then
+    -- not while it is still coming up (the tap that hurried the logo)
+    if state.time - b.t0 < HS_FADE then return true end
+    b.phase, b.t0 = "home", state.time
+    Sfx.play("click")
+    return true
+  end
+  -- the menu coming up: the touch is the menu's
+  return false
 end
 
 local function bootImage(name)
@@ -1569,18 +1760,97 @@ local function drawBootScreen(img, r, age, zoom, a)
   lg.setScissor()
 end
 
+local function healthImage(name)
+  local key = "health:" .. name
+  if state.images[key] == nil then
+    local ok, img = pcall(lg.newImage, DIR .. "health/" .. name .. ".png")
+    state.images[key] = ok and img or false
+    if ok then img:setFilter("linear", "linear") end
+  end
+  return state.images[key] or nil
+end
+
+-- the Health & Safety warning: its HOME Menu title (EN or JP with the
+-- artwork setting) over the note on the top screen, the prompt below
+local function drawHealth(L, age)
+  local a = math.min(1, age / HS_FADE)
+  local t, bt = L.topCut, L.botCut
+  for _, r in ipairs({ t, bt }) do
+    lg.setScissor(r.x, r.y, r.w, r.h)
+    lg.setColor(0.97, 0.97, 0.97, 1)
+    lg.rectangle("fill", r.x, r.y, r.w, r.h)
+    lg.setColor(0.86, 0.86, 0.87, 1)
+    for y = r.y, r.y + r.h, math.max(2, math.floor(r.h / 60)) * 2 do
+      lg.rectangle("fill", r.x, y, r.w, 1)
+    end
+  end
+  -- top: the title bar, then the note
+  lg.setScissor(t.x, t.y, t.w, t.h)
+  local barH = t.h * 0.3
+  lg.setColor(1, 1, 1, 1)
+  lg.rectangle("fill", t.x, t.y + t.h * 0.08, t.w, barH)
+  lg.setColor(0.8, 0.8, 0.8, 1)
+  lg.rectangle("fill", t.x, t.y + t.h * 0.08 + barH, t.w, 2)
+  local warn = healthImage("warn")
+  local title = healthImage(Cart3D.region == "jp" and "title_jp" or "title_en")
+  local wx = t.x + t.w * 0.06
+  if warn then
+    local k = barH * 0.62 / warn:getHeight()
+    lg.setColor(1, 1, 1, 1)
+    lg.draw(warn, wx, t.y + t.h * 0.08 + barH / 2, 0, k, k, 0, warn:getHeight() / 2)
+    wx = wx + warn:getWidth() * k + t.w * 0.05
+  end
+  if title then
+    local k = math.min(barH * 0.7 / title:getHeight(), (t.x + t.w * 0.95 - wx) / title:getWidth())
+    lg.setColor(1, 1, 1, 1)
+    lg.draw(title, wx, t.y + t.h * 0.08 + barH / 2, 0, k, k, 0, title:getHeight() / 2)
+  end
+  local f = font(t.h * 0.066)
+  lg.setFont(f)
+  lg.setColor(0.2, 0.2, 0.22, 1)
+  lg.printf("Before using this software, read the Health & Safety Information "
+    .. "on the HOME Menu. It contains important information that will help "
+    .. "you enjoy this software.", t.x + t.w * 0.08, t.y + t.h * 0.47, t.w * 0.84, "left")
+  -- bottom: the prompt, breathing
+  lg.setScissor(bt.x, bt.y, bt.w, bt.h)
+  local pulse = 0.55 + 0.45 * math.abs(math.sin(state.time * 2.2))
+  lg.setFont(font(bt.h * 0.07))
+  lg.setColor(0.2, 0.2, 0.22, pulse)
+  lg.printf("Touch the Touch Screen to continue.", bt.x, bt.y + bt.h * 0.46, bt.w, "center")
+  lg.setScissor()
+  -- up from black, after the logo's fade
+  if a < 1 then
+    lg.setColor(0, 0, 0, 1 - a)
+    for _, r in ipairs({ t, bt }) do lg.rectangle("fill", r.x, r.y, r.w, r.h) end
+  end
+end
+
 local function drawBoot(L)
   if not booting() then return end
   local b = state.boot
   local age = state.time - b.t0
-  -- the jingle, a beat after the click
-  if not b.jingle and age > 0.3 then b.jingle = true; Sfx.play("boot") end
-  local a = 1
-  if age > BOOT_TIME - BOOT_FADE then a = math.max(0, (BOOT_TIME - age) / BOOT_FADE) end
-  local zoom = 1 + 0.035 * math.min(1, age / BOOT_TIME)
   lg.push("all")
-  drawBootScreen(bootImage("top"), L.topCut, age, zoom, a)
-  drawBootScreen(bootImage("bottom"), L.botCut, age, zoom, a)
+  if b.phase == "hs" then
+    drawHealth(L, age)
+  elseif b.phase == "home" then
+    -- the HOME menu comes up out of white
+    local a = 1 - math.min(1, age / HOME_TIME)
+    lg.setColor(1, 1, 1, a * a)
+    for _, r in ipairs({ L.topCut, L.botCut }) do lg.rectangle("fill", r.x, r.y, r.w, r.h) end
+  else
+    -- the jingle, a beat after the click
+    if not b.jingle and age > 0.3 then b.jingle = true; Sfx.play("boot") end
+    local a = 1
+    if age > BOOT_TIME - BOOT_FADE then a = math.max(0, (BOOT_TIME - age) / BOOT_FADE) end
+    local zoom = 1 + 0.035 * math.min(1, age / BOOT_TIME)
+    -- it fades to black, for the warning
+    for _, r in ipairs({ L.topCut, L.botCut }) do
+      lg.setColor(0, 0, 0, 1)
+      lg.rectangle("fill", r.x, r.y, r.w, r.h)
+    end
+    drawBootScreen(bootImage("top"), L.topCut, age, zoom, a)
+    drawBootScreen(bootImage("bottom"), L.botCut, age, zoom, a)
+  end
   lg.pop()
 end
 
@@ -1594,7 +1864,84 @@ local function drawWall(file, w, h)
   return true
 end
 
+-- Stickers on the open 3DS's shells: the top half's (surface 1) and the
+-- bottom half's (2), each masked by its own art so none covers a screen.
+local function alphaTest()
+  state.alphaTest = state.alphaTest or lg.newShader([[
+    vec4 effect(vec4 color, Image tex, vec2 tc, vec2 sc) {
+      vec4 p = Texel(tex, tc);
+      if (p.a < 0.5) discard;
+      return p * color;
+    }
+  ]])
+  return state.alphaTest
+end
+
+local function shellStickers(img, ox, oy, sc, surf, cover)
+  if not img then return end
+  local bw, bh = img:getDimensions()
+  Sticker.drawOnLid(ox, oy, sc, bw, bh, function()
+    lg.setShader(alphaTest())
+    lg.draw(img, ox, oy, 0, sc, sc)
+    lg.setShader()
+  end, cover, surf)
+end
+
+-- the shell being stickered, as the editor's preview (fitted into a rect)
+local function shellPreview(surf)
+  return function(x, y, W, H)
+    local L = state.L
+    local img = L and (surf == 1 and L.top.img or L.bottom.img)
+    if not img then return end
+    local iw, ih = img:getDimensions()
+    local s = math.min(W / iw, H / ih)
+    local ox, oy = x + (W - iw * s) / 2, y + (H - ih * s) / 2
+    lg.setColor(1, 1, 1, 1)
+    lg.draw(img, ox, oy, 0, s, s)
+    shellStickers(img, ox, oy, s, surf, false)
+  end
+end
+
+-- the inner camera above the top screen (top_gbc.png pixels): a tap on it
+-- opens the sticker maker for the shells
+local INNER_EYE = { 745, 68, 40 }
+onInnerEye = function(L, x, y)
+  local ex, ey = L.top.x + INNER_EYE[1] * L.top.sc, L.top.y + INNER_EYE[2] * L.top.sc
+  local r = INNER_EYE[3] * L.top.sc
+  return (x - ex) ^ 2 + (y - ey) ^ 2 <= r * r
+end
+
+local function innerEyeGlint(L, t)
+  local k = (t % 7) / 7
+  if k > 0.18 then return end
+  local a = math.sin(k / 0.18 * math.pi)
+  local ex, ey = L.top.x + INNER_EYE[1] * L.top.sc, L.top.y + INNER_EYE[2] * L.top.sc
+  lg.setColor(1, 1, 1, 0.45 * a)
+  lg.circle("line", ex, ey, INNER_EYE[3] * L.top.sc * (0.8 + k * 2))
+  lg.setColor(1, 1, 1, 0.8 * a)
+  lg.circle("fill", ex - INNER_EYE[3] * L.top.sc * 0.2, ey - INNER_EYE[3] * L.top.sc * 0.2, INNER_EYE[3] * L.top.sc * 0.1)
+end
+
+-- the sticker maker on the cover screen: the lid on one side, the tools on
+-- the other (side by side on a wide cover, stacked on a tall one)
+local function coverEditRects(W, H)
+  if W >= H then
+    local pw = math.floor(W * 0.4)
+    return { x = 0, y = 0, w = pw, h = H }, { x = pw, y = 0, w = W - pw, h = H }
+  end
+  local ph = math.floor(H * 0.42)
+  return { x = 0, y = 0, w = W, h = ph }, { x = 0, y = ph, w = W, h = H - ph }
+end
+
 local function drawLid(W, H)
+  if Sticker.editing() then
+    local prev, tools = coverEditRects(W, H)
+    lg.setColor(0.08, 0.08, 0.09, 1)
+    lg.rectangle("fill", 0, 0, W, H)
+    Sticker.drawPreview(prev, drawLidIn)
+    Sticker.drawEditor(tools)
+    return
+  end
   lg.setColor(0.16, 0.16, 0.17, 1)
   lg.rectangle("fill", 0, 0, W, H)
   -- the black wallpaper behind the closed lid, turned with it
@@ -1609,6 +1956,23 @@ local function drawLid(W, H)
   end
   lg.pop()
   drawLidIn(0, 0, W, H, portrait, true)
+  Sticker.eyeGlint(state.time)
+end
+
+-- a touch on the cover: the sticker maker while it is open there, else the
+-- stickers themselves (the right camera lens opens the maker)
+coverTouch = function(phase, id, x, y)
+  if Sticker.editing() then
+    local prev, tools = coverEditRects(state.W or real.getWidth(), state.H or real.getHeight())
+    if phase == "pressed" then Sticker.pressed(id, x, y, tools, prev)
+    elseif phase == "moved" then Sticker.moved(id, x, y)
+    else Sticker.released(id) end
+    return
+  end
+  if phase == "pressed" then
+    if Sticker.coverPressed(id, x, y) == "eye" then Sfx.play("open", true) end
+  elseif phase == "moved" then Sticker.coverMoved(id, x, y)
+  else Sticker.coverReleased(id, x, y) end
 end
 
 local function drawFrame()
@@ -1652,7 +2016,8 @@ local function drawFrame()
     Camera.drawBottom(L.botCut)
   elseif Sticker.editing() then
     -- the cover sticker editor: the cover on top, the tools below
-    Sticker.drawPreview(L.topCut, drawLidIn)
+    local surf = Sticker.surface()
+    Sticker.drawPreview(L.topCut, surf == 0 and drawLidIn or shellPreview(surf))
     Sticker.drawEditor(L.botCut)
   elseif dlOn() then
     drawTop3DS(L.topCut, "dlplay")
@@ -1660,9 +2025,17 @@ local function drawFrame()
   elseif esOn() then
     drawTop3DS(L.topCut, "eshop")
     Eshop.drawBottom(L.botCut)
+  elseif actOn() then
+    drawTop3DS(L.topCut, "app:activity")
+    Activity.drawBottom(L.botCut)
+  elseif appOn() then
+    local id, m = appOn()
+    drawTop3DS(L.topCut, "app:" .. id)
+    m.drawBottom(L.botCut)
   elseif homeActive() and Home.showing() then
     local focus = Home.barFocus()
-    local banners = { downloadplay = "dlplay", eshop = "eshop", camera = "camera", settings = "settings" }
+    local banners = { downloadplay = "dlplay", eshop = "eshop", camera = "camera", settings = "settings",
+                      activity = "activity", friends = "friends", gamenotes = "gamenotes" }
     if Theme3DS.active then drawTop3DS(L.topCut, banners[focus or ""])
     else drawTopIdle(L.topCut) end
     Home.draw(L.botCut, state.subject, state.time)
@@ -1677,7 +2050,9 @@ local function drawFrame()
   drawBoot(L)
   lg.setColor(1, 1, 1, 1)
   lg.draw(L.top.img, L.top.x, L.top.y, 0, L.top.sc, L.top.sc)
+  shellStickers(L.top.img, L.top.x, L.top.y, L.top.sc, 1, "shell")
   drawVolume(L)
+  if state.kind ~= "game" and not Sticker.editing() then innerEyeGlint(L, state.time) end
   -- FULL: the game covers the whole top panel, Game Boy Color frame included
   if state.kind == "game" and state.screenMode == "full" and canvas then
     lg.setColor(0, 0, 0, 1)
@@ -1686,6 +2061,7 @@ local function drawFrame()
     lg.draw(canvas, gr.x, gr.y)
   end
   lg.draw(L.bottom.img, L.bottom.x, L.bottom.y, 0, L.bottom.sc, L.bottom.sc)
+  shellStickers(L.bottom.img, L.bottom.x, L.bottom.y, L.bottom.sc, 2, "shell")
   drawButtons(L)
   drawShoulders(L)
   drawToast(state.kind == "game" and gr or L.topCut)
@@ -1704,6 +2080,16 @@ function backend:update(dt)
   Camera.update(dt, cameraOn())
   Dlplay.update(dt)
   Eshop.update(dt)
+  -- the Activity Log: the running gen1recomp game's time
+  if state.kind == "game" then
+    local ok, GV = pcall(require, "src.core.GameVersion")
+    local v = ok and GV.get and GV.get() or nil
+    local info = v and GV.info and GV.info(v)
+    Activity.playing(v, info and info.displayName or v, dt)
+  else
+    Activity.playing(nil)
+  end
+  Activity.tick(dt, state.time)
   -- the volume keys move the slider (and are kept from Android's volume)
   if state.volKeysSent ~= state.volKeys then
     state.volKeysSent = state.volKeys
@@ -1735,6 +2121,7 @@ function backend:update(dt)
     local fake = os.getenv("POKEPORT_FOLD_FAKESTEPS")
     local n = fake and tonumber(fake) or tonumber(bridge("steps") or "")
     state.steps = n
+    Activity.steps(n)
   end
   if M.debug and dbgFrames < 3 then dbgFrames = dbgFrames + 1 io.stdout:setvbuf("no") print("fold3ds update mode=" .. tostring(state.mode) .. " kind=" .. tostring(state.kind)) end
   if M.driverTick then M.driverTick() end
@@ -1830,7 +2217,7 @@ function backend:beginFrame(kind, subject)
   -- the first time the menu comes up on the open 3DS: the boot screen
   if kind == "launcher" and not state.chimed and state.mode == "ds" then
     state.chimed = true
-    state.boot = { t0 = state.time, jingle = false }
+    state.boot = { t0 = state.time, jingle = false, phase = "logo" }
     Sfx.play("click")
   end
   Sfx.inGame = kind == "game"
@@ -2075,9 +2462,32 @@ function M.install()
   Sticker.init({ setCanvas = real.setCanvas, font = font })
   Camera.init({ font = font })
   Dlplay.init({ font = font, subject = function() return state.subject end })
+  Activity.init({ font = font, drawIcon = function(id, x, y, s)
+    if not Home.drawIconFor(state.subject, id, x, y, s) then
+      lg.setColor(0.85, 0.9, 0.9, 1)
+      lg.rectangle("fill", x, y, s, s, s * 0.15, s * 0.15)
+    end
+  end })
+  -- an Azahar game opened from the HOME menu: the Activity Log times it
+  -- until the menu is back in focus
+  do
+    local okA, Az = pcall(require, "fold3ds.azahar")
+    if okA and Az and Az.play then
+      local play = Az.play
+      Az.play = function(t) Activity.launched(t) return play(t) end
+    end
+    local focus = love.focus
+    love.focus = function(f)
+      Activity.focus(f)
+      if focus then return focus(f) end
+    end
+  end
   Eshop.init({ font = font, subject = function() return state.subject end,
     region = function() return Cart3D.region end })
-  Home.init({ font = font, openCamera = Camera.open, drawCameraIcon = Camera.drawIcon, openDlplay = Dlplay.open, openEshop = Eshop.open })
+  Home.init({ font = font, openCamera = Camera.open, drawCameraIcon = Camera.drawIcon, openDlplay = Dlplay.open, openEshop = Eshop.open,
+    openActivity = Activity.open, openApp = function(id) if APPS[id] then APPS[id].open() end end })
+  Notes.init({ font = font, setCanvas = real.setCanvas })
+  Friends.init({ font = font, favourite = Activity.favourite })
   seedModIndex()
   wrapSettings()
   -- the virtual window: size, mode, safe area, pointer queries
@@ -2133,6 +2543,16 @@ function M.install()
   orig.mousepressed, orig.mousemoved, orig.mousereleased = love.mousepressed, love.mousemoved, love.mousereleased
   love.touchpressed, love.touchmoved, love.touchreleased = onTouchPressed, onTouchMoved, onTouchReleased
   love.mousepressed, love.mousemoved, love.mousereleased = onMousePressed, onMouseMoved, onMouseReleased
+  -- typing a name or a comment in the Friend List
+  local textinput, keypressed = love.textinput, love.keypressed
+  love.textinput = function(t, ...)
+    if Friends.textinput(t) then return end
+    if textinput then return textinput(t, ...) end
+  end
+  love.keypressed = function(k, ...)
+    if Friends.keypressed(k) then return end
+    if keypressed then return keypressed(k, ...) end
+  end
   -- the frame
   local ok, HostDisplay = pcall(require, "src.core.HostDisplay")
   if ok and HostDisplay and HostDisplay.setBackend then HostDisplay.setBackend(backend) end
@@ -2150,6 +2570,8 @@ function M.install()
   local quit = love.quit
   love.quit = function(...)
     pcall(Home.saveCoins)
+    pcall(Activity.flush)
+    pcall(Notes.flush)
     if quit then return quit(...) end
   end
   local script = os.getenv and os.getenv("POKEPORT_FOLD_TEST")
