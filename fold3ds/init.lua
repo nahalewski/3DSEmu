@@ -2747,9 +2747,29 @@ function M.install()
     if Friends.textinput(t) or EmuPage.textinput(t) then return end
     if textinput then return textinput(t, ...) end
   end
+  -- the Switch HOME menu and a game's manual take the keyboard and a
+  -- controller as the shell's buttons (they have none on screen to press)
+  local KEY_BTN = { up = "up", down = "down", left = "left", right = "right",
+    w = "up", s = "down", a = "left", d = "right",
+    z = "a", ["return"] = "a", space = "a", x = "b", backspace = "b",
+    c = "x", v = "y", escape = "start", tab = "select", q = "l", e = "r", h = "home" }
+  local PAD_SHELL = { a = "a", b = "b", x = "x", y = "y", start = "start", back = "select", guide = "home",
+    dpup = "up", dpdown = "down", dpleft = "left", dpright = "right",
+    leftshoulder = "l", rightshoulder = "r" }
+  local function shellKeys()
+    if nxOn() then return true end
+    local id = appOn()
+    return id == "manual"
+  end
   love.keypressed = function(k, ...)
+    if shellKeys() and KEY_BTN[k] then press(KEY_BTN[k]) return end
     if Friends.keypressed(k) or EmuPage.keypressed(k) then return end
     if keypressed then return keypressed(k, ...) end
+  end
+  local gamepadpressed = love.gamepadpressed
+  love.gamepadpressed = function(j, b, ...)
+    if shellKeys() and PAD_SHELL[b] then press(PAD_SHELL[b]) return end
+    if gamepadpressed then return gamepadpressed(j, b, ...) end
   end
   -- the frame
   local ok, HostDisplay = pcall(require, "src.core.HostDisplay")
