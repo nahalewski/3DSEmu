@@ -238,6 +238,8 @@ local function homeActive()
   return state.mode == "ds" and state.theme == "3ds" and state.kind ~= "game"
 end
 
+local skipBoot   -- the boot screen (defined with the drawing)
+
 -- the Camera applet owns both screens while it is open (launcher only)
 local function cameraOn()
   return state.mode == "ds" and state.kind ~= "game" and state.L ~= nil and Camera.isOpen()
@@ -439,6 +441,7 @@ local function selectOpensMods(game)
 end
 
 local function press(btn, src)
+  if skipBoot() then return end
   if Sticker.editing() and state.kind ~= "game" then Sticker.button(btn) return end
   if cameraOn() then
     if Camera.button(btn) == "exit" then Camera.close() end
@@ -652,6 +655,7 @@ local function onTouchPressed(id, x, y, dx, dy, pr)
     return orig.touchpressed and orig.touchpressed(id, x, y, dx, dy, pr)
   end
   if state.L and shoulderZone(state.L, x, y) then state.shoulderSeen = state.time end
+  if skipBoot() then return end
   local b = buttonAt(x, y)
   if M.debug then print("fold3ds buttonAt -> " .. tostring(b and b.name)) end
   if b then holdStart(id, b, x, y) return end
@@ -715,6 +719,7 @@ local function onMousePressed(x, y, button, istouch, presses)
     if state.mode == "lid" then if not istouch then Sticker.coverPressed("mouse", x, y) end return end
     return orig.mousepressed and orig.mousepressed(x, y, button, istouch, presses)
   end
+  if not istouch and button == 1 and skipBoot() then return end
   if not istouch and button == 1 then
     local b = buttonAt(x, y)
     if b then holdStart("mouse", b, x, y) return end
@@ -1184,6 +1189,79 @@ local function drawLidIn(x, y, W, H, portrait, cover)
 end
 
 -- a wallpaper filling a w x h box, cropped rather than stretched
+-- The boot screen: the G1R Deluxe logo on both screens (fold3ds/boot/),
+-- the lid's click, then the HOME menu's welcome jingle; it fades into the
+-- menu after a few seconds, or at once on a tap or a button.
+local BOOT_TIME, BOOT_FADE = 3.6, 0.5
+local function booting()
+  local b = state.boot
+  if not b then return false end
+  if state.time - b.t0 > BOOT_TIME then state.boot = nil return false end
+  return true
+end
+
+skipBoot = function()
+  local b = state.boot
+  if not booting() then return false end
+  -- straight to the fade
+  b.t0 = math.min(b.t0, state.time - (BOOT_TIME - BOOT_FADE))
+  return true
+end
+
+local function bootImage(name)
+  local key = "boot:" .. name
+  if state.images[key] == nil then
+    local ok, img = pcall(lg.newImage, DIR .. "boot/" .. name .. ".jpg")
+    state.images[key] = ok and img or false
+    if ok then img:setFilter("linear", "linear") end
+  end
+  return state.images[key] or nil
+end
+
+local function drawBootScreen(img, r, age, zoom, a)
+  lg.setScissor(r.x, r.y, r.w, r.h)
+  lg.setColor(0.94, 0.96, 1, a)
+  lg.rectangle("fill", r.x, r.y, r.w, r.h)
+  if img then
+    local iw, ih = img:getDimensions()
+    local k = math.max(r.w / iw, r.h / ih) * zoom
+    lg.setColor(1, 1, 1, a)
+    lg.draw(img, r.x + r.w / 2, r.y + r.h / 2, 0, k, k, iw / 2, ih / 2)
+  end
+  -- a light sweeping across once
+  local sweep = (age - 0.5) / 1.1
+  if sweep > 0 and sweep < 1 then
+    local x = r.x - r.w * 0.3 + sweep * r.w * 1.6
+    for i = 0, 7 do
+      local o = i * r.w * 0.02
+      lg.setColor(1, 1, 1, 0.06 * a * (1 - math.abs(i - 3.5) / 4))
+      lg.polygon("fill", x + o, r.y, x + o + r.w * 0.04, r.y,
+        x + o - r.w * 0.06, r.y + r.h, x + o - r.w * 0.1, r.y + r.h)
+    end
+  end
+  -- from white, as the screens light up
+  if age < 0.25 then
+    lg.setColor(1, 1, 1, 1 - age / 0.25)
+    lg.rectangle("fill", r.x, r.y, r.w, r.h)
+  end
+  lg.setScissor()
+end
+
+local function drawBoot(L)
+  if not booting() then return end
+  local b = state.boot
+  local age = state.time - b.t0
+  -- the jingle, a beat after the click
+  if not b.jingle and age > 0.3 then b.jingle = true; Sfx.play("boot") end
+  local a = 1
+  if age > BOOT_TIME - BOOT_FADE then a = math.max(0, (BOOT_TIME - age) / BOOT_FADE) end
+  local zoom = 1 + 0.035 * math.min(1, age / BOOT_TIME)
+  lg.push("all")
+  drawBootScreen(bootImage("top"), L.topCut, age, zoom, a)
+  drawBootScreen(bootImage("bottom"), L.botCut, age, zoom, a)
+  lg.pop()
+end
+
 local function drawWall(file, w, h)
   local img = image(file)
   if not img then return false end
@@ -1265,6 +1343,7 @@ local function drawFrame()
     if homeActive() then Home.drawBar(L.botView) end
     drawArrows(L)
   end
+  drawBoot(L)
   lg.setColor(1, 1, 1, 1)
   lg.draw(L.top.img, L.top.x, L.top.y, 0, L.top.sc, L.top.sc)
   -- FULL: the game covers the whole top panel, Game Boy Color frame included
@@ -1297,6 +1376,8 @@ function backend:update(dt)
   local W, H = real.getDimensions()
   if mode ~= state.mode then
     releaseAll()
+    -- opening the phone: the 3DS's click
+    if mode == "ds" and state.mode == "lid" then Sfx.play("click", true) end
     state.mode = mode
   end
   if mode == "ds" and (W ~= state.W or H ~= state.H or not state.L) then
@@ -1376,7 +1457,12 @@ function backend:beginFrame(kind, subject)
   -- back from a game: the HOME menu's grid, as on a 3DS
   if changed and kind == "launcher" then Home.goHome(nil, true) end
   -- the menu's chime the first time it comes up
-  if kind == "launcher" and not state.chimed then state.chimed = true; Sfx.play("start") end
+  -- the first time the menu comes up on the open 3DS: the boot screen
+  if kind == "launcher" and not state.chimed and state.mode == "ds" then
+    state.chimed = true
+    state.boot = { t0 = state.time, jingle = false }
+    Sfx.play("click")
+  end
   Sfx.inGame = kind == "game"
   if state.mode ~= "ds" or not state.L then return end
   state.vwin = virtualRect()

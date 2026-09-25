@@ -34,6 +34,8 @@ local EVENTS = {
   screen = "theme_list_over",         -- the C-stick changed the top screen
   coin = "home_popup_inf",            -- the play meter paid a coin
   start = "home_start_effect",        -- the menu first came up
+  boot = "home_welcome",              -- the boot screen's jingle
+  click = "home_capture_end",         -- the lid opening (and the app starting)
   on = "home_check_btn",
   off = "home_check_btn_off",
 }

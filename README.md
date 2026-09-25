@@ -79,6 +79,12 @@ upstream's own Android build script.
   wait in SKINS (*Put the fallen ones back*).  Stickers keep their
   proportions, stay on the lid's flat face and are cut to the shell's
   shape.
+* **Boot screen**: the first time the menu comes up on the open 3DS, the
+  G1R Deluxe logo fills both screens (`fold3ds/boot/top.jpg`,
+  `bottom.jpg`, cut to 5:3 and 4:3) with a slow push-in and a light
+  sweep, to the lid's click and the 3DS HOME menu's welcome jingle, then
+  fades into the menu (3.6 s; a tap or any button skips it).  Unfolding
+  the phone later clicks too.
 * **Camera (3DS theme)**: the orange camera icon at the front of the
   HOME menu's applet bar opens the 3DS Camera.  The phone's live camera
   picture fills the top screen inside white corner brackets (yellow while
