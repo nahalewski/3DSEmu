@@ -200,6 +200,18 @@ upstream's own Android build script.
   on the open shells instead: the editor's *On: top shell / On: bottom
   shell* row picks which one.  They sit under the screens and buttons,
   so they never cover them, and they are cut to the shell.
+* **Every emulator in the one HOME menu.**  3DS games open in Azahar.
+  DS games (melonDS) and GB / GBC / GBA games (SkyEmu, *Virtual Console*)
+  play inside the 3DS shell (`fold3ds/emuplay.lua`).  DS uses both
+  screens, with touch on the bottom one.  Virtual Console uses the top
+  screen, with the box art and Save / Load / Reset / Close below.  The
+  shell's buttons play the game, and HOME opens its pause menu.  The whole
+  top panel is the top screen.  Every game starts FULL SCREEN (stretched
+  over the whole screen); the C-stick switches to NATIVE (its own shape at
+  whole pixels), on both screens.  Each emulator has its own folder on the
+  grid with its settings and tools.  Their pages are drawn like the 3DS's
+  System Settings (`fold3ds/emupage.lua`), and their icons are made by
+  `tools/make_emu_icons.py`.
 * **Friend List** (HOME bar): your friend card (name, a friend code of
   your own, a comment, the game you play most) and the friends you
   register by their friend code, as cards: rename or delete them; names
