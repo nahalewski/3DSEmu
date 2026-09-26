@@ -119,7 +119,7 @@ local SHOULDERS = {
 local SHOULDER_SHOW, SHOULDER_FADE = 3.0, 0.6
 
 local state = {
-  mode = "off",          -- off | lid | ds
+  mode = "ds",           -- ds (3DS dual-screen UI by default) | lid | off
   kind = nil,            -- last HostDisplay kind: launcher | game | editor ...
   subject = nil,
   W = 0, H = 0,          -- real window
@@ -184,7 +184,7 @@ local function loadSettings()
   state.cartSkin = text:match("cart_skin=(%w+)") or "solid3d"
   Cart3D.style = state.cartSkin
   state.bottomShell = text:match("bottom_shell=(%w+)") or "default"
-  if love.audio then love.audio.setVolume(state.volume) end
+  if love.audio and love.audio.setVolume then pcall(love.audio.setVolume, state.volume) end
   Sfx.enabled = state.sounds
 end
 
@@ -210,13 +210,14 @@ end
 local function detectMode()
   local force = os.getenv and os.getenv("POKEPORT_FOLD")
   if force == "off" or force == "ds" or force == "lid" then return force end
-  local os_ = love.system and love.system.getOS and love.system.getOS()
-  if os_ ~= "Android" then return "off" end
-  local W, H = real.getDimensions()
-  if W <= 0 or H <= 0 then return "off" end
-  -- the cover screen is phone-shaped, the inner screen nearly square
-  local r = math.min(W, H) / math.max(W, H)
-  if r < 0.62 then return "lid" end
+  -- On a foldable with a physical hinge sensor, detect if shut closed
+  local f = love.system and love.system.foldCamera
+  if f then
+    local ok, angle = pcall(f, "call", "hinge.angle", "")
+    local deg = ok and tonumber(angle)
+    if deg and deg <= 10 then return "lid" end
+  end
+  -- 3DS is the default UI across all devices, screens, and aspect ratios
   return "ds"
 end
 

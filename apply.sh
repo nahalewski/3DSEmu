@@ -47,7 +47,7 @@ except Exception as e:
     print("mod catalog: keeping the bundled copy (%s)" % e)
 PY2
 # hook it into main.lua (last lines) and package it into game.love
-printf '\n-- the Android foldable layer (fold3ds/): a 3DS on a foldable, the lid on its cover\npcall(function() require("fold3ds").install() end)\n' >> main.lua
+printf '\n-- the AeonDX layer (fold3ds/): 3DS UI is the default\nlocal _ok, _err = pcall(function() require("fold3ds").install() end)\nif not _ok then print("fold3ds install error: " .. tostring(_err)) end\n' >> main.lua
 python3 - <<'PY'
 import re, pathlib
 p = pathlib.Path("scripts/build_android.sh"); s = p.read_text()
