@@ -57,7 +57,13 @@ local EmuPlay = require("fold3ds.emuplay")
 local EmuPage = require("fold3ds.emupage")
 local Emus = require("fold3ds.emus")
 local SkinManager = require("fold3ds.skinmanager")
-local HomeSwitch = require("fold3ds.homeswitch")  -- superseded by fold3ds.skin; kept on disk, not drawn
+-- superseded by fold3ds.skin, not drawn; optional (it may not be in the
+-- repo -- a missing module here stopped the whole 3DS layer loading)
+local HomeSwitch
+do
+  local ok, m = pcall(require, "fold3ds.homeswitch")
+  HomeSwitch = ok and type(m) == "table" and m or nil
+end
 local Skin = require("fold3ds.skin")
 
 local DIR = "fold3ds/"
@@ -2240,10 +2246,13 @@ local function drawShellRelief(ox, oy, sc, bw, bh, surf)
     lg.line(cx + cw + jit, cy + j, cx + cw - jit, cy + math.min(ch, j + step))
   end
 
-  -- 2. Inner camera lens bulge (INNER_EYE: { 745, 68, 40 })
-  local ex = ox + INNER_EYE[1] * sc
-  local ey = oy + INNER_EYE[2] * sc
-  local er = INNER_EYE[3] * sc * 0.55
+  -- 2. Inner camera lens bulge, in shell pixels (INNER_EYE below is in
+  -- top-screen pixels and isn't declared yet here -- reading it crashed
+  -- every frame)
+  local eye = { 745, 68, 40 }
+  local ex = ox + eye[1] * sc
+  local ey = oy + eye[2] * sc
+  local er = eye[3] * sc * 0.55
   lg.setColor(0, 0, 0, 0.55)
   lg.arc("line", "open", ex, ey, er, math.pi * 0.2, math.pi * 0.9)
   lg.setColor(1, 1, 1, 0.45)
@@ -3110,11 +3119,11 @@ function M.install()
     region = function() return Cart3D.region end })
   Home.init({ font = font, openCamera = Camera.open, drawCameraIcon = Camera.drawIcon, openDlplay = Dlplay.open, openEshop = Eshop.open,
     openActivity = Activity.open, openApp = function(id) if APPS[id] then APPS[id].open() end end })
-  HomeSwitch.init({
+  if HomeSwitch then HomeSwitch.init({
     font = font,
     openSettings = function() if state.subject and state.subject._openSettings then state.subject:_openSettings() end end,
     launchGame = function(t) if state.subject and state.subject._switchTab then state.subject:_switchTab(t.id) end end,
-  })
+  }) end
   Notes.init({ font = font, setCanvas = real.setCanvas })
   EmuPlay.init({
     font = font,
